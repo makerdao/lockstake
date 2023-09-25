@@ -88,26 +88,23 @@ contract StickyOracle {
         return (acc_hi - acc_lo) * slope_ / (RAY * (lo_ - hi_) * 1 days);
     }
 
-
     function poke() public {
         uint128 cur = pip.read();
         uint16 today = uint16(block.timestamp / 1 days);
         uint256 acc = accumulators[today];
         (uint128 val_, uint32 age_) = (val, age);
         uint256 newAcc;
+        uint256 eod = (today + 1) * 1 days; // TODO: check if not off-by-one
         if (acc == 0) { // first poke of the day
             if (age_ > 0) {
                 uint16 prevDay = uint16(age_ / 1 days);
-                uint256 prevAcc = accumulators[prevDay];
-                newAcc = prevAcc + (
-                    val_ * (today - prevDay - 1) + // account for possibly missing daily pokes
-                    cur // optimistically assume this will be the last poke of the day
-                ) * 1 days;
+                uint256 bef = val_ * (block.timestamp - (prevDay + 1) * 1 days); // contribution to the accumulator from the value before the current poke
+                uint256 aft = cur * (eod - block.timestamp); // contribution to the accumulator from the current value, optimistically assuming this will be the last poke of the day
+                newAcc = accumulators[prevDay] + bef + aft;
             } else {
                 newAcc = cur * 1 days; // optimistically assume this will be the last poke of the day
             }
         } else { // not the first poke of the day
-            uint256 eod = (today + 1) * 1 days; // TODO: check if not off-by-one
             uint256 off = eod - age_; // period during which the accumulator value needs to be adjusted 
             newAcc = acc + cur * off - val_ * off;
         }

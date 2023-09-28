@@ -81,9 +81,11 @@ contract StickyOracle {
         uint256 acc_lo = accumulators[today - lo_];
         uint256 acc_hi = accumulators[today - hi_];
 
-        if (acc_lo == 0 || acc_hi == 0) return pip.read(); // TODO: do something smarter (use partial window or extrapolate missing daily accs)
-        uint256 cap_ = (acc_hi - acc_lo) * slope_ / (RAY * (lo_ - hi_) * 1 days);
-        return cap_ < type(uint128).max ? uint128(cap_) : type(uint128).max;
+        if (acc_lo > 0 && acc_hi > 0) {
+            uint256 cap_ = (acc_hi - acc_lo) * slope_ / (RAY * (lo_ - hi_) * 1 days);
+            if (cap_ < type(uint128).max) return uint128(cap_);
+        }
+        return type(uint128).max; // TODO: consider better fallback for missing accums
     }
 
     function poke() public {

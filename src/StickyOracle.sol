@@ -34,10 +34,6 @@ contract StickyOracle {
     uint128        val; // last poked price
     uint32  public age; // time of last poke
 
-    struct Accumulator {
-        uint256 acc; // accumulator value at the end of the day
-    }
-
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event Kiss(address indexed usr);

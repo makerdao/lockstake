@@ -89,7 +89,9 @@ contract StickyOracle {
     }
 
     function poke() public {
-        uint128 cur = read();
+        uint128 cur = pip.read();
+        uint128 cap = _getCap();
+        if (cur > cap) cur = cap;
         uint16 today = uint16(block.timestamp / 1 days);
         uint256 acc = accumulators[today];
         (uint128 val_, uint32 age_) = (val, age);
@@ -113,7 +115,7 @@ contract StickyOracle {
         age = uint32(block.timestamp);
     }
 
-    function read() public view toll returns (uint128) {
+    function read() external view toll returns (uint128) {
         uint128 cur = pip.read();
         uint128 cap = _getCap();
         return cur < cap ? cur : cap;

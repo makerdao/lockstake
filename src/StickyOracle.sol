@@ -27,7 +27,7 @@ contract StickyOracle {
 
     PipLike public immutable pip;
 
-    uint96 public slope = uint96(RAY); // maximum allowable price growth rate from center of TWAP window to now (in RAY)
+    uint96 public slope = uint96(RAY); // maximum allowable price growth factor from center of TWAP window to now (in RAY such that slope = (1 + {max growth rate}) * RAY)
     uint8  public lo; // how many days ago should the TWAP window start (exclusive)
     uint8  public hi; // how many days ago should the TWAP window end (inclusive)
 
@@ -71,13 +71,13 @@ contract StickyOracle {
         if (what == "lo")    lo    = uint8(data);
         if (what == "hi")    hi    = uint8(data);
         else revert("StickyOracle/file-unrecognized-param");
-        require(lo > hi && hi > 0, "StickyOracle/invalid-window");
         emit File(what, data);
     }
 
     function _getCap() internal view returns (uint128 cap) {
         uint16 today = uint16(block.timestamp / 1 days);
         (uint96 slope_, uint16 lo_, uint16 hi_) = (slope, lo, hi);
+        require(hi_ > 0 && lo_ > hi_, "StickyOracle/invalid-window");
         uint256 acc_lo = accumulators[today - lo_];
         uint256 acc_hi = accumulators[today - hi_];
 

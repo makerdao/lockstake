@@ -71,21 +71,23 @@ contract StickyOracle {
         if (what == "lo")    lo    = uint8(data);
         if (what == "hi")    hi    = uint8(data);
         else revert("StickyOracle/file-unrecognized-param");
+        require(lo > hi && hi > 0, "StickyOracle/invalid-window");
         emit File(what, data);
     }
 
-    function _getCap() internal view returns (uint256 cap) {
+    function _getCap() internal view returns (uint128 cap) {
         uint16 today = uint16(block.timestamp / 1 days);
         (uint96 slope_, uint16 lo_, uint16 hi_) = (slope, lo, hi);
         uint256 acc_lo = accumulators[today - lo_];
         uint256 acc_hi = accumulators[today - hi_];
 
         if (acc_lo == 0 || acc_hi == 0) return pip.read(); // TODO: do something smarter (use partial window or extrapolate missing daily accs)
-        return (acc_hi - acc_lo) * slope_ / (RAY * (lo_ - hi_) * 1 days);
+        uint256 cap_ = (acc_hi - acc_lo) * slope_ / (RAY * (lo_ - hi_) * 1 days);
+        return cap_ < type(uint128).max ? uint128(cap_) : type(uint128).max;
     }
 
     function poke() public {
-        uint128 cur = pip.read();
+        uint128 cur = read();
         uint16 today = uint16(block.timestamp / 1 days);
         uint256 acc = accumulators[today];
         (uint128 val_, uint32 age_) = (val, age);
@@ -109,15 +111,15 @@ contract StickyOracle {
         age = uint32(block.timestamp);
     }
 
-    function read() external view toll returns (uint256) {
+    function read() public view toll returns (uint128) {
         uint128 cur = pip.read();
-        uint256 cap = _getCap();
+        uint128 cap = _getCap();
         return cur < cap ? cur : cap;
     }
 
-    function peek() external view toll returns (uint256, bool) {
+    function peek() external view toll returns (uint128, bool) {
         uint128 cur = pip.read();
-        uint256 cap = _getCap();
+        uint128 cap = _getCap();
         return (cur < cap ? cur : cap, cur > 0);
     }
 }

@@ -92,7 +92,7 @@ contract StickyOracle {
             uint256 cap_ = (acc_hi - acc_lo) * slope_ / (RAY * (lo_ - hi_) * 1 days);
             if (cap_ < type(uint128).max) return uint128(cap_);
         }
-        return type(uint128).max; // TODO: consider better fallback for missing accums
+        return type(uint128).max;
     }
 
     function fix(uint256 day) external {

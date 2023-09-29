@@ -97,7 +97,7 @@ contract StickyOracle {
 
     function fix(uint256 day) external {
         uint256 today = block.timestamp / 1 days;
-        require(1 < day && day < today, "StickyOracle/too-soon");
+        require(day < today, "StickyOracle/too-soon");
         require(accumulators[day] == 0, "StickyOracle/nothing-to-fix");
         
         uint256 acc1; uint256 acc2;

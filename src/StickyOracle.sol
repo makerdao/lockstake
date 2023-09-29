@@ -77,6 +77,10 @@ contract StickyOracle {
         emit File(what, data);
     }
 
+    function _min(uint128 a, uint128 b) internal pure returns (uint128 min) {
+        return a < b ? a : b;
+    }
+
     function _getCap() internal view returns (uint128 cap) {
         uint256 today = block.timestamp / 1 days;
         (uint96 slope_, uint8 lo_, uint8 hi_) = (slope, lo, hi);
@@ -109,9 +113,7 @@ contract StickyOracle {
     }
 
     function poke() external {
-        uint128 cur = pip.read();
-        uint128 cap = _getCap();
-        if (cur > cap) cur = cap;
+        uint128 cur = _min(pip.read(), _getCap());
         uint256 today = block.timestamp / 1 days;
         uint256 acc = accumulators[today];
         (uint128 val_, uint32 age_) = (val, age);
@@ -138,12 +140,12 @@ contract StickyOracle {
     function read() external view toll returns (uint128) {
         uint128 cur = pip.read();
         uint128 cap = _getCap();
-        return cur < cap ? cur : cap;
+        return _min(cur, cap);
     }
 
     function peek() external view toll returns (uint128, bool) {
         uint128 cur = pip.read();
         uint128 cap = _getCap();
-        return (cur < cap ? cur : cap, cur > 0);
+        return (_min(cur, cap), cur > 0);
     }
 }

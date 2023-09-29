@@ -23,9 +23,10 @@ interface PipLike {
 contract StickyOracle {
     mapping (address => uint256) public wards;
     mapping (address => uint256) public buds;  // Whitelisted feed readers
-    mapping (uint16  => uint256) accumulators; // daily (eod) sticky oracle price accumulators
+    mapping (uint256  => uint256) accumulators; // daily (eod) sticky oracle price accumulators
 
     PipLike public immutable pip;
+    uint256 public immutable grit; // by how many days can the boundaries of the TWAP window be moved in total (left + right) to find a non-zero accumulator
 
     uint96 public slope = uint96(RAY); // maximum allowable price growth factor from center of TWAP window to now (in RAY such that slope = (1 + {max growth rate}) * RAY)
     uint8  public lo; // how many days ago should the TWAP window start (exclusive)
@@ -41,9 +42,11 @@ contract StickyOracle {
     event File(bytes32 indexed what, uint256 data);
 
     constructor(
-        address _pip
+        address _pip,
+        uint256 _grit
     ) {
         pip = PipLike(_pip);
+        grit = _grit;
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -67,19 +70,23 @@ contract StickyOracle {
     function diss(address usr) external auth { buds[usr]  = 0; emit Diss(usr); }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "slope") slope = uint96(data);
-        if (what == "lo")    lo    = uint8(data);
-        if (what == "hi")    hi    = uint8(data);
+        if      (what == "slope") slope = uint96(data);
+        else if (what == "lo")       lo = uint8(data);
+        else if (what == "hi")       hi = uint8(data);
         else revert("StickyOracle/file-unrecognized-param");
         emit File(what, data);
     }
 
     function _getCap() internal view returns (uint128 cap) {
-        uint16 today = uint16(block.timestamp / 1 days);
-        (uint96 slope_, uint16 lo_, uint16 hi_) = (slope, lo, hi);
+        uint256 today = block.timestamp / 1 days;
+        (uint96 slope_, uint8 lo_, uint8 hi_) = (slope, lo, hi);
         require(hi_ > 0 && lo_ > hi_, "StickyOracle/invalid-window");
-        uint256 acc_lo = accumulators[today - lo_];
-        uint256 acc_hi = accumulators[today - hi_];
+
+        uint256 acc_lo;
+        uint256 acc_hi;
+        uint256 i;
+        for(; (acc_lo = accumulators[today - lo_]) == 0 && i < grit; ++i) { ++lo_; }
+        for(; (acc_hi = accumulators[today - hi_]) == 0 && hi_ + 1 < lo_ && i < grit; ++i) { ++hi_; }
 
         if (acc_lo > 0 && acc_hi > 0) {
             uint256 cap_ = (acc_hi - acc_lo) * slope_ / (RAY * (lo_ - hi_) * 1 days);
@@ -88,18 +95,31 @@ contract StickyOracle {
         return type(uint128).max; // TODO: consider better fallback for missing accums
     }
 
-    function poke() public {
+    function fix(uint256 day) external {
+        uint256 today = block.timestamp / 1 days;
+        require(1 < day && day < today, "StickyOracle/too-soon");
+        require(accumulators[day] == 0, "StickyOracle/nothing-to-fix");
+        
+        uint256 acc1; uint256 acc2;
+        uint i; uint j;
+        for(i = 1; (acc1 = accumulators[day - i]) == 0; ++i) {}
+        for(j = i + 1; (acc2 = accumulators[day - j]) == 0; ++j) {}
+
+        accumulators[day] = acc1 + (acc1 - acc2) * i / (j - i);
+    }
+
+    function poke() external {
         uint128 cur = pip.read();
         uint128 cap = _getCap();
         if (cur > cap) cur = cap;
-        uint16 today = uint16(block.timestamp / 1 days);
+        uint256 today = block.timestamp / 1 days;
         uint256 acc = accumulators[today];
         (uint128 val_, uint32 age_) = (val, age);
         uint256 newAcc;
         uint256 tmrTs = (today + 1) * 1 days; // timestamp on the first second of tomorrow
         if (acc == 0) { // first poke of the day
             if (age_ > 0) {
-                uint16 prevDay = uint16(age_ / 1 days);
+                uint256 prevDay = age_ / 1 days;
                 uint256 bef = val_ * (block.timestamp - (prevDay + 1) * 1 days); // contribution to the accumulator from the previous value
                 uint256 aft = cur * (tmrTs - block.timestamp); // contribution to the accumulator from the current value, optimistically assuming this will be the last poke of the day
                 newAcc = accumulators[prevDay] + bef + aft;

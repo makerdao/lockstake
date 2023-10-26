@@ -20,7 +20,7 @@ import { LockstakeUrn } from "src/LockstakeUrn.sol";
 
 interface DelegateFactoryLike {
     function gov() external view returns (GemLike);
-    function isDelegate(address) external returns (uint256);
+    function created(address) external returns (uint256);
 }
 
 interface DelegateLike {
@@ -188,7 +188,7 @@ contract LockstakeEngine {
     // --- urn/delegation functions ---
 
     function open(address delegate) external returns (address urn) {
-        require(delegateFactory.isDelegate(delegate) == 1, "LockstateEngine/not-valid-delegate");
+        require(delegateFactory.created(delegate) == 1, "LockstateEngine/not-valid-delegate");
         uint256 salt = uint256(keccak256(abi.encode(msg.sender, urnsAmt[msg.sender]++)));
         bytes memory code = abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkNgt));
         assembly {
@@ -228,7 +228,7 @@ contract LockstakeEngine {
     }
 
     function move(address urn, address delegate) external urnOwner(urn) {
-        require(delegateFactory.isDelegate(delegate) == 1, "LockstateEngine/not-valid-delegate");
+        require(delegateFactory.created(delegate) == 1, "LockstateEngine/not-valid-delegate");
         address prevDelegate = urnDelegates[urn];
         require(prevDelegate != delegate, "LockstateEngine/same-delegate");
         (uint256 wad,) = vat.urns(ilk, urn);

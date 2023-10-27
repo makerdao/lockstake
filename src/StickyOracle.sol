@@ -18,6 +18,7 @@ pragma solidity ^0.8.16;
 
 interface PipLike {
     function read() external view returns (uint128);
+    function peek() external view returns (uint128, bool);
 }
 
 contract StickyOracle {
@@ -26,7 +27,6 @@ contract StickyOracle {
     mapping (uint256  => uint256) accumulators; // daily (eod) sticky oracle price accumulators
 
     PipLike public immutable pip;
-    uint256 public immutable grit; // by how many days can the boundaries of the TWAP window be moved in total (left + right) to find a non-zero accumulator
 
     uint96 public slope = uint96(RAY); // maximum allowable price growth factor from center of TWAP window to now (in RAY such that slope = (1 + {max growth rate}) * RAY)
     uint8  public lo; // how many days ago should the TWAP window start (exclusive)
@@ -41,12 +41,8 @@ contract StickyOracle {
     event Diss(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
 
-    constructor(
-        address _pip,
-        uint256 _grit
-    ) {
+    constructor(address _pip) {
         pip = PipLike(_pip);
-        grit = _grit;
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -86,17 +82,30 @@ contract StickyOracle {
         (uint96 slope_, uint8 lo_, uint8 hi_) = (slope, lo, hi);
         require(hi_ > 0 && lo_ > hi_, "StickyOracle/invalid-window");
 
-        uint256 acc_lo;
-        uint256 acc_hi;
-        uint256 i;
-        for(; (acc_lo = accumulators[today - lo_]) == 0 && i < grit; ++i) { ++lo_; }
-        for(; (acc_hi = accumulators[today - hi_]) == 0 && hi_ + 1 < lo_ && i < grit; ++i) { ++hi_; }
+        uint256 acc_lo = accumulators[today - lo_];
+        uint256 acc_hi = accumulators[today - hi_];
 
         if (acc_lo > 0 && acc_hi > 0) {
-            uint256 cap_ = (acc_hi - acc_lo) * slope_ / (RAY * (lo_ - hi_) * 1 days);
-            if (cap_ < type(uint128).max) return uint128(cap_);
+            return uint128((acc_hi - acc_lo) * slope_ / (RAY * (lo_ - hi_) * 1 days));
         }
-        return type(uint128).max;
+
+        uint256 val_ = val;
+        require(val_ > 0, "StickyOracle/not-init");
+        return uint128(val_ * slope_ / RAY); // fallback for missing accumulators
+    }
+
+    function init(uint256 days_) external auth {
+        require(val == 0, "StickyOracle/already-init");
+        uint128 cur = pip.read();
+        uint256 start = block.timestamp / 1 days - days_ - 1; // day before the first initiated day
+        uint256 day;
+        for(uint256 i = 1; i <= days_ + 1;) {
+            unchecked { day = start + i; }
+            accumulators[day] = cur * i * 1 days;
+            unchecked { ++i; }
+        }
+        val = cur;
+        age = uint32(block.timestamp);
     }
 
     function fix(uint256 day) external {
@@ -120,16 +129,12 @@ contract StickyOracle {
         uint256 newAcc;
         uint256 tmrTs = (today + 1) * 1 days; // timestamp on the first second of tomorrow
         if (acc == 0) { // first poke of the day
-            if (age_ > 0) {
-                uint256 prevDay = age_ / 1 days;
-                uint256 bef = val_ * (block.timestamp - (prevDay + 1) * 1 days); // contribution to the accumulator from the previous value
-                uint256 aft = cur * (tmrTs - block.timestamp); // contribution to the accumulator from the current value, optimistically assuming this will be the last poke of the day
-                newAcc = accumulators[prevDay] + bef + aft;
-            } else {
-                newAcc = cur * 1 days; // optimistically assume this will be the last poke of the day
-            }
+            uint256 prevDay = age_ / 1 days;
+            uint256 bef = val_ * (block.timestamp - (prevDay + 1) * 1 days); // contribution to the accumulator from the previous value
+            uint256 aft = cur * (tmrTs - block.timestamp); // contribution to the accumulator from the current value, optimistically assuming this will be the last poke of the day
+            newAcc = accumulators[prevDay] + bef + aft;
         } else { // not the first poke of the day
-            uint256 off = tmrTs - age_; // period during which the accumulator value needs to be adjusted 
+            uint256 off = tmrTs - block.timestamp; // period during which the accumulator value needs to be adjusted 
             newAcc = acc + cur * off - val_ * off;
         }
         accumulators[today] = newAcc;
@@ -138,14 +143,11 @@ contract StickyOracle {
     }
 
     function read() external view toll returns (uint128) {
-        uint128 cur = pip.read();
-        uint128 cap = _getCap();
-        return _min(cur, cap);
+        return _min(pip.read(), _getCap());
     }
 
     function peek() external view toll returns (uint128, bool) {
-        uint128 cur = pip.read();
-        uint128 cap = _getCap();
-        return (_min(cur, cap), cur > 0);
+        (uint128 cur,) = pip.peek();
+        return (_min(cur, _getCap()), cur > 0);
     }
 }

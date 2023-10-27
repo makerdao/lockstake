@@ -30,7 +30,7 @@ interface PipLike {
 }
 
 contract StickyOracleHarness is StickyOracle {
-    constructor(address _pip, uint256 _grit) StickyOracle (_pip, _grit) {}
+    constructor(address _pip) StickyOracle (_pip) {}
     function getAccumulator(uint256 day) external view returns (uint256) {
         return accumulators[day];
     }
@@ -54,6 +54,10 @@ contract StickyOracleTest is Test {
     address PAUSE_PROXY;
     address PIP_MKR;
 
+    function setMedianizerPrice(uint256 newPrice) internal {
+        vm.store(address(medianizer), bytes32(uint256(1)), bytes32(block.timestamp << 128 | newPrice));
+    }
+
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
@@ -64,7 +68,7 @@ contract StickyOracleTest is Test {
 
         vm.startPrank(PAUSE_PROXY); 
 
-        oracle = new StickyOracleHarness(PIP_MKR, 5);
+        oracle = new StickyOracleHarness(PIP_MKR);
         oracle.kiss(address(this));
         medianizer.kiss(address(oracle));
         medianizer.kiss(address(this));
@@ -75,69 +79,46 @@ contract StickyOracleTest is Test {
 
         vm.stopPrank();
 
-        initialMedianizerPrice = 1000;
-        vm.store(address(medianizer), bytes32(uint256(1)), bytes32(block.timestamp << 128 | initialMedianizerPrice));
-        assertEq(oracle.read(), initialMedianizerPrice);
+        initialMedianizerPrice = 1000 * 10**18;
+        setMedianizerPrice(initialMedianizerPrice);
+        assertEq(medianizer.read(), initialMedianizerPrice);
     }
 
-    function setMedianizerPrice(uint256 newPrice) internal {
-        vm.store(address(medianizer), bytes32(uint256(1)), bytes32(block.timestamp << 128 | newPrice));
+
+
+    function testInit() public {
+        vm.expectRevert("StickyOracle/not-init");
+        oracle.read();
+
+        vm.prank(PAUSE_PROXY); oracle.init(3);
+        assertEq(oracle.read(), medianizer.read());
+        assertEq(oracle.getVal(), medianizer.read());
+        assertEq(oracle.age(), block.timestamp);
+        assertEq(oracle.getAccumulator(block.timestamp / 1 days - 4), 0);
+        assertEq(oracle.getAccumulator(block.timestamp / 1 days - 3), initialMedianizerPrice * 1 days);
+        assertEq(oracle.getAccumulator(block.timestamp / 1 days - 2), initialMedianizerPrice * 2 days);
+        assertEq(oracle.getAccumulator(block.timestamp / 1 days - 1), initialMedianizerPrice * 3 days);
+        assertEq(oracle.getAccumulator(block.timestamp / 1 days    ), initialMedianizerPrice * 4 days);
     }
 
     function testPoke() public {
-        uint256 price0 = initialMedianizerPrice;
-        assertEq(oracle.getCap(), type(uint128).max);
-        assertEq(oracle.read(), price0);
-        assertEq(oracle.getVal(), 0);
-        assertEq(oracle.age(), 0);
-        uint256 day0 = block.timestamp / 1 days;
-        assertEq(oracle.getAccumulator(day0), 0);
+        vm.prank(PAUSE_PROXY); oracle.init(3);
+        assertEq(oracle.read(), medianizer.read());
 
-        oracle.poke();
-
-        assertEq(oracle.getCap(), type(uint128).max);
-        assertEq(oracle.read(), price0);
-        assertEq(oracle.getVal(), price0);
-        assertEq(oracle.age(), block.timestamp);
-        uint256 acc0 = price0 * 1 days;
-        assertEq(oracle.getAccumulator(day0), acc0);
-
-        uint256 price1 = price0 * 110 / 100;
-        setMedianizerPrice(price1);
+        uint256 medianizerPrice1 = initialMedianizerPrice * 110 / 100;
+        setMedianizerPrice(medianizerPrice1);
         vm.warp(block.timestamp + 1 days);
         oracle.poke();
 
-        assertEq(oracle.getCap(), type(uint128).max);
-        assertEq(oracle.read(), price1);
-        assertEq(oracle.getVal(), price1);
+        uint256 oraclePrice1 = 105 * initialMedianizerPrice / 100;
+        assertEq(oracle.getCap(), oraclePrice1);
+        assertEq(oracle.getVal(), oraclePrice1);
         assertEq(oracle.age(), block.timestamp);
-        uint256 acc1 = acc0 + price0 * (block.timestamp - (day0 + 1) * 1 days) + price1 * ((day0 + 2) * 1 days - block.timestamp);
-        assertEq(oracle.getAccumulator(day0 + 1), acc1);
+        assertEq(oracle.read(), oraclePrice1);
+        assertGt(oracle.getAccumulator(block.timestamp / 1 days), oracle.getAccumulator(block.timestamp / 1 days - 1));
 
-        uint256 price2 = price0 * 120 / 100;
-        setMedianizerPrice(price2);
+        uint256 medianizerPrice2 = medianizerPrice1;
         vm.warp(block.timestamp + 1 days);
         oracle.poke();
-
-        assertEq(oracle.getCap(), type(uint128).max);
-        assertEq(oracle.read(), price2);
-        assertEq(oracle.getVal(), price2);
-        assertEq(oracle.age(), block.timestamp);
-        uint256 acc2 = acc1 + price1 * (block.timestamp - (day0 + 2) * 1 days) + price2 * ((day0 + 3) * 1 days - block.timestamp);
-        assertEq(oracle.getAccumulator(day0 + 2), acc2);
-
-        uint256 price3 = initialMedianizerPrice * 130 / 100;
-        setMedianizerPrice(price3);
-        vm.warp(block.timestamp + 1 days);
-        oracle.poke();
-
-        uint256 cap = (acc2 - acc0) *  105 / 100 / (2 days);
-        assertEq(oracle.getCap(), cap);
-        assertLt(cap, price3);
-        assertEq(oracle.read(), cap);
-        assertEq(oracle.getVal(), cap);
-        assertEq(oracle.age(), block.timestamp);
-        uint256 acc3 = acc2 + price2 * (block.timestamp - (day0 + 3) * 1 days) + cap * ((day0 + 4) * 1 days - block.timestamp);
-        assertEq(oracle.getAccumulator(day0 + 3), acc3);
     }
 }

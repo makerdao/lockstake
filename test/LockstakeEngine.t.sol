@@ -80,10 +80,10 @@ contract AllocatorVaultTest is DssTest {
 
     event AddFarm(address farm);
     event DelFarm(address farm);
-    event Open(address indexed owner, address indexed delegate, address urn);
+    event Open(address indexed owner, address urn);
     event Lock(address indexed urn, uint256 wad);
     event Free(address indexed urn, uint256 wad, uint256 burn);
-    event Move(address indexed urn, address indexed delegate);
+    event Delegate(address indexed urn, address indexed delegate_);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
     event SelectFarm(address indexed urn, address farm);
@@ -204,19 +204,20 @@ contract AllocatorVaultTest is DssTest {
         assertEq(engine.urnsAmt(address(this)), 0);
         address urn = engine.getUrn(address(this), 0);
         vm.expectEmit(true, true, true, true);
-        emit Open(address(this), voterDelegate, urn);
-        assertEq(engine.open(voterDelegate), urn);
+        emit Open(address(this), urn);
+        assertEq(engine.open(), urn);
         assertEq(engine.urnsAmt(address(this)), 1);
-        assertEq(engine.getUrn(address(this), 1), engine.open(voterDelegate));
+        assertEq(engine.getUrn(address(this), 1), engine.open());
         assertEq(engine.urnsAmt(address(this)), 2);
-        assertEq(engine.getUrn(address(this), 2), engine.open(voterDelegate));
+        assertEq(engine.getUrn(address(this), 2), engine.open());
         assertEq(engine.urnsAmt(address(this)), 3);
     }
 
     function testLockFree() public {
         uint256 initialSupply = ngt.totalSupply();
         assertEq(ngt.balanceOf(address(this)), 100_000 * 10**18);
-        address urn = engine.open(voterDelegate);
+        address urn = engine.open();
+        engine.delegate(urn, voterDelegate);
         assertEq(_ink(ilk, urn), 0);
         assertEq(stkNgt.balanceOf(urn), 0);
         ngt.approve(address(engine), 100_000 * 10**18);
@@ -236,8 +237,9 @@ contract AllocatorVaultTest is DssTest {
         assertEq(ngt.totalSupply(), initialSupply - 40_000 * 10**18 * 15 / 100);
     }
 
-    function testMove() public {
-        address urn = engine.open(voterDelegate);
+    function testDelegate() public {
+        address urn = engine.open();
+        engine.delegate(urn, voterDelegate);
         vm.prank(address(888)); address voterDelegate2 = delFactory.create();
         ngt.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
@@ -245,7 +247,7 @@ contract AllocatorVaultTest is DssTest {
         assertEq(DelegateMock(voterDelegate2).stake(address(engine)), 0);
         assertEq(ngt.balanceOf(voterDelegate), 100_000 * 10**18);
         assertEq(ngt.balanceOf(voterDelegate2), 0);
-        engine.move(urn, voterDelegate2);
+        engine.delegate(urn, voterDelegate2);
         assertEq(DelegateMock(voterDelegate).stake(address(engine)), 0);
         assertEq(DelegateMock(voterDelegate2).stake(address(engine)), 100_000 * 10**18);
         assertEq(ngt.balanceOf(voterDelegate), 0);
@@ -254,7 +256,7 @@ contract AllocatorVaultTest is DssTest {
 
     function testDrawWipe() public {
         deal(address(ngt), address(this), 100_000 * 10**18, true);
-        address urn = engine.open(voterDelegate);
+        address urn = engine.open();
         ngt.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
         assertEq(_art(ilk, urn), 0);
@@ -292,7 +294,7 @@ contract AllocatorVaultTest is DssTest {
 
     function testSelectFarm() public {
         StakingRewardsMock farm2 = new StakingRewardsMock(address(rTok), address(stkNgt));
-        address urn = engine.open(voterDelegate);
+        address urn = engine.open();
         assertEq(engine.selectedFarm(urn), address(0));
         vm.expectRevert("LockstakeEngine/non-existing-farm");
         engine.selectFarm(urn, address(farm));
@@ -315,7 +317,7 @@ contract AllocatorVaultTest is DssTest {
 
     function testStakeWithdraw() public {
         vm.prank(pauseProxy); engine.addFarm(address(farm));
-        address urn = engine.open(voterDelegate);
+        address urn = engine.open();
         ngt.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
         vm.expectRevert("LockstakeEngine/missing-selected-farm");
@@ -342,7 +344,7 @@ contract AllocatorVaultTest is DssTest {
 
     function testGetReward() public {
         vm.prank(pauseProxy); engine.addFarm(address(farm));
-        address urn = engine.open(voterDelegate);
+        address urn = engine.open();
         farm.setReward(address(urn), 20_000);
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(this)), 0);
         vm.expectEmit(true, true, true, true);
@@ -373,7 +375,8 @@ contract AllocatorVaultTest is DssTest {
         DogLike(dog).file(ilk, "hole", 10_000 * 10**45);
         vm.stopPrank();
 
-        urn = engine.open(voterDelegate);
+        urn = engine.open();
+        engine.delegate(urn, voterDelegate);
         ngt.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
         engine.draw(urn, 2_000 * 10**18);

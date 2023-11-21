@@ -97,10 +97,10 @@ contract StickyOracle {
     function init(uint256 days_) external auth {
         require(val == 0, "StickyOracle/already-init");
         uint128 cur = pip.read();
-        uint256 start = block.timestamp / 1 days - days_ - 1; // day before the first initiated day
+        uint256 prev = block.timestamp / 1 days - days_ - 1; // day before the first initiated day
         uint256 day;
         for(uint256 i = 1; i <= days_ + 1;) {
-            unchecked { day = start + i; }
+            unchecked { day = prev + i; }
             accumulators[day] = cur * i * 1 days;
             unchecked { ++i; }
         }

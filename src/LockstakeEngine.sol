@@ -78,8 +78,8 @@ contract LockstakeEngine {
     NstJoinLike         immutable public nstJoin;
     GemLike             immutable public nst;
     bytes32             immutable public ilk;
-    GemLike             immutable public ngt;
-    GemLike             immutable public stkNgt;
+    GemLike             immutable public gov;
+    GemLike             immutable public stkGov;
     uint256             immutable public fee;
 
     // --- events ---   
@@ -118,14 +118,14 @@ contract LockstakeEngine {
 
     // --- constructor ---
 
-    constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address stkNgt_, uint256 fee_) {
+    constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address stkGov_, uint256 fee_) {
         delegateFactory = DelegateFactoryLike(delegateFactory_);
         nstJoin = NstJoinLike(nstJoin_);
         vat = nstJoin.vat();
         nst = nstJoin.nst();
         ilk = ilk_;
-        ngt = delegateFactory.gov();
-        stkNgt = GemLike(stkNgt_);
+        gov = delegateFactory.gov();
+        stkGov = GemLike(stkGov_);
         fee = fee_;
         nst.approve(nstJoin_, type(uint256).max);
         vat.hope(nstJoin_);
@@ -177,7 +177,7 @@ contract LockstakeEngine {
         uint256 index
     ) external view returns (address urn) {
         uint256 salt = uint256(keccak256(abi.encode(owner, index)));
-        bytes32 codeHash = keccak256(abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkNgt)));
+        bytes32 codeHash = keccak256(abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkGov)));
         urn = address(uint160(uint256(
             keccak256(
                 abi.encodePacked(bytes1(0xff), address(this), salt, codeHash)
@@ -189,7 +189,7 @@ contract LockstakeEngine {
 
     function open() external returns (address urn) {
         uint256 salt = uint256(keccak256(abi.encode(msg.sender, urnsAmt[msg.sender]++)));
-        bytes memory code = abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkNgt));
+        bytes memory code = abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkGov));
         assembly {
             urn := create2(0, add(code, 0x20), mload(code), salt)
         }
@@ -207,7 +207,7 @@ contract LockstakeEngine {
             if (prevDelegate != address(0)) {
                 DelegateLike(prevDelegate).free(wad);
             }
-            ngt.approve(address(delegate_), wad);
+            gov.approve(address(delegate_), wad);
             DelegateLike(delegate_).lock(wad);
         }
         urnDelegates[urn] = delegate_;
@@ -216,17 +216,17 @@ contract LockstakeEngine {
 
     function lock(address urn, uint256 wad) external urnOwner(urn) {
         require(wad <= uint256(type(int256).max), "LockstateEngine/wad-overflow");
-        ngt.transferFrom(msg.sender, address(this), wad);
+        gov.transferFrom(msg.sender, address(this), wad);
         address delegate_ = urnDelegates[urn];
         if (delegate_ != address(0)) {
-            ngt.approve(address(delegate_), wad);
+            gov.approve(address(delegate_), wad);
             DelegateLike(delegate_).lock(wad);
         }
         // TODO: define if we want an internal registry to register how much is locked per user,
-        // the vat.slip and stkNgt balance act already as a registry so probably not needed an extra one
+        // the vat.slip and stkGov balance act already as a registry so probably not needed an extra one
         vat.slip(ilk, urn, int256(wad));
         vat.frob(ilk, urn, urn, address(0), int256(wad), 0);
-        stkNgt.mint(urn, wad);
+        stkGov.mint(urn, wad);
         emit Lock(urn, wad);
     }
 
@@ -234,14 +234,14 @@ contract LockstakeEngine {
         require(wad <= uint256(type(int256).max), "LockstateEngine/wad-overflow");
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
-        stkNgt.burn(urn, wad);
+        stkGov.burn(urn, wad);
         address delegate_ = urnDelegates[urn];
         if (delegate_ != address(0)) {
             DelegateLike(delegate_).free(wad);
         }
         uint256 burn = wad * fee / WAD;
-        ngt.burn(address(this), burn);
-        ngt.transfer(msg.sender, wad - burn);
+        gov.burn(address(this), burn);
+        gov.transfer(msg.sender, wad - burn);
         emit Free(urn, wad, burn);
     }
 
@@ -300,12 +300,12 @@ contract LockstakeEngine {
     function onKick(address urn, uint256 wad) external auth {
         address selectedFarmUrn = selectedFarm[urn];
         if (selectedFarmUrn != address(0)){
-            uint256 freed = GemLike(stkNgt).balanceOf(address(urn));
+            uint256 freed = GemLike(stkGov).balanceOf(address(urn));
             if (wad > freed) {
                 LockstakeUrn(urn).withdraw(selectedFarmUrn, wad - freed);
             }
         }
-        stkNgt.burn(urn, wad); // Burn the whole liquidated amount of staking token
+        stkGov.burn(urn, wad); // Burn the whole liquidated amount of staking token
         address delegate_ = urnDelegates[urn];
         if (delegate_ != address(0)) {
             DelegateLike(delegate_).free(wad); // Undelegate liquidated amount and retain NGT
@@ -315,7 +315,7 @@ contract LockstakeEngine {
     }
 
     function onTake(address urn, address who, uint256 wad) external auth {
-        ngt.transfer(who, wad); // Free NGT to the auction buyer
+        gov.transfer(who, wad); // Free GOV to the auction buyer
         emit OnTake(urn, who, wad);
     }
 
@@ -327,22 +327,22 @@ contract LockstakeEngine {
         } else {
             unchecked { left = left - burn; }
         }
-        ngt.burn(address(this), burn); // Burn NGT
+        gov.burn(address(this), burn); // Burn GOV
         if (left > 0) {
             address delegate_ = urnDelegates[urn];
             if (delegate_ != address(0)) {
-                ngt.approve(address(delegate_), left);
+                gov.approve(address(delegate_), left);
                 DelegateLike(delegate_).lock(left);
             }
             vat.slip(ilk, urn, int256(left));
             vat.frob(ilk, urn, urn, address(0), int256(left), 0);
-            stkNgt.mint(urn, left);
+            stkGov.mint(urn, left);
         }
         emit OnTakeLeftovers(urn, tot, left, burn);
     }
 
     function onYank(address urn, uint256 wad) external auth {
-        ngt.burn(address(this), wad);
+        gov.burn(address(this), wad);
         emit OnYank(urn, wad);
     }
 }

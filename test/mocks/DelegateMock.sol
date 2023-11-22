@@ -31,7 +31,7 @@ contract DelegateMock {
         gov = GemLike(gov_);
     }
 
-    // --- NGT owner functions
+    // --- GOV owner functions
 
     function lock(uint256 wad) external {
         gov.transferFrom(msg.sender, address(this), wad);

@@ -188,20 +188,20 @@ contract LockstakeEngine {
     // --- urn/delegation functions ---
 
     function open(address delegate) external returns (address urn) {
-        require(delegateFactory.isDelegate(delegate) == 1, "LockstateEngine/not-valid-delegate");
+        require(delegateFactory.isDelegate(delegate) == 1, "LockstakeEngine/not-valid-delegate");
         uint256 salt = uint256(keccak256(abi.encode(msg.sender, urnsAmt[msg.sender]++)));
         bytes memory code = abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkGov));
         assembly {
             urn := create2(0, add(code, 0x20), mload(code), salt)
         }
-        require(urn != address(0), "LockstateEngine/urn-creation-failed");
+        require(urn != address(0), "LockstakeEngine/urn-creation-failed");
         urnOwners[urn] = msg.sender;
         urnDelegates[urn] = delegate;
         emit Open(msg.sender, delegate, urn);
     }
 
     function lock(address urn, uint256 wad) external urnOwner(urn) {
-        require(wad <= uint256(type(int256).max), "LockstateEngine/wad-overflow");
+        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         gov.transferFrom(msg.sender, address(this), wad);
         address delegate = urnDelegates[urn];
         gov.approve(address(delegate), wad);
@@ -215,7 +215,7 @@ contract LockstakeEngine {
     }
 
     function free(address urn, uint256 wad) external urnOwner(urn) {
-        require(wad <= uint256(type(int256).max), "LockstateEngine/wad-overflow");
+        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
         stkGov.burn(urn, wad);
@@ -228,9 +228,9 @@ contract LockstakeEngine {
     }
 
     function move(address urn, address delegate) external urnOwner(urn) {
-        require(delegateFactory.isDelegate(delegate) == 1, "LockstateEngine/not-valid-delegate");
+        require(delegateFactory.isDelegate(delegate) == 1, "LockstakeEngine/not-valid-delegate");
         address prevDelegate = urnDelegates[urn];
-        require(prevDelegate != delegate, "LockstateEngine/same-delegate");
+        require(prevDelegate != delegate, "LockstakeEngine/same-delegate");
         (uint256 wad,) = vat.urns(ilk, urn);
         DelegateLike(prevDelegate).free(wad);
         gov.approve(address(delegate), wad);

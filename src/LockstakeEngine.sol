@@ -193,7 +193,7 @@ contract LockstakeEngine {
         assembly {
             urn := create2(0, add(code, 0x20), mload(code), salt)
         }
-        require(urn != address(0), "LockstateEngine/urn-creation-failed");
+        require(urn != address(0), "LockstakeEngine/urn-creation-failed");
         urnOwners[urn] = msg.sender;
         emit Open(msg.sender, urn);
     }
@@ -215,7 +215,7 @@ contract LockstakeEngine {
     }
 
     function lock(address urn, uint256 wad) external urnOwner(urn) {
-        require(wad <= uint256(type(int256).max), "LockstateEngine/wad-overflow");
+        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         gov.transferFrom(msg.sender, address(this), wad);
         address delegate_ = urnDelegates[urn];
         if (delegate_ != address(0)) {
@@ -231,7 +231,7 @@ contract LockstakeEngine {
     }
 
     function free(address urn, uint256 wad) external urnOwner(urn) {
-        require(wad <= uint256(type(int256).max), "LockstateEngine/wad-overflow");
+        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
         stkGov.burn(urn, wad);

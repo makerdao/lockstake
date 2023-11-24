@@ -240,6 +240,7 @@ contract AllocatorVaultTest is DssTest {
     function testDelegate() public {
         address urn = engine.open();
         engine.delegate(urn, voterDelegate);
+        assertEq(engine.urnDelegates(urn), voterDelegate);
         vm.prank(address(888)); address voterDelegate2 = delFactory.create();
         gov.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
@@ -247,11 +248,21 @@ contract AllocatorVaultTest is DssTest {
         assertEq(DelegateMock(voterDelegate2).stake(address(engine)), 0);
         assertEq(gov.balanceOf(voterDelegate), 100_000 * 10**18);
         assertEq(gov.balanceOf(voterDelegate2), 0);
+        assertEq(gov.balanceOf(address(engine)), 0);
         engine.delegate(urn, voterDelegate2);
+        assertEq(engine.urnDelegates(urn), voterDelegate2);
         assertEq(DelegateMock(voterDelegate).stake(address(engine)), 0);
         assertEq(DelegateMock(voterDelegate2).stake(address(engine)), 100_000 * 10**18);
         assertEq(gov.balanceOf(voterDelegate), 0);
         assertEq(gov.balanceOf(voterDelegate2), 100_000 * 10**18);
+        assertEq(gov.balanceOf(address(engine)), 0);
+        engine.delegate(urn, address(0));
+        assertEq(engine.urnDelegates(urn), address(0));
+        assertEq(DelegateMock(voterDelegate).stake(address(engine)), 0);
+        assertEq(DelegateMock(voterDelegate2).stake(address(engine)), 0);
+        assertEq(gov.balanceOf(voterDelegate), 0);
+        assertEq(gov.balanceOf(voterDelegate2), 0);
+        assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
     }
 
     function testDrawWipe() public {

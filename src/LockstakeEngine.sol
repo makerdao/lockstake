@@ -199,7 +199,7 @@ contract LockstakeEngine {
     }
 
     function delegate(address urn, address delegate_) external urnOwner(urn) {
-        require(delegateFactory.isDelegate(delegate_) == 1, "LockstakeEngine/not-valid-delegate");
+        require(delegate_ == address(0) || delegateFactory.isDelegate(delegate_) == 1, "LockstakeEngine/not-valid-delegate");
         address prevDelegate = urnDelegates[urn];
         require(prevDelegate != delegate_, "LockstakeEngine/same-delegate");
         (uint256 wad,) = vat.urns(ilk, urn);
@@ -207,8 +207,10 @@ contract LockstakeEngine {
             if (prevDelegate != address(0)) {
                 DelegateLike(prevDelegate).free(wad);
             }
-            gov.approve(address(delegate_), wad);
-            DelegateLike(delegate_).lock(wad);
+            if (delegate_ != address(0)) {
+                gov.approve(address(delegate_), wad);
+                DelegateLike(delegate_).lock(wad);
+            }
         }
         urnDelegates[urn] = delegate_;
         emit Delegate(urn, delegate_);

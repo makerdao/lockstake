@@ -169,15 +169,16 @@ contract AllocatorVaultTest is DssTest {
         checkModifier(address(engine), "LockstakeEngine/not-authorized", authedMethods);
         vm.stopPrank();
 
-        bytes4[] memory urnOwnersMethods = new bytes4[](8);
+        bytes4[] memory urnOwnersMethods = new bytes4[](9);
         urnOwnersMethods[0] = engine.lock.selector;
         urnOwnersMethods[1] = engine.free.selector;
-        urnOwnersMethods[2] = engine.draw.selector;
-        urnOwnersMethods[3] = engine.wipe.selector;
-        urnOwnersMethods[4] = engine.selectFarm.selector;
-        urnOwnersMethods[5] = engine.stake.selector;
-        urnOwnersMethods[6] = engine.withdraw.selector;
-        urnOwnersMethods[7] = engine.getReward.selector;
+        urnOwnersMethods[2] = engine.delegate.selector;
+        urnOwnersMethods[3] = engine.draw.selector;
+        urnOwnersMethods[4] = engine.wipe.selector;
+        urnOwnersMethods[5] = engine.selectFarm.selector;
+        urnOwnersMethods[6] = engine.stake.selector;
+        urnOwnersMethods[7] = engine.withdraw.selector;
+        urnOwnersMethods[8] = engine.getReward.selector;
 
         vm.startPrank(address(0xBEEF));
         checkModifier(address(engine), "LockstakeEngine/not-urn-owner", urnOwnersMethods);
@@ -213,11 +214,13 @@ contract AllocatorVaultTest is DssTest {
         assertEq(engine.urnsAmt(address(this)), 3);
     }
 
-    function testLockFree() public {
+    function _testLockFree(bool withDelegate) internal {
         uint256 initialSupply = gov.totalSupply();
         assertEq(gov.balanceOf(address(this)), 100_000 * 10**18);
         address urn = engine.open();
-        engine.delegate(urn, voterDelegate);
+        if (withDelegate) {
+            engine.delegate(urn, voterDelegate);
+        }
         assertEq(_ink(ilk, urn), 0);
         assertEq(stkGov.balanceOf(urn), 0);
         gov.approve(address(engine), 100_000 * 10**18);
@@ -227,6 +230,12 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_ink(ilk, urn), 100_000 * 10**18);
         assertEq(stkGov.balanceOf(urn), 100_000 * 10**18);
         assertEq(gov.balanceOf(address(this)), 0);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(engine)), 0);
+            assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18); // Remains in delegate as it is a mock (otherwise it would be in the Chief)
+        } else {
+            assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
+        }
         assertEq(gov.totalSupply(), initialSupply);
         vm.expectEmit(true, true, true, true);
         emit Free(urn, 40_000 * 10**18, 40_000 * 10**18 * 15 / 100);
@@ -234,7 +243,21 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_ink(ilk, urn), 60_000 * 10**18);
         assertEq(stkGov.balanceOf(urn), 60_000 * 10**18);
         assertEq(gov.balanceOf(address(this)), 40_000 * 10**18 - 40_000 * 10**18 * 15 / 100);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(engine)), 0);
+            assertEq(gov.balanceOf(address(voterDelegate)), 60_000 * 10**18);
+        } else {
+            assertEq(gov.balanceOf(address(engine)), 60_000 * 10**18);
+        }
         assertEq(gov.totalSupply(), initialSupply - 40_000 * 10**18 * 15 / 100);
+    }
+
+    function testLockFreeNoDelegate() public {
+        _testLockFree(false);
+    }
+
+    function testLockFreeWithDelegate() public {
+        _testLockFree(true);
     }
 
     function testDelegate() public {
@@ -364,7 +387,7 @@ contract AllocatorVaultTest is DssTest {
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(this)), 20_000);
     }
 
-    function _clipperSetUp() internal returns (address urn) {
+    function _clipperSetUp(bool withDelegate) internal returns (address urn) {
         vm.startPrank(pauseProxy);
         engine.addFarm(address(farm));
         clip = new LockstakeClipper(vat, spot, dog, address(engine));
@@ -387,7 +410,9 @@ contract AllocatorVaultTest is DssTest {
         vm.stopPrank();
 
         urn = engine.open();
-        engine.delegate(urn, voterDelegate);
+        if (withDelegate) {
+            engine.delegate(urn, voterDelegate);
+        }
         gov.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
         engine.draw(urn, 2_000 * 10**18);
@@ -403,11 +428,15 @@ contract AllocatorVaultTest is DssTest {
         assertEq(clip.kicks(), 1);
     }
 
-    function testOnKickFullNoStaked() public {
-        address urn = _clipperSetUp();
+    function _testOnKickFullNoStaked(bool withDelegate) internal {
+        address urn = _clipperSetUp(withDelegate);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
-        assertEq(gov.balanceOf(address(engine)), 0);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 0);
+        } else {
+            assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
+        }
         assertEq(stkGov.balanceOf(address(urn)), 100_000 * 10**18);
         uint256 stkGovInitialSupply = stkGov.totalSupply();
 
@@ -427,14 +456,24 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 0);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 100_000 * 10**18);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        }
         assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
         assertEq(stkGov.balanceOf(address(urn)), 0);
         assertEq(stkGov.totalSupply(), stkGovInitialSupply - 100_000 * 10**18);
     }
 
-    function testOnKickPartialNoStaked() public {
-        address urn = _clipperSetUp();
+    function testOnKickFullNoStakedNoDelegate() public {
+        _testOnKickFullNoStaked(false);
+    }
+
+    function testOnKickFullNoStakedWithDelegate() public {
+        _testOnKickFullNoStaked(true);
+    }
+
+    function _testOnKickPartialNoStaked(bool withDelegate) internal {
+        address urn = _clipperSetUp(withDelegate);
 
         vm.prank(pauseProxy); DogLike(dog).file(ilk, "hole", 500 * 10**45);
 
@@ -456,22 +495,38 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 1_500 * 10**18);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 25_000 * 10**18);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 75_000 * 10**18);
-        assertEq(gov.balanceOf(address(engine)), 25_000 * 10**18);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 75_000 * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 25_000 * 10**18);
+        } else {
+            assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
+        }
         assertEq(stkGov.balanceOf(address(urn)), 75_000 * 10**18);
         assertEq(stkGov.totalSupply(), stkGovInitialSupply - 25_000 * 10**18);
     }
 
-    function testOnKickFullStakedPartial() public {
-        address urn = _clipperSetUp();
+    function testOnKickPartialNoStakedNoDelegate() public {
+        _testOnKickPartialNoStaked(false);
+    }
+
+    function testOnKickPartialNoStakedWithDelegate() public {
+        _testOnKickPartialNoStaked(true);
+    }
+
+    function _testOnKickFullStakedPartial(bool withDelegate) private {
+        address urn = _clipperSetUp(withDelegate);
 
         engine.selectFarm(urn, address(farm));
         engine.stake(urn, 60_000 * 10**18, 1);
         assertEq(stkGov.balanceOf(address(urn)), 40_000 * 10**18);
         assertEq(stkGov.balanceOf(address(farm)), 60_000 * 10**18);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
-        assertEq(gov.balanceOf(address(engine)), 0);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 0);
+        } else {
+            assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
+        }
         assertEq(stkGov.balanceOf(address(urn)), 40_000 * 10**18);
         assertEq(stkGov.balanceOf(address(farm)), 60_000 * 10**18);
         uint256 stkGovInitialSupply = stkGov.totalSupply();
@@ -492,15 +547,25 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 0);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 100_000 * 10**18);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        }
         assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
         assertEq(stkGov.balanceOf(address(urn)), 0);
         assertEq(stkGov.balanceOf(address(farm)), 0);
         assertEq(stkGov.totalSupply(), stkGovInitialSupply - 100_000 * 10**18);
     }
 
-    function testOnKickPartialStakedPartialNoWithdraw() public {
-        address urn = _clipperSetUp();
+    function testOnKickFullStakedPartialNoDelegate() public {
+        _testOnKickFullStakedPartial(false);
+    }
+
+    function testOnKickFullStakedPartialWithDelegate() public {
+        _testOnKickFullStakedPartial(true);
+    }
+
+    function _testOnKickPartialStakedPartialNoWithdraw(bool withDelegate) internal {
+        address urn = _clipperSetUp(withDelegate);
 
         engine.selectFarm(urn, address(farm));
         engine.stake(urn, 60_000 * 10**18, 1);
@@ -527,15 +592,27 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 1_500 * 10**18);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 25_000 * 10**18);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 75_000 * 10**18);
-        assertEq(gov.balanceOf(address(engine)), 25_000 * 10**18);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 75_000 * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 25_000 * 10**18);
+        } else {
+            assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
+        }
         assertEq(stkGov.balanceOf(address(urn)), 15_000 * 10**18);
         assertEq(stkGov.balanceOf(address(farm)), 60_000 * 10**18);
         assertEq(stkGov.totalSupply(), stkGovInitialSupply - 25_000 * 10**18);
     }
 
-    function testOnKickPartialStakedPartialWithdraw() public {
-        address urn = _clipperSetUp();
+    function testOnKickPartialStakedPartialNoWithdrawNoDelegate() public {
+        _testOnKickPartialStakedPartialNoWithdraw(false);
+    }
+
+    function testOnKickPartialStakedPartialNoWithdrawWithDelegate() public {
+        _testOnKickPartialStakedPartialNoWithdraw(true);
+    }
+
+    function _testOnKickPartialStakedPartialWithdraw(bool withDelegate) public {
+        address urn = _clipperSetUp(withDelegate);
 
         engine.selectFarm(urn, address(farm));
         engine.stake(urn, 80_000 * 10**18, 1);
@@ -562,18 +639,34 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 1_500 * 10**18);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 25_000 * 10**18);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 75_000 * 10**18);
-        assertEq(gov.balanceOf(address(engine)), 25_000 * 10**18);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 75_000 * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 25_000 * 10**18);
+        } else {
+            assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
+        }
         assertEq(stkGov.balanceOf(address(urn)), 0);
         assertEq(stkGov.balanceOf(address(farm)), 75_000 * 10**18);
         assertEq(stkGov.totalSupply(), stkGovInitialSupply - 25_000 * 10**18);
     }
 
-    function testOnTake() public {
-        address urn = _clipperSetUp();
+    function testOnKickPartialStakedPartialWithdrawNoDelegate() public {
+        _testOnKickPartialStakedPartialWithdraw(false);
+    }
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
-        assertEq(gov.balanceOf(address(engine)), 0);
+    function testOnKickPartialStakedPartialWithdrawWithDelegate() public {
+        _testOnKickPartialStakedPartialWithdraw(true);
+    }
+
+    function _testOnTake(bool withDelegate) internal {
+        address urn = _clipperSetUp(withDelegate);
+
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 0);
+        } else {
+            assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
+        }
         assertEq(stkGov.balanceOf(address(urn)), 100_000 * 10**18);
 
         uint256 govInitialSupply = gov.totalSupply();
@@ -597,6 +690,9 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 0);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 100_000 * 10**18);
 
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        }
         assertEq(gov.balanceOf(address(voterDelegate)), 0);
         assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
         assertEq(stkGov.balanceOf(address(urn)), 0);
@@ -622,7 +718,9 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 0);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 80_000 * 10**18);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        }
         assertEq(gov.balanceOf(address(engine)), 80_000 * 10**18);
         assertEq(stkGov.balanceOf(address(urn)), 0);
         assertEq(stkGov.totalSupply(), stkGovInitialSupply - 100_000 * 10**18);
@@ -643,19 +741,35 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 0);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 0);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), (100_000 - 32_000 * 1.15) * 10**18);
-        assertEq(gov.balanceOf(address(engine)), 0);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), (100_000 - 32_000 * 1.15) * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 0);
+        } else {
+            assertEq(gov.balanceOf(address(engine)), (100_000 - 32_000 * 1.15) * 10**18);
+        }
         assertEq(gov.totalSupply(), govInitialSupply - 32_000 * 0.15 * 10**18);
         assertEq(stkGov.balanceOf(address(urn)), (100_000 - 32_000 * 1.15) * 10**18);
         assertEq(stkGov.totalSupply(), stkGovInitialSupply - 32_000 * 1.15 * 10**18);
         assertEq(VatLike(vat).dai(vow), vowInitialBalance + 2_000 * 10**45);
     }
 
-    function testOnTakePartialBurn() public {
-        address urn = _clipperSetUp();
+    function testOnTakeNoDelegate() public {
+        _testOnTake(false);
+    }
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
-        assertEq(gov.balanceOf(address(engine)), 0);
+    function testOnTakeWithDelegate() public {
+        _testOnTake(true);
+    }
+
+    function _testOnTakePartialBurn(bool withDelegate) internal {
+        address urn = _clipperSetUp(withDelegate);
+
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 0);
+        } else {
+            assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
+        }
         assertEq(stkGov.balanceOf(address(urn)), 100_000 * 10**18);
 
         uint256 govInitialSupply = gov.totalSupply();
@@ -679,7 +793,9 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 0);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 100_000 * 10**18);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        }
         assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
         assertEq(stkGov.balanceOf(address(urn)), 0);
         assertEq(stkGov.totalSupply(), stkGovInitialSupply - 100_000 * 10**18);
@@ -697,7 +813,9 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 0);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 0);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        }
         assertEq(gov.balanceOf(address(engine)), 0);
         assertEq(gov.totalSupply(), govInitialSupply - (100_000 * 10**18 - 91428571428571428571428)); // Can't burn 15% of 91428571428571428571428
         assertEq(stkGov.balanceOf(address(urn)), 0);
@@ -705,11 +823,23 @@ contract AllocatorVaultTest is DssTest {
         assertEq(VatLike(vat).dai(vow), vowInitialBalance + 2_000 * 10**45);
     }
 
-    function testOnTakeNoBurn() public {
-        address urn = _clipperSetUp();
+    function testOnTakePartialBurnNoDelegate() public {
+        _testOnTakePartialBurn(false);
+    }
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
-        assertEq(gov.balanceOf(address(engine)), 0);
+    function testOnTakePartialBurnWithDelegate() public {
+        _testOnTakePartialBurn(true);
+    }
+
+    function _testOnTakeNoBurn(bool withDelegate) internal {
+        address urn = _clipperSetUp(withDelegate);
+
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 0);
+        } else {
+            assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
+        }
         assertEq(stkGov.balanceOf(address(urn)), 100_000 * 10**18);
 
         uint256 govInitialSupply = gov.totalSupply();
@@ -733,7 +863,9 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 0);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 100_000 * 10**18);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        }
         assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
         assertEq(stkGov.balanceOf(address(urn)), 0);
         assertEq(stkGov.totalSupply(), stkGovInitialSupply - 100_000 * 10**18);
@@ -751,7 +883,9 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_art(ilk, urn), 0);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 0);
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 0);
+        }
         assertEq(gov.balanceOf(address(engine)), 0);
         assertEq(gov.totalSupply(), govInitialSupply); // Can't burn anything
         assertEq(stkGov.balanceOf(address(urn)), 0);
@@ -759,11 +893,23 @@ contract AllocatorVaultTest is DssTest {
         assertLt(VatLike(vat).dai(vow), vowInitialBalance + 2_000 * 10**45); // Doesn't recover full debt
     }
 
-    function testOnYank() public {
-        address urn = _clipperSetUp();
+    function testOnTakeNoBurnNoDelegate() public {
+        _testOnTakeNoBurn(false);
+    }
 
-        assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
-        assertEq(gov.balanceOf(address(engine)), 0);
+    function testOnTakeNoBurnWithDelegate() public {
+        _testOnTakeNoBurn(true);
+    }
+
+    function _testOnYank(bool withDelegate) internal {
+        address urn = _clipperSetUp(withDelegate);
+
+        if (withDelegate) {
+            assertEq(gov.balanceOf(address(voterDelegate)), 100_000 * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 0);
+        } else {
+            assertEq(gov.balanceOf(address(engine)), 100_000 * 10**18);
+        }
         assertEq(stkGov.balanceOf(address(urn)), 100_000 * 10**18);
 
         uint256 govInitialSupply = gov.totalSupply();
@@ -792,5 +938,13 @@ contract AllocatorVaultTest is DssTest {
         assertEq(sale.top, 0);
 
         assertEq(gov.totalSupply(), govInitialSupply - 100_000 * 10**18);
+    }
+
+    function testOnYankNoDelegate() public {
+        _testOnYank(false);
+    }
+
+    function testOnYankWithDelegate() public {
+        _testOnYank(true);
     }
 }

@@ -62,7 +62,7 @@ contract LockstakeEngine {
     mapping(address => uint256) public farms;        // farm => 1 == whitelisted
     mapping(address => uint256) public urnsAmt;      // usr => amount
     mapping(address => address) public urnOwners;    // urn => owner
-    mapping(address => address) public urnDelegates; // urn => current associated delegare
+    mapping(address => address) public urnDelegates; // urn => current associated delegate
     mapping(address => address) public selectedFarm; // urn => current selected farm
     JugLike                     public jug;
 

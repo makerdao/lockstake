@@ -198,24 +198,6 @@ contract LockstakeEngine {
         emit Open(msg.sender, urn);
     }
 
-    function delegate(address urn, address delegate_) external urnOwner(urn) {
-        require(delegate_ == address(0) || delegateFactory.isDelegate(delegate_) == 1, "LockstakeEngine/not-valid-delegate");
-        address prevDelegate = urnDelegates[urn];
-        require(prevDelegate != delegate_, "LockstakeEngine/same-delegate");
-        (uint256 wad,) = vat.urns(ilk, urn);
-        if (wad > 0) {
-            if (prevDelegate != address(0)) {
-                DelegateLike(prevDelegate).free(wad);
-            }
-            if (delegate_ != address(0)) {
-                gov.approve(address(delegate_), wad);
-                DelegateLike(delegate_).lock(wad);
-            }
-        }
-        urnDelegates[urn] = delegate_;
-        emit Delegate(urn, delegate_);
-    }
-
     function lock(address urn, uint256 wad) external urnOwner(urn) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         gov.transferFrom(msg.sender, address(this), wad);
@@ -245,6 +227,24 @@ contract LockstakeEngine {
         gov.burn(address(this), burn);
         gov.transfer(msg.sender, wad - burn);
         emit Free(urn, wad, burn);
+    }
+
+    function delegate(address urn, address delegate_) external urnOwner(urn) {
+        require(delegate_ == address(0) || delegateFactory.isDelegate(delegate_) == 1, "LockstakeEngine/not-valid-delegate");
+        address prevDelegate = urnDelegates[urn];
+        require(prevDelegate != delegate_, "LockstakeEngine/same-delegate");
+        (uint256 wad,) = vat.urns(ilk, urn);
+        if (wad > 0) {
+            if (prevDelegate != address(0)) {
+                DelegateLike(prevDelegate).free(wad);
+            }
+            if (delegate_ != address(0)) {
+                gov.approve(address(delegate_), wad);
+                DelegateLike(delegate_).lock(wad);
+            }
+        }
+        urnDelegates[urn] = delegate_;
+        emit Delegate(urn, delegate_);
     }
 
     // --- loan functions ---

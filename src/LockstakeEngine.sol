@@ -89,10 +89,10 @@ contract LockstakeEngine {
     event File(bytes32 indexed what, address data);
     event AddFarm(address farm);
     event DelFarm(address farm);
-    event Open(address indexed owner, address indexed delegate, address urn);
+    event Open(address indexed owner, address urn);
+    event Delegate(address indexed urn, address indexed delegate);
     event Lock(address indexed urn, uint256 wad);
     event Free(address indexed urn, uint256 wad, uint256 burn);
-    event Move(address indexed urn, address indexed delegate);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
     event SelectFarm(address indexed urn, address farm);
@@ -187,8 +187,7 @@ contract LockstakeEngine {
 
     // --- urn/delegation functions ---
 
-    function open(address delegate) external returns (address urn) {
-        require(delegateFactory.isDelegate(delegate) == 1, "LockstakeEngine/not-valid-delegate");
+    function open() external returns (address urn) {
         uint256 salt = uint256(keccak256(abi.encode(msg.sender, urnsAmt[msg.sender]++)));
         bytes memory code = abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkGov));
         assembly {
@@ -196,16 +195,17 @@ contract LockstakeEngine {
         }
         require(urn != address(0), "LockstakeEngine/urn-creation-failed");
         urnOwners[urn] = msg.sender;
-        urnDelegates[urn] = delegate;
-        emit Open(msg.sender, delegate, urn);
+        emit Open(msg.sender, urn);
     }
 
     function lock(address urn, uint256 wad) external urnOwner(urn) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         gov.transferFrom(msg.sender, address(this), wad);
-        address delegate = urnDelegates[urn];
-        gov.approve(address(delegate), wad);
-        DelegateLike(delegate).lock(wad);
+        address delegate_ = urnDelegates[urn];
+        if (delegate_ != address(0)) {
+            gov.approve(address(delegate_), wad);
+            DelegateLike(delegate_).lock(wad);
+        }
         // TODO: define if we want an internal registry to register how much is locked per user,
         // the vat.slip and stkGov balance act already as a registry so probably not needed an extra one
         vat.slip(ilk, urn, int256(wad));
@@ -219,24 +219,32 @@ contract LockstakeEngine {
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
         stkGov.burn(urn, wad);
-        address delegate = urnDelegates[urn];
-        DelegateLike(delegate).free(wad);
+        address delegate_ = urnDelegates[urn];
+        if (delegate_ != address(0)) {
+            DelegateLike(delegate_).free(wad);
+        }
         uint256 burn = wad * fee / WAD;
         gov.burn(address(this), burn);
         gov.transfer(msg.sender, wad - burn);
         emit Free(urn, wad, burn);
     }
 
-    function move(address urn, address delegate) external urnOwner(urn) {
-        require(delegateFactory.isDelegate(delegate) == 1, "LockstakeEngine/not-valid-delegate");
+    function delegate(address urn, address delegate_) external urnOwner(urn) {
+        require(delegate_ == address(0) || delegateFactory.isDelegate(delegate_) == 1, "LockstakeEngine/not-valid-delegate");
         address prevDelegate = urnDelegates[urn];
-        require(prevDelegate != delegate, "LockstakeEngine/same-delegate");
+        require(prevDelegate != delegate_, "LockstakeEngine/same-delegate");
         (uint256 wad,) = vat.urns(ilk, urn);
-        DelegateLike(prevDelegate).free(wad);
-        gov.approve(address(delegate), wad);
-        DelegateLike(delegate).lock(wad);
-        urnDelegates[urn] = delegate;
-        emit Move(urn, delegate);
+        if (wad > 0) {
+            if (prevDelegate != address(0)) {
+                DelegateLike(prevDelegate).free(wad);
+            }
+            if (delegate_ != address(0)) {
+                gov.approve(address(delegate_), wad);
+                DelegateLike(delegate_).lock(wad);
+            }
+        }
+        urnDelegates[urn] = delegate_;
+        emit Delegate(urn, delegate_);
     }
 
     // --- loan functions ---
@@ -300,7 +308,10 @@ contract LockstakeEngine {
             }
         }
         stkGov.burn(urn, wad); // Burn the whole liquidated amount of staking token
-        DelegateLike(urnDelegates[urn]).free(wad); // Undelegate liquidated amount and retain GOV
+        address delegate_ = urnDelegates[urn];
+        if (delegate_ != address(0)) {
+            DelegateLike(delegate_).free(wad); // Undelegate liquidated amount and retain NGT
+        }
         // Urn confiscation happens in Dog contract where ilk vat.gem is sent to the LockstakeClipper
         emit OnKick(urn, wad);
     }
@@ -320,9 +331,11 @@ contract LockstakeEngine {
         }
         gov.burn(address(this), burn); // Burn GOV
         if (left > 0) {
-            address delegate = urnDelegates[urn];
-            gov.approve(address(delegate), left);
-            DelegateLike(delegate).lock(left);
+            address delegate_ = urnDelegates[urn];
+            if (delegate_ != address(0)) {
+                gov.approve(address(delegate_), left);
+                DelegateLike(delegate_).lock(left);
+            }
             vat.slip(ilk, urn, int256(left));
             vat.frob(ilk, urn, urn, address(0), int256(left), 0);
             stkGov.mint(urn, left);

@@ -202,22 +202,26 @@ contract AllocatorVaultTest is DssTest {
     }
 
     function testOpen() public {
-        assertEq(engine.urnsAmt(address(this)), 0);
+        assertEq(engine.usrAmts(address(this)), 0);
         address urn = engine.getUrn(address(this), 0);
         vm.expectEmit(true, true, true, true);
         emit Open(address(this), urn);
         assertEq(engine.open(), urn);
-        assertEq(engine.urnsAmt(address(this)), 1);
+        assertEq(engine.usrAmts(address(this)), 1);
         assertEq(engine.getUrn(address(this), 1), engine.open());
-        assertEq(engine.urnsAmt(address(this)), 2);
+        assertEq(engine.usrAmts(address(this)), 2);
         assertEq(engine.getUrn(address(this), 2), engine.open());
-        assertEq(engine.urnsAmt(address(this)), 3);
+        assertEq(engine.usrAmts(address(this)), 3);
     }
 
     function _testLockFree(bool withDelegate) internal {
         uint256 initialSupply = gov.totalSupply();
         assertEq(gov.balanceOf(address(this)), 100_000 * 10**18);
         address urn = engine.open();
+        vm.expectRevert("LockstakeEngine/wad-overflow");
+        engine.lock(urn, uint256(type(int256).max) + 1);
+        vm.expectRevert("LockstakeEngine/wad-overflow");
+        engine.free(urn, uint256(type(int256).max) + 1);
         if (withDelegate) {
             engine.delegate(urn, voterDelegate);
         }
@@ -262,6 +266,10 @@ contract AllocatorVaultTest is DssTest {
 
     function testDelegate() public {
         address urn = engine.open();
+        vm.expectRevert("LockstakeEngine/not-valid-delegate");
+        engine.delegate(urn, address(111));
+        engine.delegate(urn, voterDelegate);
+        vm.expectRevert("LockstakeEngine/same-delegate");
         engine.delegate(urn, voterDelegate);
         assertEq(engine.urnDelegates(urn), voterDelegate);
         vm.prank(address(888)); address voterDelegate2 = delFactory.create();

@@ -60,7 +60,7 @@ contract LockstakeEngine {
 
     mapping(address => uint256) public wards;        // usr => 1 == access
     mapping(address => uint256) public farms;        // farm => 1 == whitelisted
-    mapping(address => uint256) public urnsAmt;      // usr => amount
+    mapping(address => uint256) public usrAmts;      // usr => urns amount
     mapping(address => address) public urnOwners;    // urn => owner
     mapping(address => address) public urnDelegates; // urn => current associated delegate
     mapping(address => address) public selectedFarm; // urn => current selected farm
@@ -188,7 +188,7 @@ contract LockstakeEngine {
     // --- urn/delegation functions ---
 
     function open() external returns (address urn) {
-        uint256 salt = uint256(keccak256(abi.encode(msg.sender, urnsAmt[msg.sender]++)));
+        uint256 salt = uint256(keccak256(abi.encode(msg.sender, usrAmts[msg.sender]++)));
         bytes memory code = abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkGov));
         assembly {
             urn := create2(0, add(code, 0x20), mload(code), salt)

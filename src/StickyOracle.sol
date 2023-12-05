@@ -26,8 +26,9 @@ contract StickyOracle {
     mapping (address => uint256) public buds;       // whitelisted feed readers
 
     mapping (uint256 => Accumulator ) accumulators; // daily sticky oracle price accumulators
-    Accumulator accLast;                            // last set accumulator
     uint128 cap;                                    // max allowed price
+    uint128 pokePrice;                              // last price at which poke() was called
+    uint256 pokeDay;                                // last day at which poke() was called
 
     uint96 public slope = uint96(RAY); // maximum allowable price growth factor from center of TWAP window to now (in RAY such that slope = (1 + {max growth rate}) * RAY)
     uint8  public lo; // how many days ago should the TWAP window start (exclusive), should be more than hi
@@ -46,7 +47,7 @@ contract StickyOracle {
     event Diss(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
     event Init(uint256 days_, uint128 cur);
-    event Poke(uint256 indexed day, uint128 cap);
+    event Poke(uint256 indexed day, uint128 cap, uint128 pokePrice);
 
     constructor(address _pip) {
         pip = PipLike(_pip);
@@ -103,15 +104,15 @@ contract StickyOracle {
     // if the initiated timespan is shorter than the [lo, hi] window the initial cap will just be used for longer
     function init(uint256 days_) external auth {
         require(cap == 0, "StickyOracle/already-init");
-        uint128 cur = cap = pip.read();
+        uint128 cur = cap = pokePrice = pip.read();
 
-        uint256 currentDay = block.timestamp / 1 days;
-        uint256 firstDay   = currentDay - days_;
+        uint256 pokeDay_ = pokeDay = block.timestamp / 1 days;
+        uint256 firstDay = pokeDay_ - days_;
 
         uint256 accumulatedVal = 0;
         uint32  accumulatedTs  = uint32(block.timestamp - days_ * 1 days);
 
-        for (uint256 day = firstDay; day <= currentDay;) {
+        for (uint256 day = firstDay; day <= pokeDay_;) {
             accumulators[day].val = accumulatedVal;
             accumulators[day].ts  = accumulatedTs;
 
@@ -120,15 +121,12 @@ contract StickyOracle {
             unchecked { ++day; }
         }
 
-        accLast = accumulators[currentDay];
-
         emit Init(days_, cur);
     }
 
     function poke() external {
         uint256 today = block.timestamp / 1 days;
-        Accumulator memory accToday = accumulators[today];
-        require(accToday.val == 0, "StickyOracle/already-poked-today");
+        require(accumulators[today].val == 0, "StickyOracle/already-poked-today");
 
         // calculate new cap if possible, otherwise use the current one
         uint128 cap_ = _calcCap();
@@ -136,13 +134,13 @@ contract StickyOracle {
         else cap_ = cap;
 
         // update accumulator
-        uint128 cur = _min(pip.read(), cap_);
+        accumulators[today].val = accumulators[pokeDay].val + pokePrice * (block.timestamp - accumulators[pokeDay].ts);
+        accumulators[today].ts = uint32(block.timestamp);
 
-        accToday.val = accLast.val + cur * (block.timestamp - accLast.ts);
-        accToday.ts = uint32(block.timestamp);
-        accumulators[today] = accLast = accToday;
+        uint128 pokePrice_ = pokePrice = _min(pip.read(), cap_);
+        pokeDay = today;
 
-        emit Poke(today, cap);
+        emit Poke(today, cap, pokePrice_);
     }
 
     function read() external view toll returns (uint128) {

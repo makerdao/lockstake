@@ -40,12 +40,12 @@ contract StickyOracleHarness is StickyOracle {
         return accumulators[day].ts;
     }
 
-    function getAccLastVal() external view returns (uint256) {
-        return accLast.val;
+    function getPokePrice() external view returns (uint256) {
+        return pokePrice;
     }
 
-    function getAccLastTs() external view returns (uint32) {
-        return accLast.ts;
+    function getPokeDay() external view returns (uint256) {
+        return pokeDay;
     }
 
     function getCap() external view returns (uint128) {
@@ -70,6 +70,7 @@ contract StickyOracleTest is Test {
     address PIP_MKR;
 
     event Init(uint256 days_, uint128 cur);
+    event Poke(uint256 indexed day, uint128 cap, uint128 pokePrice);
 
     function setMedianizerPrice(uint256 newPrice) internal {
         vm.store(address(medianizer), bytes32(uint256(1)), bytes32(block.timestamp << 128 | newPrice));
@@ -102,7 +103,8 @@ contract StickyOracleTest is Test {
     }
 
     function testInit() public {
-        assertEq(oracle.read(), 0);
+        vm.expectRevert("StickyOracle/cap-not-set");
+        oracle.read();
 
         vm.expectEmit(true, true, true, true);
         emit Init(3, uint128(initialMedianizerPrice));
@@ -115,13 +117,14 @@ contract StickyOracleTest is Test {
         assertEq(oracle.getAccumulatorVal(block.timestamp / 1 days - 2), initialMedianizerPrice * 1 days);
         assertEq(oracle.getAccumulatorVal(block.timestamp / 1 days - 1), initialMedianizerPrice * 2 days);
         assertEq(oracle.getAccumulatorVal(block.timestamp / 1 days    ), initialMedianizerPrice * 3 days);
-        assertEq(oracle.getAccLastVal(), initialMedianizerPrice * 3 days);
 
         assertEq(oracle.getAccumulatorTs(block.timestamp / 1 days - 3), block.timestamp - 3 days);
         assertEq(oracle.getAccumulatorTs(block.timestamp / 1 days - 2), block.timestamp - 2 days);
         assertEq(oracle.getAccumulatorTs(block.timestamp / 1 days - 1), block.timestamp - 1 days);
         assertEq(oracle.getAccumulatorTs(block.timestamp / 1 days    ), block.timestamp);
-        assertEq(oracle.getAccLastTs(), block.timestamp);
+
+        assertEq(oracle.getPokePrice(), initialMedianizerPrice);
+        assertEq(oracle.getPokeDay(), block.timestamp / 1 days);
     }
 
     function testPoke() public {
@@ -134,30 +137,37 @@ contract StickyOracleTest is Test {
         oracle.poke();
 
         vm.warp(block.timestamp + 1 days);
-        oracle.poke(); // before: [-,100,100]
-        assertEq(oracle.getCap(), initialMedianizerPrice * 105 / 100); // (100+100)/2 * 1.05 = 105
+        vm.expectEmit(true, true, true, true);
+        emit Poke(block.timestamp / 1 days, uint128(initialMedianizerPrice * 105 / 100), uint128(initialMedianizerPrice * 105 / 100));
+        oracle.poke(); // before: [100,100,100]
+        assertEq(oracle.getCap(), initialMedianizerPrice * 105 / 100); // (100 + 100) / 2 * 1.05 = 105
         assertEq(oracle.read(), initialMedianizerPrice * 105 / 100);
 
         vm.warp(block.timestamp + 1 days);
-        oracle.poke(); // before: // [-,100,105]
-        assertEq(oracle.getCap(), initialMedianizerPrice * 107625 / 100000); // (100+105)/2 * 1.05 = 107.625
+        oracle.poke(); // before: // [100,100,105]
+        assertEq(oracle.getCap(), initialMedianizerPrice * 105 / 100 ); // (100 + 100) / 2 * 1.05 = 105
+        assertEq(oracle.read(), initialMedianizerPrice * 105 / 100);
+
+        vm.warp(block.timestamp + 1 days);
+        oracle.poke(); // before: [100,105,105]
+        assertEq(oracle.getCap(), initialMedianizerPrice * 107625 / 100000); // (100 + 105) /2 * 1.05 = 107.625
         assertEq(oracle.read(), initialMedianizerPrice * 107625 / 100000);
 
         vm.warp(block.timestamp + 1 days);
-        oracle.poke(); // before: [-,105,107.625]
-        assertEq(oracle.getCap(), initialMedianizerPrice * 111628125 / 100000000); // (105+107.625)/2 * 1.05 = 111.628125
-        assertEq(oracle.read(), initialMedianizerPrice * 110 / 100); // blocked by current price of 110
+        oracle.poke(); // before: [105,105,107.625]
+        assertEq(oracle.getCap(), initialMedianizerPrice * 11025 / 10000); // (105 + 105) / 2 * 1.05 = 110.25
+        assertEq(oracle.read(), initialMedianizerPrice * 110 / 100);   // blocked by current price of 110
 
-        vm.warp(block.timestamp + 2 days); // missing poke for 1 day
-        oracle.poke(); // before: [-,110,Miss]
-        assertEq(oracle.getCap(), initialMedianizerPrice * 111628125 / 100000000); // cannot calc twap, cap will stay the same
+        vm.warp(block.timestamp + 2 days); // missing a poke
+        oracle.poke(); // before: [107.625,110,Miss]
+        assertEq(oracle.getCap(), initialMedianizerPrice * 11025 / 10000); // cannot calc twap, cap will stay the same
         assertEq(oracle.read(), initialMedianizerPrice * 110 / 100); // still blocked by current price of 110
 
         setMedianizerPrice(initialMedianizerPrice * 111 / 100); // price goes up a bit
 
         vm.warp(block.timestamp + 1 days);
-        oracle.poke(); // before: [-,Miss,110]
-        assertEq(oracle.getCap(), initialMedianizerPrice * 1155 / 1000); // (110*2)/2 * 1.05 = 115.5
+        oracle.poke(); // before: [110,Miss,110]
+        assertEq(oracle.getCap(), initialMedianizerPrice * 1155 / 1000); // (110 * 2) / 2 * 1.05 = 115.5
         assertEq(oracle.read(), initialMedianizerPrice * 111 / 100); // blocked by current price of 111
 
         vm.warp(block.timestamp + 1 days);
@@ -166,8 +176,8 @@ contract StickyOracleTest is Test {
         assertEq(oracle.read(), initialMedianizerPrice * 111 / 100); // still blocked by current price of 111
 
         vm.warp(block.timestamp + 1 days);
-        oracle.poke(); // before: [-,111,111];
-        assertEq(oracle.getCap(), initialMedianizerPrice * 11655 / 10000); // (111 + 111)/2 * 1.05 = 116.55
+        oracle.poke(); // before: [110,111,111];
+        assertEq(oracle.getCap(), initialMedianizerPrice * 116025 / 100000); // (110 + 111)/2 * 1.05 = 116.025
         assertEq(oracle.read(), initialMedianizerPrice * 111 / 100); // still blocked by current price of 111
     }
 }

@@ -46,8 +46,8 @@ contract StickyOracle {
     event Kiss(address indexed usr);
     event Diss(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
-    event Init(uint256 days_, uint128 cur);
-    event Poke(uint256 indexed day, uint128 cap, uint128 pokePrice);
+    event Init(uint256 days_, uint128 pokePrice_);
+    event Poke(uint256 indexed day, uint128 cap, uint128 pokePrice_);
 
     constructor(address _pip) {
         pip = PipLike(_pip);
@@ -104,24 +104,22 @@ contract StickyOracle {
     // if the initiated timespan is shorter than the [lo, hi] window the initial cap will just be used for longer
     function init(uint256 days_) external auth {
         require(cap == 0, "StickyOracle/already-init");
-        uint128 cur = cap = pokePrice = pip.read();
 
+        uint128 pokePrice_ = pokePrice = cap = pip.read();
         uint256 pokeDay_ = pokeDay = block.timestamp / 1 days;
-        uint256 firstDay = pokeDay_ - days_;
-
         uint256 accumulatedVal = 0;
         uint32  accumulatedTs  = uint32(block.timestamp - days_ * 1 days);
 
-        for (uint256 day = firstDay; day <= pokeDay_;) {
+        for (uint256 day = pokeDay_ - days_; day <= pokeDay_;) {
             accumulators[day].val = accumulatedVal;
             accumulators[day].ts  = accumulatedTs;
 
-            accumulatedVal += cur * 1 days;
+            accumulatedVal += pokePrice_ * 1 days;
             accumulatedTs  += 1 days;
             unchecked { ++day; }
         }
 
-        emit Init(days_, cur);
+        emit Init(days_, pokePrice_);
     }
 
     function poke() external {
@@ -137,6 +135,7 @@ contract StickyOracle {
         accumulators[today].val = accumulators[pokeDay].val + pokePrice * (block.timestamp - accumulators[pokeDay].ts);
         accumulators[today].ts = uint32(block.timestamp);
 
+        // store for next accumulator calc
         uint128 pokePrice_ = pokePrice = _min(pip.read(), cap_);
         pokeDay = today;
 

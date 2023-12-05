@@ -69,8 +69,8 @@ contract StickyOracleTest is Test {
     address PAUSE_PROXY;
     address PIP_MKR;
 
-    event Init(uint256 days_, uint128 cur);
-    event Poke(uint256 indexed day, uint128 cap, uint128 pokePrice);
+    event Init(uint256 days_, uint128 pokePrice_);
+    event Poke(uint256 indexed day, uint128 cap, uint128 pokePrice_);
 
     function setMedianizerPrice(uint256 newPrice) internal {
         vm.store(address(medianizer), bytes32(uint256(1)), bytes32(block.timestamp << 128 | newPrice));

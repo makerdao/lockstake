@@ -99,7 +99,7 @@ contract StickyOracle {
     }
 
     // days_ is the number of daily samples to initialize on top of the current one
-    // days_ == X will fill up a window corresponding to [lo == X, hi == 1] along with the current day
+    // days_ == N will fill up a window corresponding to [lo == N, hi == 1] along with the current day
     // days_ should be selected carefully as too many iterations can cause the transaction to run out of gas
     // if the initiated timespan is shorter than the [lo, hi] window the initial cap will just be used for longer
     function init(uint256 days_) external auth {

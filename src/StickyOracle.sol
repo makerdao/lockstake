@@ -48,6 +48,7 @@ contract StickyOracle {
     event Diss(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
     event Init(uint256 days_, uint128 pokePrice_);
+    event Void();
     event Poke(uint256 indexed day, uint128 cap, uint128 pokePrice_);
 
     constructor(address _pip) {
@@ -123,14 +124,20 @@ contract StickyOracle {
         emit Init(days_, pokePrice_);
     }
 
+    function void() external auth {
+        cap = 0;
+        emit Void();
+    }
+
     function poke() external {
         uint256 today = block.timestamp / 1 days;
         require(accumulators[today].val == 0, "StickyOracle/already-poked-today");
 
         // calculate new cap if possible, otherwise use the current one
-        uint128 cap_ = _calcCap();
-        if (cap_ > 0) cap = cap_;
-        else cap_ = cap;
+        uint128 cap_ = cap;
+        require(cap_ > 0, "StickyOracle/cap-not-set");
+        uint128 newCap = _calcCap();
+        if (newCap > 0) cap = cap_ = newCap;
 
         // update accumulator
         accumulators[today].val = accumulators[pokeDay].val + pokePrice * (block.timestamp - accumulators[pokeDay].ts);
@@ -143,17 +150,15 @@ contract StickyOracle {
         emit Poke(today, cap, pokePrice_);
     }
 
-    // TODO: should we add stop functionality? the stop can set the cap to 0 and then we need to make sure poke() doesn't ovreride it
-
     function read() external view toll returns (uint128) {
         uint128 cap_ = cap;
-        require(cap_ > 0, "StickyOracle/cap-not-set");  // TODO: decide if we need the cap_ require
+        require(cap_ > 0, "StickyOracle/cap-not-set");
         return _min(pip.read(), cap);
     }
 
     function peek() external view toll returns (uint128, bool) {
         uint128 cap_ = cap;
         (uint128 cur,) = pip.peek();
-        return (_min(cur, cap_), cur > 0 && cap_ > 0); // TODO: decide if we need the cap_ condition
+        return (_min(cur, cap_), cur > 0 && cap_ > 0);
     }
 }

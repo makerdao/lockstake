@@ -143,6 +143,8 @@ contract StickyOracle {
         emit Poke(today, cap, pokePrice_);
     }
 
+    // TODO: should we add stop functionality? the stop can set the cap to 0 and then we need to make sure poke() doesn't ovreride it
+
     function read() external view toll returns (uint128) {
         uint128 cap_ = cap;
         require(cap_ > 0, "StickyOracle/cap-not-set");  // TODO: decide if we need the cap_ require

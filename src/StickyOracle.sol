@@ -17,9 +17,10 @@
 pragma solidity ^0.8.16;
 
 interface PipLike {
-    function read() external view returns (uint128);
-    function peek() external view returns (uint128, bool);
+    function read() external view returns (uint128); // TODO: shouldn't this (and our function) return bytes32? https://github.com/makerdao/osm/blob/e36c874b4e14fba860e48c0cf99cd600c0c59efa/src/osm.sol#L150C49-L150C56
+    function peek() external view returns (uint128, bool); // TODO: shouldn't this (and our function) return (bytes32, bool)? https://github.com/makerdao/osm/blob/e36c874b4e14fba860e48c0cf99cd600c0c59efa/src/osm.sol#L142
 }
+// TODO: should we implement peep as well? (even if a dummy implementation) Scribe does - https://github.com/chronicleprotocol/scribe/blob/41f25a8a40f1a1d2ef62d6a073f98a3c57d23579/src/Scribe.sol#L276.
 
 contract StickyOracle {
     mapping (address => uint256) public wards;
@@ -105,7 +106,7 @@ contract StickyOracle {
     function init(uint256 days_) external auth {
         require(cap == 0, "StickyOracle/already-init");
 
-        uint128 pokePrice_ = pokePrice = cap = pip.read();
+        uint128 pokePrice_ = pokePrice = cap = pip.read(); // TODO: should this use peek() and return true/false instead of reverting? it will be called from a spell so we don't want it to revert
         uint256 pokeDay_ = pokeDay = block.timestamp / 1 days;
         uint256 accumulatedVal = 0;
         uint32  accumulatedTs  = uint32(block.timestamp - days_ * 1 days);

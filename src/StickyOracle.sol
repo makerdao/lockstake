@@ -104,10 +104,13 @@ contract StickyOracle {
     // days_ == N will fill up a window corresponding to [lo == N, hi == 1] along with the current day
     // days_ should be selected carefully as too many iterations can cause the transaction to run out of gas
     // if the initiated timespan is shorter than the [lo, hi] window the initial cap will just be used for longer
-    function init(uint256 days_) external auth {
+    function init(uint256 days_) external auth returns(bool) {
         require(cap == 0, "StickyOracle/already-init");
 
-        uint128 pokePrice_ = pokePrice = cap = pip.read(); // TODO: should this use peek() and return true/false instead of reverting? it will be called from a spell so we don't want it to revert
+        (uint128 pokePrice_, bool has) = pip.peek(); // non-reverting to support calling from a spell
+        if (!has) return false;
+
+        pokePrice = cap = pokePrice_;
         uint256 pokeDay_ = pokeDay = block.timestamp / 1 days;
         uint256 accumulatedVal = 0;
         uint32  accumulatedTs  = uint32(block.timestamp - days_ * 1 days);
@@ -122,6 +125,7 @@ contract StickyOracle {
         }
 
         emit Init(days_, pokePrice_);
+        return true;
     }
 
     function void() external auth {

@@ -162,7 +162,7 @@ contract StickyOracle {
 
     function peek() external view toll returns (uint128, bool) {
         uint128 cap_ = cap;
-        (uint128 cur,) = pip.peek();
-        return (_min(cur, cap_), cur > 0 && cap_ > 0);
+        (uint128 cur, bool has) = pip.peek();
+        return (_min(cur, cap_), has && cap_ > 0);
     }
 }

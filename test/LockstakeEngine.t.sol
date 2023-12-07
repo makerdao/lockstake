@@ -181,7 +181,7 @@ contract AllocatorVaultTest is DssTest {
         urnOwnersMethods[8] = engine.getReward.selector;
 
         vm.startPrank(address(0xBEEF));
-        checkModifier(address(engine), "LockstakeEngine/not-urn-owner", urnOwnersMethods);
+        checkModifier(address(engine), "LockstakeEngine/urn-not-authorized", urnOwnersMethods);
         vm.stopPrank();
     }
 

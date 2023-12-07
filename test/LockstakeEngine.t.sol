@@ -169,16 +169,18 @@ contract AllocatorVaultTest is DssTest {
         checkModifier(address(engine), "LockstakeEngine/not-authorized", authedMethods);
         vm.stopPrank();
 
-        bytes4[] memory urnOwnersMethods = new bytes4[](9);
-        urnOwnersMethods[0] = engine.lock.selector;
-        urnOwnersMethods[1] = engine.free.selector;
-        urnOwnersMethods[2] = engine.delegate.selector;
-        urnOwnersMethods[3] = engine.draw.selector;
-        urnOwnersMethods[4] = engine.wipe.selector;
-        urnOwnersMethods[5] = engine.selectFarm.selector;
-        urnOwnersMethods[6] = engine.stake.selector;
-        urnOwnersMethods[7] = engine.withdraw.selector;
-        urnOwnersMethods[8] = engine.getReward.selector;
+        bytes4[] memory urnOwnersMethods = new bytes4[](11);
+        urnOwnersMethods[0]  = engine.hope.selector;
+        urnOwnersMethods[1]  = engine.nope.selector;
+        urnOwnersMethods[2]  = engine.lock.selector;
+        urnOwnersMethods[3]  = engine.free.selector;
+        urnOwnersMethods[4]  = engine.delegate.selector;
+        urnOwnersMethods[5]  = engine.draw.selector;
+        urnOwnersMethods[6]  = engine.wipe.selector;
+        urnOwnersMethods[7]  = engine.selectFarm.selector;
+        urnOwnersMethods[8]  = engine.stake.selector;
+        urnOwnersMethods[9]  = engine.withdraw.selector;
+        urnOwnersMethods[10] = engine.getReward.selector;
 
         vm.startPrank(address(0xBEEF));
         checkModifier(address(engine), "LockstakeEngine/urn-not-authorized", urnOwnersMethods);
@@ -212,6 +214,29 @@ contract AllocatorVaultTest is DssTest {
         assertEq(engine.usrAmts(address(this)), 2);
         assertEq(engine.getUrn(address(this), 2), engine.open());
         assertEq(engine.usrAmts(address(this)), 3);
+    }
+
+    function testHopeNope() public {
+        address urnOwner = address(123);
+        address urnAuthed = address(456);
+        gov.transfer(urnAuthed, 100_000 * 10**18);
+        vm.startPrank(urnOwner);
+        address urn = engine.open();
+        assertEq(engine.urnCan(urn, urnAuthed), 0);
+        engine.hope(urn, urnAuthed);
+        assertEq(engine.urnCan(urn, urnAuthed), 1);
+        vm.stopPrank();
+        vm.startPrank(urnAuthed);
+        gov.approve(address(engine), 100_000 * 10**18);
+        engine.lock(urn, 100_000 * 10**18);
+        assertEq(_ink(ilk, urn), 100_000 * 10**18);
+        engine.free(urn, 50_000 * 10**18);
+        assertEq(_ink(ilk, urn), 50_000 * 10**18);
+        engine.delegate(urn, voterDelegate);
+        assertEq(engine.urnDelegates(urn), voterDelegate);
+        engine.nope(urn, urnAuthed);
+        assertEq(engine.urnCan(urn, urnAuthed), 0);
+        vm.stopPrank();
     }
 
     function _testLockFree(bool withDelegate) internal {

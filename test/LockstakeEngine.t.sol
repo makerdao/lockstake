@@ -82,7 +82,7 @@ contract AllocatorVaultTest is DssTest {
     event DelFarm(address farm);
     event Open(address indexed owner, address urn);
     event Lock(address indexed urn, uint256 wad);
-    event Free(address indexed urn, uint256 wad, uint256 burn);
+    event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
     event Delegate(address indexed urn, address indexed delegate_);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
@@ -242,11 +242,13 @@ contract AllocatorVaultTest is DssTest {
         }
         assertEq(gov.totalSupply(), initialSupply);
         vm.expectEmit(true, true, true, true);
-        emit Free(urn, 40_000 * 10**18, 40_000 * 10**18 * 15 / 100);
+        emit Free(urn, address(this), 40_000 * 10**18, 40_000 * 10**18 * 15 / 100);
         engine.free(urn, address(this), 40_000 * 10**18);
         assertEq(_ink(ilk, urn), 60_000 * 10**18);
         assertEq(stkGov.balanceOf(urn), 60_000 * 10**18);
         assertEq(gov.balanceOf(address(this)), 40_000 * 10**18 - 40_000 * 10**18 * 15 / 100);
+        vm.expectEmit(true, true, true, true);
+        emit Free(urn, address(123), 10_000 * 10**18, 10_000 * 10**18 * 15 / 100);
         engine.free(urn, address(123), 10_000 * 10**18);
         assertEq(_ink(ilk, urn), 50_000 * 10**18);
         assertEq(stkGov.balanceOf(urn), 50_000 * 10**18);

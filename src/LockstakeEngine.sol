@@ -92,7 +92,7 @@ contract LockstakeEngine {
     event Open(address indexed owner, address urn);
     event Delegate(address indexed urn, address indexed delegate);
     event Lock(address indexed urn, uint256 wad);
-    event Free(address indexed urn, uint256 wad, uint256 burn);
+    event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
     event SelectFarm(address indexed urn, address farm);
@@ -223,7 +223,7 @@ contract LockstakeEngine {
         uint256 burn = wad * fee / WAD;
         gov.burn(address(this), burn);
         gov.transfer(to, wad - burn);
-        emit Free(urn, wad, burn);
+        emit Free(urn, to, wad, burn);
     }
 
     function delegate(address urn, address delegate_) external urnOwner(urn) {

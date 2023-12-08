@@ -382,6 +382,9 @@ contract AllocatorVaultTest is DssTest {
         assertEq(stkGov.balanceOf(address(urn)), 40_000 * 10**18);
         assertEq(stkGov.balanceOf(address(farm)), 60_000 * 10**18);
         assertEq(farm.balanceOf(address(urn)), 60_000 * 10**18);
+        vm.prank(pauseProxy); engine.delFarm(address(farm));
+        vm.expectRevert("LockstakeEngine/selected-farm-not-available-anymore");
+        engine.stake(urn, 10_000 * 10**18, 1);
         vm.expectEmit(true, true, true, true);
         emit Withdraw(urn, address(farm), 15_000 * 10**18);
         engine.withdraw(urn, 15_000 * 10**18);

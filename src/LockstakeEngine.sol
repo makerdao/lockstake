@@ -278,6 +278,7 @@ contract LockstakeEngine {
     function stake(address urn, uint256 wad, uint16 ref) external urnOwner(urn) {
         address selectedFarmUrn = selectedFarm[urn];
         require(selectedFarmUrn != address(0), "LockstakeEngine/missing-selected-farm");
+        require(farms[selectedFarmUrn] == 1, "LockstakeEngine/selected-farm-not-available-anymore");
         LockstakeUrn(urn).stake(selectedFarmUrn, wad, ref);
         emit Stake(urn, selectedFarmUrn, wad, ref);
     }

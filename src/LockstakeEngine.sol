@@ -115,7 +115,7 @@ contract LockstakeEngine {
     }
 
     modifier urnAuth(address urn) {
-        require(urnOwners[urn] == msg.sender || urnCan[urn][msg.sender] == 1, "LockstakeEngine/urn-not-authorized");
+        require(_urnAuth(urn, msg.sender), "LockstakeEngine/urn-not-authorized");
         _;
     }
 
@@ -136,12 +136,16 @@ contract LockstakeEngine {
         emit Rely(msg.sender);
     }
 
-    // --- math ---
+    // --- internals ---
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
         unchecked {
             z = x != 0 ? ((x - 1) / y) + 1 : 0;
         }
+    }
+
+    function _urnAuth(address urn, address usr) internal view returns (bool ok) {
+        ok = urnOwners[urn] == usr || urnCan[urn][usr] == 1;
     }
 
     // --- administration ---
@@ -175,10 +179,7 @@ contract LockstakeEngine {
 
     // --- getters ---
 
-    function getUrn(
-        address owner,
-        uint256 index
-    ) external view returns (address urn) {
+    function getUrn(address owner, uint256 index) external view returns (address urn) {
         uint256 salt = uint256(keccak256(abi.encode(owner, index)));
         bytes32 codeHash = keccak256(abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkGov)));
         urn = address(uint160(uint256(
@@ -187,6 +188,11 @@ contract LockstakeEngine {
             )
         )));
     }
+
+    function isUrnAuth(address urn, address usr) external view returns (bool ok) {
+        ok = _urnAuth(urn, usr);
+    }
+
 
     // --- urn/delegation functions ---
 

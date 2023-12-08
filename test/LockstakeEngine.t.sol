@@ -222,9 +222,12 @@ contract AllocatorVaultTest is DssTest {
         gov.transfer(urnAuthed, 100_000 * 10**18);
         vm.startPrank(urnOwner);
         address urn = engine.open();
+        assertTrue(engine.isUrnAuth(urn, urnOwner));
+        assertTrue(!engine.isUrnAuth(urn, urnAuthed));
         assertEq(engine.urnCan(urn, urnAuthed), 0);
         engine.hope(urn, urnAuthed);
         assertEq(engine.urnCan(urn, urnAuthed), 1);
+        assertTrue(engine.isUrnAuth(urn, urnAuthed));
         vm.stopPrank();
         vm.startPrank(urnAuthed);
         gov.approve(address(engine), 100_000 * 10**18);
@@ -236,6 +239,7 @@ contract AllocatorVaultTest is DssTest {
         assertEq(engine.urnDelegates(urn), voterDelegate);
         engine.nope(urn, urnAuthed);
         assertEq(engine.urnCan(urn, urnAuthed), 0);
+        assertTrue(!engine.isUrnAuth(urn, urnAuthed));
         vm.stopPrank();
     }
 

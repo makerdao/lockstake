@@ -221,7 +221,7 @@ contract AllocatorVaultTest is DssTest {
         vm.expectRevert("LockstakeEngine/wad-overflow");
         engine.lock(urn, uint256(type(int256).max) + 1);
         vm.expectRevert("LockstakeEngine/wad-overflow");
-        engine.free(urn, uint256(type(int256).max) + 1);
+        engine.free(urn, address(this), uint256(type(int256).max) + 1);
         if (withDelegate) {
             engine.delegate(urn, voterDelegate);
         }
@@ -243,17 +243,21 @@ contract AllocatorVaultTest is DssTest {
         assertEq(gov.totalSupply(), initialSupply);
         vm.expectEmit(true, true, true, true);
         emit Free(urn, 40_000 * 10**18, 40_000 * 10**18 * 15 / 100);
-        engine.free(urn, 40_000 * 10**18);
+        engine.free(urn, address(this), 40_000 * 10**18);
         assertEq(_ink(ilk, urn), 60_000 * 10**18);
         assertEq(stkGov.balanceOf(urn), 60_000 * 10**18);
         assertEq(gov.balanceOf(address(this)), 40_000 * 10**18 - 40_000 * 10**18 * 15 / 100);
+        engine.free(urn, address(123), 10_000 * 10**18);
+        assertEq(_ink(ilk, urn), 50_000 * 10**18);
+        assertEq(stkGov.balanceOf(urn), 50_000 * 10**18);
+        assertEq(gov.balanceOf(address(123)), 10_000 * 10**18 - 10_000 * 10**18 * 15 / 100);
         if (withDelegate) {
             assertEq(gov.balanceOf(address(engine)), 0);
-            assertEq(gov.balanceOf(address(voterDelegate)), 60_000 * 10**18);
+            assertEq(gov.balanceOf(address(voterDelegate)), 50_000 * 10**18);
         } else {
-            assertEq(gov.balanceOf(address(engine)), 60_000 * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 50_000 * 10**18);
         }
-        assertEq(gov.totalSupply(), initialSupply - 40_000 * 10**18 * 15 / 100);
+        assertEq(gov.totalSupply(), initialSupply - 50_000 * 10**18 * 15 / 100);
     }
 
     function testLockFreeNoDelegate() public {

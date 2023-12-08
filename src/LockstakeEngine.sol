@@ -211,7 +211,7 @@ contract LockstakeEngine {
         emit Lock(urn, wad);
     }
 
-    function free(address urn, uint256 wad) external urnOwner(urn) {
+    function free(address urn, address to, uint256 wad) external urnOwner(urn) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
@@ -222,7 +222,7 @@ contract LockstakeEngine {
         }
         uint256 burn = wad * fee / WAD;
         gov.burn(address(this), burn);
-        gov.transfer(msg.sender, wad - burn);
+        gov.transfer(to, wad - burn);
         emit Free(urn, wad, burn);
     }
 

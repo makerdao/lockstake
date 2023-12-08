@@ -62,8 +62,8 @@ contract LockstakeUrn {
         StakingRewardsLike(farm).stake(wad, ref);
     }
 
-    function withdraw(address farm, uint256 amt) external isEngine{
-        StakingRewardsLike(farm).withdraw(amt);
+    function withdraw(address farm, uint256 wad) external isEngine {
+        StakingRewardsLike(farm).withdraw(wad);
     }
 
     function getReward(address farm, address usr) external isEngine {

@@ -97,7 +97,7 @@ contract LockstakeEngine {
     event Wipe(address indexed urn, uint256 wad);
     event SelectFarm(address indexed urn, address farm);
     event Stake(address indexed urn, address indexed farm, uint256 wad, uint16 ref);
-    event Withdraw(address indexed urn, address indexed farm, uint256 amt);
+    event Withdraw(address indexed urn, address indexed farm, uint256 wad);
     event GetReward(address indexed urn, address indexed farm);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
@@ -285,11 +285,11 @@ contract LockstakeEngine {
         emit Stake(urn, selectedFarmUrn, wad, ref);
     }
 
-    function withdraw(address urn, uint256 amt) external urnOwner(urn) {
+    function withdraw(address urn, uint256 wad) external urnOwner(urn) {
         address selectedFarmUrn = selectedFarm[urn];
         require(selectedFarmUrn != address(0), "LockstakeEngine/missing-selected-farm");
-        LockstakeUrn(urn).withdraw(selectedFarmUrn, amt);
-        emit Withdraw(urn, selectedFarmUrn, amt);
+        LockstakeUrn(urn).withdraw(selectedFarmUrn, wad);
+        emit Withdraw(urn, selectedFarmUrn, wad);
     }
 
     function getReward(address urn, address farm) external urnOwner(urn) {

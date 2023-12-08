@@ -213,16 +213,16 @@ contract LockstakeEngine {
 
     function free(address urn, address to, uint256 wad) external urnOwner(urn) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
+        stkGov.burn(urn, wad);
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
-        stkGov.burn(urn, wad);
         address delegate_ = urnDelegates[urn];
         if (delegate_ != address(0)) {
             DelegateLike(delegate_).free(wad);
         }
         uint256 burn = wad * fee / WAD;
-        gov.burn(address(this), burn);
         gov.transfer(to, wad - burn);
+        gov.burn(address(this), burn);
         emit Free(urn, to, wad, burn);
     }
 

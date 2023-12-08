@@ -66,9 +66,10 @@ contract LockstakeUrn {
         StakingRewardsLike(farm).withdraw(wad);
     }
 
-    function getReward(address farm, address usr) external isEngine {
+    function getReward(address farm, address to) external isEngine returns (uint256 amt) {
         StakingRewardsLike(farm).getReward();
         GemLike rewardsToken = StakingRewardsLike(farm).rewardsToken();
-        rewardsToken.transfer(usr, rewardsToken.balanceOf(address(this)));
+        amt = rewardsToken.balanceOf(address(this));
+        rewardsToken.transfer(to, amt);
     }
 }

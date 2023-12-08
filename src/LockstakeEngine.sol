@@ -98,7 +98,7 @@ contract LockstakeEngine {
     event SelectFarm(address indexed urn, address farm);
     event Stake(address indexed urn, address indexed farm, uint256 wad, uint16 ref);
     event Withdraw(address indexed urn, address indexed farm, uint256 wad);
-    event GetReward(address indexed urn, address indexed farm);
+    event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
     event OnTakeLeftovers(address indexed urn, uint256 tot, uint256 left, uint256 burn);
@@ -289,9 +289,9 @@ contract LockstakeEngine {
         emit Withdraw(urn, selectedFarmUrn, wad);
     }
 
-    function getReward(address urn, address farm) external urnOwner(urn) {
-        LockstakeUrn(urn).getReward(farm, msg.sender);
-        emit GetReward(urn, farm);
+    function getReward(address urn, address farm, address to) external urnOwner(urn) {
+        uint256 amt = LockstakeUrn(urn).getReward(farm, to);
+        emit GetReward(urn, farm, to, amt);
     }
 
     // --- liquidation callback functions ---

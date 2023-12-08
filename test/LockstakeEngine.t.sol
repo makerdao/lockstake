@@ -89,7 +89,7 @@ contract AllocatorVaultTest is DssTest {
     event SelectFarm(address indexed urn, address farm);
     event Stake(address indexed urn, address indexed farm, uint256 wad, uint16 ref);
     event Withdraw(address indexed urn, address indexed farm, uint256 wad);
-    event GetReward(address indexed urn, address indexed farm);
+    event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
     event OnTakeLeftovers(address indexed urn, uint256 tot, uint256 left, uint256 burn);
@@ -396,9 +396,9 @@ contract AllocatorVaultTest is DssTest {
         farm.setReward(address(urn), 20_000);
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(this)), 0);
         vm.expectEmit(true, true, true, true);
-        emit GetReward(urn, address(farm));
-        engine.getReward(urn, address(farm));
-        assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(this)), 20_000);
+        emit GetReward(urn, address(farm), address(123), 20_000);
+        engine.getReward(urn, address(farm), address(123));
+        assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 20_000);
     }
 
     function _clipperSetUp(bool withDelegate) internal returns (address urn) {

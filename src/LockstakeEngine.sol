@@ -188,11 +188,8 @@ contract LockstakeEngine {
     // --- urn/delegation functions ---
 
     function open() external returns (address urn) {
-        uint256 salt = uint256(keccak256(abi.encode(msg.sender, usrAmts[msg.sender]++)));
-        bytes memory code = abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkGov));
-        assembly {
-            urn := create2(0, add(code, 0x20), mload(code), salt)
-        }
+        bytes32 salt = keccak256(abi.encode(msg.sender, usrAmts[msg.sender]++));
+        urn = address(new LockstakeUrn{salt: salt}(address(vat), address(stkGov)));
         require(urn != address(0), "LockstakeEngine/urn-creation-failed");
         urnOwners[urn] = msg.sender;
         emit Open(msg.sender, urn);

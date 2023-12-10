@@ -308,7 +308,7 @@ contract LockstakeEngine {
         stkGov.burn(urn, wad); // Burn the whole liquidated amount of staking token
         address delegate_ = urnDelegates[urn];
         if (delegate_ != address(0)) {
-            DelegateLike(delegate_).free(wad); // Undelegate liquidated amount and retain NGT
+            DelegateLike(delegate_).free(wad); // Undelegate liquidated amount and retain the GOV tokens
         }
         // Urn confiscation happens in Dog contract where ilk vat.gem is sent to the LockstakeClipper
         emit OnKick(urn, wad);

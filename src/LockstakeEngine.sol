@@ -190,7 +190,6 @@ contract LockstakeEngine {
     function open() external returns (address urn) {
         bytes32 salt = keccak256(abi.encode(msg.sender, usrAmts[msg.sender]++));
         urn = address(new LockstakeUrn{salt: salt}(address(vat), address(stkGov)));
-        require(urn != address(0), "LockstakeEngine/urn-creation-failed");
         urnOwners[urn] = msg.sender;
         emit Open(msg.sender, urn);
     }

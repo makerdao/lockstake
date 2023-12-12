@@ -343,17 +343,17 @@ contract AllocatorVaultTest is DssTest {
     function testSelectFarm() public {
         StakingRewardsMock farm2 = new StakingRewardsMock(address(rTok), address(stkGov));
         address urn = engine.open();
-        assertEq(engine.selectedFarm(urn), address(0));
+        assertEq(engine.urnFarms(urn), address(0));
         vm.expectRevert("LockstakeEngine/non-existing-farm");
         engine.selectFarm(urn, address(farm));
         vm.prank(pauseProxy); engine.addFarm(address(farm));
         vm.expectEmit(true, true, true, true);
         emit SelectFarm(urn, address(farm));
         engine.selectFarm(urn, address(farm));
-        assertEq(engine.selectedFarm(urn), address(farm));
+        assertEq(engine.urnFarms(urn), address(farm));
         vm.prank(pauseProxy); engine.addFarm(address(farm2));
         engine.selectFarm(urn, address(farm2));
-        assertEq(engine.selectedFarm(urn), address(farm2));
+        assertEq(engine.urnFarms(urn), address(farm2));
         gov.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
         engine.stake(urn, 100_000, 1);

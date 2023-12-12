@@ -63,7 +63,7 @@ contract LockstakeEngine {
     mapping(address => uint256) public usrAmts;      // usr => urns amount
     mapping(address => address) public urnOwners;    // urn => owner
     mapping(address => address) public urnDelegates; // urn => current associated delegate
-    mapping(address => address) public selectedFarm; // urn => current selected farm
+    mapping(address => address) public urnFarms;     // urn => current selected farm
     JugLike                     public jug;
 
     // --- constants ---
@@ -269,25 +269,25 @@ contract LockstakeEngine {
 
     function selectFarm(address urn, address farm) external urnOwner(urn) {
         require(farms[farm] == 1, "LockstakeEngine/non-existing-farm");
-        address selectedFarmUrn = selectedFarm[urn];
-        require(selectedFarmUrn == address(0) || GemLike(selectedFarmUrn).balanceOf(address(urn)) == 0, "LockstakeEngine/withdraw-first");
-        selectedFarm[urn] = farm;
+        address urnFarm = urnFarms[urn];
+        require(urnFarm == address(0) || GemLike(urnFarm).balanceOf(address(urn)) == 0, "LockstakeEngine/withdraw-first");
+        urnFarms[urn] = farm;
         emit SelectFarm(urn, farm);
     }
 
     function stake(address urn, uint256 wad, uint16 ref) external urnOwner(urn) {
-        address selectedFarmUrn = selectedFarm[urn];
-        require(selectedFarmUrn != address(0), "LockstakeEngine/missing-selected-farm");
-        require(farms[selectedFarmUrn] == 1, "LockstakeEngine/selected-farm-not-available-anymore");
-        LockstakeUrn(urn).stake(selectedFarmUrn, wad, ref);
-        emit Stake(urn, selectedFarmUrn, wad, ref);
+        address urnFarm = urnFarms[urn];
+        require(urnFarm != address(0), "LockstakeEngine/missing-selected-farm");
+        require(farms[urnFarm] == 1, "LockstakeEngine/selected-farm-not-available-anymore");
+        LockstakeUrn(urn).stake(urnFarm, wad, ref);
+        emit Stake(urn, urnFarm, wad, ref);
     }
 
     function withdraw(address urn, uint256 wad) external urnOwner(urn) {
-        address selectedFarmUrn = selectedFarm[urn];
-        require(selectedFarmUrn != address(0), "LockstakeEngine/missing-selected-farm");
-        LockstakeUrn(urn).withdraw(selectedFarmUrn, wad);
-        emit Withdraw(urn, selectedFarmUrn, wad);
+        address urnFarm = urnFarms[urn];
+        require(urnFarm != address(0), "LockstakeEngine/missing-selected-farm");
+        LockstakeUrn(urn).withdraw(urnFarm, wad);
+        emit Withdraw(urn, urnFarm, wad);
     }
 
     function getReward(address urn, address farm, address to) external urnOwner(urn) {
@@ -298,11 +298,11 @@ contract LockstakeEngine {
     // --- liquidation callback functions ---
 
     function onKick(address urn, uint256 wad) external auth {
-        address selectedFarmUrn = selectedFarm[urn];
-        if (selectedFarmUrn != address(0)){
+        address urnFarm = urnFarms[urn];
+        if (urnFarm != address(0)){
             uint256 freed = GemLike(stkGov).balanceOf(address(urn));
             if (wad > freed) {
-                LockstakeUrn(urn).withdraw(selectedFarmUrn, wad - freed);
+                LockstakeUrn(urn).withdraw(urnFarm, wad - freed);
             }
         }
         stkGov.burn(urn, wad); // Burn the whole liquidated amount of staking token

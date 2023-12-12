@@ -82,14 +82,14 @@ contract AllocatorVaultTest is DssTest {
     event DelFarm(address farm);
     event Open(address indexed owner, address urn);
     event Lock(address indexed urn, uint256 wad);
-    event Free(address indexed urn, uint256 wad, uint256 burn);
+    event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
     event Delegate(address indexed urn, address indexed delegate_);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
     event SelectFarm(address indexed urn, address farm);
     event Stake(address indexed urn, address indexed farm, uint256 wad, uint16 ref);
-    event Withdraw(address indexed urn, address indexed farm, uint256 amt);
-    event GetReward(address indexed urn, address indexed farm);
+    event Withdraw(address indexed urn, address indexed farm, uint256 wad);
+    event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
     event OnTakeLeftovers(address indexed urn, uint256 tot, uint256 left, uint256 burn);
@@ -233,7 +233,7 @@ contract AllocatorVaultTest is DssTest {
         gov.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
         assertEq(_ink(ilk, urn), 100_000 * 10**18);
-        engine.free(urn, 50_000 * 10**18);
+        engine.free(urn, address(this), 50_000 * 10**18);
         assertEq(_ink(ilk, urn), 50_000 * 10**18);
         engine.delegate(urn, voterDelegate);
         assertEq(engine.urnDelegates(urn), voterDelegate);
@@ -250,7 +250,7 @@ contract AllocatorVaultTest is DssTest {
         vm.expectRevert("LockstakeEngine/wad-overflow");
         engine.lock(urn, uint256(type(int256).max) + 1);
         vm.expectRevert("LockstakeEngine/wad-overflow");
-        engine.free(urn, uint256(type(int256).max) + 1);
+        engine.free(urn, address(this), uint256(type(int256).max) + 1);
         if (withDelegate) {
             engine.delegate(urn, voterDelegate);
         }
@@ -271,18 +271,24 @@ contract AllocatorVaultTest is DssTest {
         }
         assertEq(gov.totalSupply(), initialSupply);
         vm.expectEmit(true, true, true, true);
-        emit Free(urn, 40_000 * 10**18, 40_000 * 10**18 * 15 / 100);
-        engine.free(urn, 40_000 * 10**18);
+        emit Free(urn, address(this), 40_000 * 10**18, 40_000 * 10**18 * 15 / 100);
+        engine.free(urn, address(this), 40_000 * 10**18);
         assertEq(_ink(ilk, urn), 60_000 * 10**18);
         assertEq(stkGov.balanceOf(urn), 60_000 * 10**18);
         assertEq(gov.balanceOf(address(this)), 40_000 * 10**18 - 40_000 * 10**18 * 15 / 100);
+        vm.expectEmit(true, true, true, true);
+        emit Free(urn, address(123), 10_000 * 10**18, 10_000 * 10**18 * 15 / 100);
+        engine.free(urn, address(123), 10_000 * 10**18);
+        assertEq(_ink(ilk, urn), 50_000 * 10**18);
+        assertEq(stkGov.balanceOf(urn), 50_000 * 10**18);
+        assertEq(gov.balanceOf(address(123)), 10_000 * 10**18 - 10_000 * 10**18 * 15 / 100);
         if (withDelegate) {
             assertEq(gov.balanceOf(address(engine)), 0);
-            assertEq(gov.balanceOf(address(voterDelegate)), 60_000 * 10**18);
+            assertEq(gov.balanceOf(address(voterDelegate)), 50_000 * 10**18);
         } else {
-            assertEq(gov.balanceOf(address(engine)), 60_000 * 10**18);
+            assertEq(gov.balanceOf(address(engine)), 50_000 * 10**18);
         }
-        assertEq(gov.totalSupply(), initialSupply - 40_000 * 10**18 * 15 / 100);
+        assertEq(gov.totalSupply(), initialSupply - 50_000 * 10**18 * 15 / 100);
     }
 
     function testLockFreeNoDelegate() public {
@@ -366,17 +372,17 @@ contract AllocatorVaultTest is DssTest {
     function testSelectFarm() public {
         StakingRewardsMock farm2 = new StakingRewardsMock(address(rTok), address(stkGov));
         address urn = engine.open();
-        assertEq(engine.selectedFarm(urn), address(0));
+        assertEq(engine.urnFarms(urn), address(0));
         vm.expectRevert("LockstakeEngine/non-existing-farm");
         engine.selectFarm(urn, address(farm));
         vm.prank(pauseProxy); engine.addFarm(address(farm));
         vm.expectEmit(true, true, true, true);
         emit SelectFarm(urn, address(farm));
         engine.selectFarm(urn, address(farm));
-        assertEq(engine.selectedFarm(urn), address(farm));
+        assertEq(engine.urnFarms(urn), address(farm));
         vm.prank(pauseProxy); engine.addFarm(address(farm2));
         engine.selectFarm(urn, address(farm2));
-        assertEq(engine.selectedFarm(urn), address(farm2));
+        assertEq(engine.urnFarms(urn), address(farm2));
         gov.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
         engine.stake(urn, 100_000, 1);
@@ -405,6 +411,9 @@ contract AllocatorVaultTest is DssTest {
         assertEq(stkGov.balanceOf(address(urn)), 40_000 * 10**18);
         assertEq(stkGov.balanceOf(address(farm)), 60_000 * 10**18);
         assertEq(farm.balanceOf(address(urn)), 60_000 * 10**18);
+        vm.prank(pauseProxy); engine.delFarm(address(farm));
+        vm.expectRevert("LockstakeEngine/selected-farm-not-available-anymore");
+        engine.stake(urn, 10_000 * 10**18, 1);
         vm.expectEmit(true, true, true, true);
         emit Withdraw(urn, address(farm), 15_000 * 10**18);
         engine.withdraw(urn, 15_000 * 10**18);
@@ -419,9 +428,9 @@ contract AllocatorVaultTest is DssTest {
         farm.setReward(address(urn), 20_000);
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(this)), 0);
         vm.expectEmit(true, true, true, true);
-        emit GetReward(urn, address(farm));
-        engine.getReward(urn, address(farm));
-        assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(this)), 20_000);
+        emit GetReward(urn, address(farm), address(123), 20_000);
+        engine.getReward(urn, address(farm), address(123));
+        assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 20_000);
     }
 
     function _clipperSetUp(bool withDelegate) internal returns (address urn) {

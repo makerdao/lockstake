@@ -219,6 +219,7 @@ contract AllocatorVaultTest is DssTest {
     function testHopeNope() public {
         address urnOwner = address(123);
         address urnAuthed = address(456);
+        vm.prank(pauseProxy); engine.addFarm(address(farm));
         gov.transfer(urnAuthed, 100_000 * 10**18);
         vm.startPrank(urnOwner);
         address urn = engine.open();
@@ -230,6 +231,7 @@ contract AllocatorVaultTest is DssTest {
         assertTrue(engine.isUrnAuth(urn, urnAuthed));
         vm.stopPrank();
         vm.startPrank(urnAuthed);
+        engine.hope(urn, address(789));
         gov.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
         assertEq(_ink(ilk, urn), 100_000 * 10**18);
@@ -237,6 +239,13 @@ contract AllocatorVaultTest is DssTest {
         assertEq(_ink(ilk, urn), 50_000 * 10**18);
         engine.delegate(urn, voterDelegate);
         assertEq(engine.urnDelegates(urn), voterDelegate);
+        engine.draw(urn, 1);
+        nst.approve(address(engine), 1);
+        engine.wipe(urn, 1);
+        engine.selectFarm(urn, address(farm));
+        engine.stake(urn, 1, 0);
+        engine.withdraw(urn, 1);
+        engine.getReward(urn, address(farm), address(0));
         engine.nope(urn, urnAuthed);
         assertEq(engine.urnCan(urn, urnAuthed), 0);
         assertTrue(!engine.isUrnAuth(urn, urnAuthed));

@@ -193,7 +193,6 @@ contract LockstakeEngine {
         ok = _urnAuth(urn, usr);
     }
 
-
     // --- urn/delegation functions ---
 
     function open() external returns (address urn) {

@@ -58,13 +58,14 @@ interface JugLike {
 contract LockstakeEngine {
     // --- storage variables ---
 
-    mapping(address => uint256) public wards;        // usr => 1 == access
-    mapping(address => uint256) public farms;        // farm => 1 == whitelisted
-    mapping(address => uint256) public usrAmts;      // usr => urns amount
-    mapping(address => address) public urnOwners;    // urn => owner
-    mapping(address => address) public urnDelegates; // urn => current associated delegate
-    mapping(address => address) public urnFarms;     // urn => current selected farm
-    JugLike                     public jug;
+    mapping(address => uint256)                     public wards;        // usr => 1 == access
+    mapping(address => uint256)                     public farms;        // farm => 1 == whitelisted
+    mapping(address => uint256)                     public usrAmts;      // usr => urns amount
+    mapping(address => address)                     public urnOwners;    // urn => owner
+    mapping(address => mapping(address => uint256)) public urnCan;       // urn => usr => allowed (1 = yes, 0 = no)
+    mapping(address => address)                     public urnDelegates; // urn => current associated delegate
+    mapping(address => address)                     public urnFarms;     // urn => current selected farm
+    JugLike                                         public jug;
 
     // --- constants ---
 
@@ -90,6 +91,8 @@ contract LockstakeEngine {
     event AddFarm(address farm);
     event DelFarm(address farm);
     event Open(address indexed owner, address urn);
+    event Hope(address indexed urn, address indexed usr);
+    event Nope(address indexed urn, address indexed usr);
     event Delegate(address indexed urn, address indexed delegate);
     event Lock(address indexed urn, uint256 wad);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
@@ -111,8 +114,8 @@ contract LockstakeEngine {
         _;
     }
 
-    modifier urnOwner(address urn) {
-        require(urnOwners[urn] == msg.sender, "LockstakeEngine/not-urn-owner");
+    modifier urnAuth(address urn) {
+        require(_urnAuth(urn, msg.sender), "LockstakeEngine/urn-not-authorized");
         _;
     }
 
@@ -133,12 +136,16 @@ contract LockstakeEngine {
         emit Rely(msg.sender);
     }
 
-    // --- math ---
+    // --- internals ---
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
         unchecked {
             z = x != 0 ? ((x - 1) / y) + 1 : 0;
         }
+    }
+
+    function _urnAuth(address urn, address usr) internal view returns (bool ok) {
+        ok = urnOwners[urn] == usr || urnCan[urn][usr] == 1;
     }
 
     // --- administration ---
@@ -172,10 +179,7 @@ contract LockstakeEngine {
 
     // --- getters ---
 
-    function getUrn(
-        address owner,
-        uint256 index
-    ) external view returns (address urn) {
+    function getUrn(address owner, uint256 index) external view returns (address urn) {
         uint256 salt = uint256(keccak256(abi.encode(owner, index)));
         bytes32 codeHash = keccak256(abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkGov)));
         urn = address(uint160(uint256(
@@ -183,6 +187,10 @@ contract LockstakeEngine {
                 abi.encodePacked(bytes1(0xff), address(this), salt, codeHash)
             )
         )));
+    }
+
+    function isUrnAuth(address urn, address usr) external view returns (bool ok) {
+        ok = _urnAuth(urn, usr);
     }
 
     // --- urn/delegation functions ---
@@ -194,7 +202,17 @@ contract LockstakeEngine {
         emit Open(msg.sender, urn);
     }
 
-    function lock(address urn, uint256 wad) external urnOwner(urn) {
+    function hope(address urn, address usr) external urnAuth(urn) {
+        urnCan[urn][usr] = 1;
+        emit Hope(urn, usr);
+    }
+
+    function nope(address urn, address usr) external urnAuth(urn) {
+        urnCan[urn][usr] = 0;
+        emit Nope(urn, usr);
+    }
+
+    function lock(address urn, uint256 wad) external urnAuth(urn) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         gov.transferFrom(msg.sender, address(this), wad);
         address delegate_ = urnDelegates[urn];
@@ -210,7 +228,7 @@ contract LockstakeEngine {
         emit Lock(urn, wad);
     }
 
-    function free(address urn, address to, uint256 wad) external urnOwner(urn) {
+    function free(address urn, address to, uint256 wad) external urnAuth(urn) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         stkGov.burn(urn, wad);
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
@@ -225,7 +243,7 @@ contract LockstakeEngine {
         emit Free(urn, to, wad, burn);
     }
 
-    function delegate(address urn, address delegate_) external urnOwner(urn) {
+    function delegate(address urn, address delegate_) external urnAuth(urn) {
         require(delegate_ == address(0) || delegateFactory.isDelegate(delegate_) == 1, "LockstakeEngine/not-valid-delegate");
         address prevDelegate = urnDelegates[urn];
         require(prevDelegate != delegate_, "LockstakeEngine/same-delegate");
@@ -245,7 +263,7 @@ contract LockstakeEngine {
 
     // --- loan functions ---
 
-    function draw(address urn, uint256 wad) external urnOwner(urn) {
+    function draw(address urn, uint256 wad) external urnAuth(urn) {
         uint256 rate = jug.drip(ilk);
         uint256 dart = _divup(wad * RAY, rate);
         require(dart <= uint256(type(int256).max), "LockstakeEngine/overflow");
@@ -254,7 +272,7 @@ contract LockstakeEngine {
         emit Draw(urn, wad);
     }
 
-    function wipe(address urn, uint256 wad) external urnOwner(urn) {
+    function wipe(address urn, uint256 wad) external urnAuth(urn) {
         nst.transferFrom(msg.sender, address(this), wad);
         nstJoin.join(address(this), wad);
         uint256 rate = jug.drip(ilk);
@@ -266,7 +284,7 @@ contract LockstakeEngine {
 
     // --- staking functions ---
 
-    function selectFarm(address urn, address farm) external urnOwner(urn) {
+    function selectFarm(address urn, address farm) external urnAuth(urn) {
         require(farms[farm] == 1, "LockstakeEngine/non-existing-farm");
         address urnFarm = urnFarms[urn];
         require(urnFarm == address(0) || GemLike(urnFarm).balanceOf(address(urn)) == 0, "LockstakeEngine/withdraw-first");
@@ -274,7 +292,7 @@ contract LockstakeEngine {
         emit SelectFarm(urn, farm);
     }
 
-    function stake(address urn, uint256 wad, uint16 ref) external urnOwner(urn) {
+    function stake(address urn, uint256 wad, uint16 ref) external urnAuth(urn) {
         address urnFarm = urnFarms[urn];
         require(urnFarm != address(0), "LockstakeEngine/missing-selected-farm");
         require(farms[urnFarm] == 1, "LockstakeEngine/selected-farm-not-available-anymore");
@@ -282,14 +300,14 @@ contract LockstakeEngine {
         emit Stake(urn, urnFarm, wad, ref);
     }
 
-    function withdraw(address urn, uint256 wad) external urnOwner(urn) {
+    function withdraw(address urn, uint256 wad) external urnAuth(urn) {
         address urnFarm = urnFarms[urn];
         require(urnFarm != address(0), "LockstakeEngine/missing-selected-farm");
         LockstakeUrn(urn).withdraw(urnFarm, wad);
         emit Withdraw(urn, urnFarm, wad);
     }
 
-    function getReward(address urn, address farm, address to) external urnOwner(urn) {
+    function getReward(address urn, address farm, address to) external urnAuth(urn) {
         uint256 amt = LockstakeUrn(urn).getReward(farm, to);
         emit GetReward(urn, farm, to, amt);
     }

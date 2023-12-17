@@ -1,17 +1,129 @@
-# Saggitarius Lockstake Engine
+# Sagittarius Lockstake Engine
 
-A technical description of the components of the Saggitarius LockStake Engine (SLE).
+A technical description of the components of the Sagittarius LockStake Engine (SLE).
 
 
 ## 1. LockstakeEngine
 
-## 2. NGT wrapper
+The LockstakeEngine is the main contract in the set of contracts that implement and support the SLE. On a high level, it supports locking MKR in the contract, and using it to:
+* Vote through a delegate contract.
+* Farm NST or SDAO tokens.
+* Borrow NST through a vault.
 
-## 3. LockStake Clipper
+When withdrawing back the MKR the user has to pay an exit fee.
 
-## 4. Keepers Support
+**TODO**: is exit fee configurable?
 
-## 5. Splitter
+**System Attributes:**
+
+* A single user address can open multiple positions (each denoted as `urn`).
+* Each `urn` relates to zero or one chosen delegate contract, zero or one chosen farm, and one vault.
+* MKR cannot be moved outside of an `urn` or between `urn`s without paying the exit fee.
+* In case a delegate contract is chosen, the user's entire locked MKR amount is delegated.
+* In case a farm is chosen, the user can choose how much of its MKR credit to deposit for farming.
+* The entire locked MKR amount is also credited as collateral for the user, however the user itself decides if and how much NST to borrow.
+* A user can delegate control of an `urn` that it controls to another EOA/contract.
+
+**User Functions:**
+
+* `open()` - Create a new `urn` for the sender.
+* `hope(address urn, address usr)` - Allow `usr` to also manage the sender's controlled `urn`.
+* `nope(address urn, address usr)` - Disallow `usr` from managing the sender's controlled `urn`.
+* `lock(address urn, uint256 wad)` - Deposit `wad` amount of MKR into the `urn`. This also delegates the newly deposited MKR to the chosen delegate (if such exists).
+* `free(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR, but will require the user to withdraw from the farm and/or pay down debt beforehand if needed.
+* `delegate(address urn, address delegate_)` - Choose which delegate contract to delegate the `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegate.
+* `draw(address urn, uint256 wad)` - Generate `wad` amount of NST using `urn`’s MKR as collateral
+* `wipe(address urn, uint256 wad)` - Repay `wad` amount of NST backed by the `urn`’s MKR.
+* `selectFarm(address urn, address farm)` - Select which farm (from the whitelisted ones) the `urn` will use for depositing its MKR credit (denoted as `stkMKR`).
+* `stake(address urn, uint256 wad, uint16 ref)` - Deposit `wad` amount of `stkMKR` in the previously selected farm.
+* `withdraw(address urn, uint256 wad)` - Withdraw `wad` amount of `stkMKR` previously deposited in the selected farm.
+* `getReward(address urn, address farm, address to)` - Claim the reward generated `urn`'s selected farm and send it to the specified `to` address.
+
+**Liquidation Callbacks:**
+
+The following functions are called from the LockstakeClipper (see below) throughout the liquidation process.
+
+* `onKick(address urn, uint256 wad)` - Withdraw `wad` amount of `stkGov` from the chosen farm and undelegate the same amount of MKR from the chosen `urn`'s delegate. The MKR stays in the current contract until it is taken or returned as leftovers to the `urn`.
+* `onTake(address urn, address who, uint256 wad)` - Transfer MKR to the liquidation auction buyer.
+* `onTakeLeftovers(address urn, uint256 tot, uint256 left)` - Burn a proportional amount of the MKR which was bought in the auction and return the rest to the `urn`. The returned amount is redelegated (but not restaked in the farm).
+* `onYank(address urn, uint256 wad)` - Burns the auction's MKR (in case of an auction cancellation).
+
+
+**Configurable Parameters:**
+
+* `farms` - Whitelisted set of farms to choose from.
+* `jug` - The Dai lending rate calculation module.
+
+Up to date implementation: https://github.com/makerdao/lockstake/commit/fae51fb82c518e1b0cbb238c1a257b2feeaf9982
+
+## 2. LockstakeClipper
+
+A modified version of the Liqidations 2.0 Clipper contract, which uses specific callbacks to the LockstakeEngine on certain events. This follows the same paradigm which was introduced in [proxy-manager-clipper](https://github.com/makerdao/proxy-manager-clipper/blob/67b7b5661c01bb09d771803a2be48f0455cd3bd3/src/ProxyManagerClipper.sol) (used for [dss-crop-join](https://github.com/makerdao/dss-crop-join)).
+
+Specifically, the LockstakeEngine is called upon a beginning of an auction (`LockstakeEngine`), a sell of collateral (`onTake`), when the auction is concluded and collateral leftover should be returned to the vault owner (`onTakeLeftovers`), and upon auction cancellation (`onYank`).
+
+The SLE liquidation process differs from the usual liquidations by the fact that it sends the taker callee the collateral (MKR) in the form of ERC20 tokens and not `vat.gem`.
+
+**Configurable Parameters (similar to a regular Clipper):**
+
+* `dog` - Liquidation module.
+* `vow` - Recipient of DAI raised in auctions.
+* `spotter` - Collateral price module.
+* `calc` - Current price calculator.
+* `buf` - Multiplicative factor to increase starting price.
+* `tail` - Time elapsed before auction reset.
+* `cusp` - Percentage drop before auction reset.
+* `chip` - Percentage of tab to suck from vow to incentivize keepers.
+* `tip` - Flat fee to suck from vow to incentivize keepers.
+* `chost` - Cache the ilk dust times the ilk chop to prevent excessive SLOADs.
+
+Up to date implementation: https://github.com/makerdao/lockstake/commit/fae51fb82c518e1b0cbb238c1a257b2feeaf9982
+
+## 3. LockstakeNGTHandler
+
+As mentioned the LockstakeEngine operates with MKR natively, and is not aware of the existence of NGT. In order to be able to use NGT as a source for LockstakeEngine, a wrapper is created that does the proper conversions on `lock` and `free`. The rest of the LockstakeEngine functions (such as `delegate`, `stake`, etc..) will be accessed directly through the LockstakeEngine contract.
+
+Note that the LockstakeNGTHandler wrapper does not have any special permission in the system, and there are other options to do this (as with DSProxy and ProxyActions). Therefore, advanced users can achieve the same goal also without it. Also, it is technically possible to enter the system using NGT through LockstakeNGTHandler, but exit to MKR without it.
+
+In order to lock NGT through the LockstakeNGTHandler, a user has to:
+
+* `open` an `urn` regularly through the LockstakeEngine.
+* `hope` the LockstakeNGTHandler address using the `urn` on the LockstakeEngine.
+
+Then the user can `lock` NGT through the LockstakeNGTHandler (after approving it on that token contract of course).
+
+User Functions:
+* `lock(urn, ngtWad)` - lock `wad` amount of NGT in the LockstakeEngine's `urn`.
+* `free(urn, ngtWad)` - free `wad` amount of NGT (minus the exit fee) from the LockstakeEngine's `urn`.
+
+Implementation: **TODO**.
+
+## 4. Vote Delegation
+### 5.a. VoteDelegate
+
+The SLE integrates with the current [VoteDelegate](https://github.com/makerdao/vote-delegate/blob/c2345b78376d5b0bb24749a97f82fe9171b53394/src/VoteDelegate.sol) contracts almost as is. However, in order to support long-term locking the delegates expiration functionality needs to be removed.
+
+Implementation: **TODO**.
+
+### 5.b. VoteDelegateFactory
+
+Since the VoteDelegate code is being modified (as described above), the factory also needs to be re-deployed.
+
+Note that it is important for the SLE to only allow using VoteDelegate contracts from the factory, so it can be made sure that liquidations can not be blocked.
+
+Up to date implementation: https://github.com/makerdao/vote-delegate/blob/c2345b78376d5b0bb24749a97f82fe9171b53394/src/VoteDelegateFactory.sol
+
+## 5. Keepers Support
+
+In general participating in MKR liquidations should be pretty straightforward using the existing on-chain liquidity. However there is a small caveat:
+
+Current Makerdao ecosystem keepers expect receiving collateral in the form of `vat.gem` (ususally to a keeper arbitrage callee contract), which they then need to `exit` to ERC20 from. However the SLE liquidation mechanism sends the MKR directly in the form of ERC20, which requires a slight change in the keepers mode of operation.
+
+For example, keepers using the Maker supplied [exchange-callee for Uniswap V2](https://github.com/makerdao/exchange-callees/blob/3b080ecd4169fe09a59be51e2f85ddcea3242461/src/UniswapV2Callee.sol#L109) would need to use a version that gets the `gem` instead of the `gemJoin` and does not call `gemJoin.exit`.
+
+Implementation of exchange callee modifications - **TODO**
+
+## 6. Splitter
 
 The Splitter contract is in charge of distributing the Surplus Buffer funds on each `vow.flap` to the Smart Burn Engine (SBE) and the SLE farm. The total amount sent each time is `vow.bump`.
 
@@ -25,10 +137,9 @@ The Splitter relies on the SBE for rate-limiting, so each distribution will only
 * `flapper` - The underlying burner strategy (e.g. the address of `FlapperUniV2SwapOnly`).
 * `burn` - The percentage of the `vow.bump` to be moved to the underlying `flapper`. For example, a value of 0.70 \* `WAD` corresponds to a funneling 70% of the DAI to the burn engine.
 
-Up to date for: https://github.com/makerdao/dss-flappers/commit/6f73645f020ed9bf82733b1de595537c137d719b
+Up to date implementation: https://github.com/makerdao/dss-flappers/commit/6f73645f020ed9bf82733b1de595537c137d719b
 
-
-## 6. StakingRewards
+## 7. StakingRewards
 
 The SLE uses a Maker modified [version](https://github.com/telome/endgame-toolkit/blob/2d3aa2af6d736ad312f818ba826bf85c5db4d17c/README.md#farms) of the Synthetix Staking Reward as the farm for distributing NST to stakers.
 
@@ -40,10 +151,13 @@ The StakingRewards contract `setDuration` function was modified to enable govern
 * `rewardsDistribution` - The address which is allowed to start a rewards distribution. Will be set to the splitter.
 * `rewardsDuration` - The amount of seconds each distribution should take.
 
-Up to date for: https://github.com/telome/endgame-toolkit/commit/2d3aa2af6d736ad312f818ba826bf85c5db4d17c
+Up to date implementation: https://github.com/telome/endgame-toolkit/commit/2d3aa2af6d736ad312f818ba826bf85c5db4d17c
 
-## 7. Flappers
-### 7.a. FlapperUniV2
+## 8. Flappers
+
+The system supports the following burn engine implementations and can switch between them through a governance spell.
+
+### 8.a. FlapperUniV2
 
 Exposes a `kick` operation to be triggered periodically. Its logic withdraws DAI from the `vow` and buys `gem` tokens on Uniswap v2. The acquired tokens, along with a proportional amount of DAI (saved from the initial withdrawal) are deposited back into the liquidity pool. Finally, the minted LP tokens are sent to a predefined `receiver` address.
 
@@ -56,9 +170,9 @@ The calculations of how much DAI to sell out of `lot` so that the exact proporti
 * `pip` - A reference price oracle, used for bounding the exchange rate of the swap.
 * `want` - Relative multiplier of the reference price to insist on in the swap. For example, a value of 0.98 * `WAD` allows for a 2% worse price than the reference.
 
-Up to date for: https://github.com/makerdao/dss-flappers/commit/78f2ec664ba5ad6de45195ff6fdd68771145a56a
+Up to date implementation: https://github.com/makerdao/dss-flappers/commit/78f2ec664ba5ad6de45195ff6fdd68771145a56a
 
-### 7.b. FlapperUniV2SwapOnly
+### 8.b. FlapperUniV2SwapOnly
 
 Exposes a `kick` operation to be triggered periodically. Its logic withdraws DAI from the `vow` and buys `gem` tokens on Uniswap v2. The acquired tokens are sent to a predefined `receiver` address.
 
@@ -67,10 +181,10 @@ Exposes a `kick` operation to be triggered periodically. Its logic withdraws DAI
 * `pip` - A reference price oracle, used for bounding the exchange rate of the swap.
 * `want` - Relative multiplier of the reference price to insist on in the swap. For example, a value of 0.98 * `WAD` allows for a 2% worse price than the reference.
 
-Up to date for: https://github.com/makerdao/dss-flappers/commit/78f2ec664ba5ad6de45195ff6fdd68771145a56a
+Up to date implementation: https://github.com/makerdao/dss-flappers/commit/78f2ec664ba5ad6de45195ff6fdd68771145a56a
 
-## 8. Sticky Oracle
-### 8.a StickyOracle 
+## 9. Sticky Oracle
+### 9.a. StickyOracle 
 
 The MKR oracle for the SLE vaults has sticky upwards price movement. It works by operating both on a market price measured from the MKR underlying oracle, and a Sticky Price. The Sticky Price is what is actually used for calculating Liquidation Ratio and Soft Liquidation Ratio.
 
@@ -82,27 +196,27 @@ To achieve this behaviour the Sticky oracle always returns the minimum of the un
 
 The `cap` is calculated daily upon permissionless `poke` operations. To calculate it, a TWAP window of a configurable amount of days is used. The TWAP itself is calculated from the daily samples of `cap`. Every time a new `cap` is calculated it cannot grow more than the product of the TWAP calculation and a `slope` parameter (configured to only allow the desired growth rate).
 
-In case a `poke` operation was not done on the current day, or in case a previous sample is missing for the TWAP calculation, the existing `cap` will be used.
+In case a `poke` operation was not done on the current day, or in case a previous sample is missing for the TWAP calculation on `poke`, the previous day's `cap` will be used.
 
 An `init` function is provided for governance to artificially set the `cap` samples of a certain amount of days in the past. This can enhance the current `cap` calculation, as previous samples will not be missing.
 
 **Configurable Parameters:**
 
-`buds` - Whitelisted oracle readers.
-`slope` - Maximum allowable price growth factor from center of TWAP window to now (in `RAY` such that `slope = (1 + {max growth rate}) * RAY`).
-`lo` - How many days ago should the TWAP window start (exclusive), should be more than `hi`.
-`hi` - How many days ago should the TWAP window end (inclusive), should be less than `lo` and more than 0.
+* `buds` - Whitelisted oracle readers.
+* `slope` - Maximum allowable price growth factor from center of * TWAP window to now (in `RAY` such that `slope = (1 + {max growth rate}) * RAY`).
+* `lo` - How many days ago should the TWAP window start (exclusive), should be more than `hi`.
+* `hi` - How many days ago should the TWAP window end (inclusive), should be less than `lo` and more than 0.
 
-Up to date for: https://github.com/makerdao/lockstake/commit/1ed6d987b3ed4bdfa378f3f35f18a01a064a2a43
+Up to date implementation: https://github.com/makerdao/lockstake/commit/1ed6d987b3ed4bdfa378f3f35f18a01a064a2a43
 
-### 8.b Cron Keeper Job
+### 9.b. Cron Keeper Job
 
 For performing `poke` on the Sticky Oracle a simple keeper job contract will be added. Since the `poke` will revert if it was already performed on that certain day, the job can return a     workable status whenever it does not revert.
 
 Implementation - **TODO**
 
-## 9. Debt Ceiling Instant Access Module
-### 9.a DC-IAM-SETTER
+## 10. Debt Ceiling Instant Access Module
+### 10.a. DC-IAM-SETTER
 
 The Debt Ceiling of SLE vaults is determined based on the surplus and reserves owned by the Maker Protocol. The total value of the debt ceiling is adjusted automatically through an algorithm.
 
@@ -115,14 +229,14 @@ The Surplus Buffer amount of DAI can be fetched easily (`vat.dai(vow) - vat.sin(
 
 Implementation - **TODO**
 
-### 9.b Cron Keeper Job
+### 10.b. Cron Keeper Job
 
 For triggering the DC-IAM-SETTER a keeper job contract will be added. It should hold sensitivity thresholds, similarly to how the current autoline job [does](https://github.com/makerdao/dss-cron/blob/ae1300023b5db04851b1e8f926e5b7a59ffd18b0/src/AutoLineJob.sol#L47).
 
 Implementation - **TODO**
 
-## 10. Stability Rate Setter
-### 10.a STABILITY-RATE-SETTER
+## 11. Stability Rate Setter
+### 11.a. STABILITY-RATE-SETTER
 
 Under normal circumstances the Stability Fee of the SLE vaults is equal to the Base Rate. However, when the max debt ceiling is exceeded there needs to be a mechanism for incentivizing wind down.
 
@@ -130,17 +244,17 @@ To achieve this, the STABILITY-RATE-SETTER will increase the stability fee when 
 
 Implementation - **TODO**
 
-### 10.b Cron Keeper Job
+### 11.b. Cron Keeper Job
 
 For triggering the STABILITY-RATE-SETTER a keeper job contract will be added. It should hold sensitivity thresholds, similarly to how the current autoline job [does](https://github.com/makerdao/dss-cron/blob/ae1300023b5db04851b1e8f926e5b7a59ffd18b0/src/AutoLineJob.sol#L47).
 
 Implementation - **TODO**
 
-## 11. Deployment Scripts
+## 12. Deployment Scripts
 
 Implementation - **TODO**
 
-## 12. Formal Verification
+## 13. Formal Verification
 
 Implementation - **TODO**
     

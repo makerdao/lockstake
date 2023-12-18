@@ -17,6 +17,7 @@
 pragma solidity ^0.8.16;
 
 import { LockstakeUrn } from "src/LockstakeUrn.sol";
+import { Multicall } from "src/Multicall.sol";
 
 interface DelegateFactoryLike {
     function gov() external view returns (GemLike);
@@ -55,7 +56,7 @@ interface JugLike {
     function drip(bytes32) external returns (uint256);
 }
 
-contract LockstakeEngine {
+contract LockstakeEngine is Multicall {
     // --- storage variables ---
 
     mapping(address => uint256)                     public wards;        // usr => 1 == access
@@ -192,7 +193,6 @@ contract LockstakeEngine {
     function isUrnAuth(address urn, address usr) external view returns (bool ok) {
         ok = _urnAuth(urn, usr);
     }
-
     // --- urn/delegation functions ---
 
     function open() external returns (address urn) {

@@ -431,6 +431,20 @@ contract AllocatorVaultTest is DssTest {
         assertEq(farm.balanceOf(address(urn)), 45_000 * 10**18);
     }
 
+    function testOpenLockStakeMulticall() public {
+        vm.prank(pauseProxy); engine.addFarm(address(farm));
+        gov.approve(address(engine), 100_000 * 10**18);
+
+        address urn = engine.getUrn(address(this), 0);
+
+        bytes[] memory callsToExecute = new bytes[](4);
+        callsToExecute[0] = abi.encodeWithSignature("open()");
+        callsToExecute[1] = abi.encodeWithSignature("lock(address,uint256)", urn, 100_000 * 10**18);
+        callsToExecute[2] = abi.encodeWithSignature("selectFarm(address,address)", urn, address(farm));
+        callsToExecute[3] = abi.encodeWithSignature("stake(address,uint256,uint16)", urn, 100_000 * 10**18, 1);
+        engine.multicall(callsToExecute);
+    }
+
     function testGetReward() public {
         vm.prank(pauseProxy); engine.addFarm(address(farm));
         address urn = engine.open();

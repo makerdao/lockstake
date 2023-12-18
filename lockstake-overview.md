@@ -39,6 +39,40 @@ When withdrawing back the MKR the user has to pay an exit fee.
 * `withdraw(address urn, uint256 wad)` - Withdraw `wad` amount of `stkMKR` previously deposited in the selected farm.
 * `getReward(address urn, address farm, address to)` - Claim the reward generated `urn`'s selected farm and send it to the specified `to` address.
 
+**Sequence Diagram:**
+
+Below is a diagram of a typical user sequence for winding up an SLE position.
+
+For simplicity it does not include all external messages, internal operations or token interactions.
+
+```mermaid
+sequenceDiagram
+	Actor user
+    participant engine
+    participant urn0
+    participant delegate0
+    participant farm0
+    participant vat
+    
+    user->>engine: open()
+    engine-->>urn0: (creation)
+    engine-->>user: return `urn0` address
+       
+    user->>engine: lock(`urn0`, 10)
+    
+    user->>engine: delegate(`urn0`, `delegate0`)
+    engine-->>delegate0: lock(10)
+    
+    user->>engine: selectFarm(`farm0`)
+    
+    user->>engine: stake(`urn0`, 10, 0)
+    engine-->>urn0: stake(`farm0`, 10, 0)
+    urn0-->>farm0: stake(100, 0);
+       
+    user->>engine: draw(`urn0`, 1000)
+    engine->>vat: frob(`ilk`, `urn0`, ...);
+```
+
 **Liquidation Callbacks:**
 
 The following functions are called from the LockstakeClipper (see below) throughout the liquidation process.
@@ -60,7 +94,7 @@ Up to date implementation: https://github.com/makerdao/lockstake/commit/fae51fb8
 
 A modified version of the Liqidations 2.0 Clipper contract, which uses specific callbacks to the LockstakeEngine on certain events. This follows the same paradigm which was introduced in [proxy-manager-clipper](https://github.com/makerdao/proxy-manager-clipper/blob/67b7b5661c01bb09d771803a2be48f0455cd3bd3/src/ProxyManagerClipper.sol) (used for [dss-crop-join](https://github.com/makerdao/dss-crop-join)).
 
-Specifically, the LockstakeEngine is called upon a beginning of an auction (`LockstakeEngine`), a sell of collateral (`onTake`), when the auction is concluded and collateral leftover should be returned to the vault owner (`onTakeLeftovers`), and upon auction cancellation (`onYank`).
+Specifically, the LockstakeEngine is called upon a beginning of an auction (`onKick`), a sell of collateral (`onTake`), when the auction is concluded and collateral leftover should be returned to the vault owner (`onTakeLeftovers`), and upon auction cancellation (`onYank`).
 
 The SLE liquidation process differs from the usual liquidations by the fact that it sends the taker callee the collateral (MKR) in the form of ERC20 tokens and not `vat.gem`.
 
@@ -92,9 +126,34 @@ In order to lock NGT through the LockstakeNGTHandler, a user has to:
 
 Then the user can `lock` NGT through the LockstakeNGTHandler (after approving it on that token contract of course).
 
-User Functions:
+**User Functions:**
 * `lock(urn, ngtWad)` - lock `wad` amount of NGT in the LockstakeEngine's `urn`.
 * `free(urn, ngtWad)` - free `wad` amount of NGT (minus the exit fee) from the LockstakeEngine's `urn`.
+
+**Sequence Diagram:**
+
+Below is a diagram of a typical user sequence for winding up an SLE position, up untill the lock phase, through the LockstakeNGTHandler.
+
+For simplicity it does not include all external messages, internal operations or token interactions. It assumes a 1:25000 conversion rate.
+
+```mermaid
+sequenceDiagram
+	Actor user
+    participant ngtHandler
+    participant mkrNgt
+    participant engine
+    participant urn0
+    
+    user->>engine: open()
+    engine-->>urn0: (creation)
+    engine-->>user: return `urn0` address
+    
+    user->>engine: hope(`urn0`, ngtHandler)      
+    
+    user->>ngtHandler: lock(`urn0`, 250000)   
+    ngtHandler-->mkrNgt: ngtToMkr(address(this), 250000)
+    ngtHandler-->engine: lock(`urn0`, 10)
+```
 
 Implementation: **TODO**.
 
@@ -194,11 +253,35 @@ When the real price is above the Sticky Price, the Sticky Price adjusts upwards 
 
 To achieve this behaviour the Sticky oracle always returns the minimum of the underlying oracle (`pip.read()`) and a `cap` storage variable.
 
-The `cap` is calculated daily upon permissionless `poke` operations. To calculate it, a TWAP window of a configurable amount of days is used. The TWAP itself is calculated from the daily samples of `cap`. Every time a new `cap` is calculated it cannot grow more than the product of the TWAP calculation and a `slope` parameter (configured to only allow the desired growth rate).
+The `cap` is stored daily (upon `poke` operations). It is calculated from the product of a TWAP calculation and a `slope` parameter (configured to only allow the desired growth rate). The TWAP itself is based on daily samples of the sticky price (performed during `poke` as well), and has a configureable window of days.
 
 In case a `poke` operation was not done on the current day, or in case a previous sample is missing for the TWAP calculation on `poke`, the previous day's `cap` will be used.
 
-An `init` function is provided for governance to artificially set the `cap` samples of a certain amount of days in the past. This can enhance the current `cap` calculation, as previous samples will not be missing.
+An `init` function is provided for governance to artificially set the sticky prices samples of a certain amount of days in the past. This can enhance the current `cap` calculation, as previous samples will not be missing.
+
+**Example:**
+
+Below is a simple example of the sticky oracle mechanics for a TWAP window of 3 days, and an effective slope of 105%.
+We can see that although the MKR oracle price is fixed at 1080, the sticky price grows at a controlled rate since it is bounded by the `cap`. Once the `cap` outgrows the MKR oracle price, the MKR oracle price is used as the sticky price.
+
+```
+
+days:         d0 -------- d1 -------- d2 -------- d3 -------- d4 -------- d5
+
+MKR oracle:   ----------------------------------- 1080 ------ 1080 ------ 1080
+
+TWAP window:  ----------------------------------- d0->d3 ---- d1->d4 ---- d2->d5
+
+TWAP(sticky): ----------------------------------- 1000 ------ 1016 ------ 1038
+
+cap:          ----------------------------------- 1050 ------ 1066 ------ 1089
+
+sticky price: 1000 ------ 1000 ------ 1000 ------ 1050 ------ 1066 ------ 1080
+
+
+```
+
+
 
 **Configurable Parameters:**
 

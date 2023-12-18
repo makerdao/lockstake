@@ -11,6 +11,7 @@ import { GemMock } from "test/mocks/GemMock.sol";
 import { NstMock } from "test/mocks/NstMock.sol";
 import { NstJoinMock } from "test/mocks/NstJoinMock.sol";
 import { StakingRewardsMock } from "test/mocks/StakingRewardsMock.sol";
+import { MkrNgtMock } from "test/mocks/MkrNgtMock.sol";
 
 interface ChainlogLike {
     function getAddress(bytes32) external view returns (address);
@@ -72,6 +73,7 @@ contract AllocatorVaultTest is DssTest {
     GemMock             public stkGov;
     GemMock             public rTok;
     StakingRewardsMock  public farm;
+    MkrNgtMock          public mkrNgt;
     bytes32             public ilk = "LSE";
     address             public voter;
     address             public voterDelegate;
@@ -114,6 +116,7 @@ contract AllocatorVaultTest is DssTest {
         stkGov = new GemMock(0);
         rTok = new GemMock(0);
         farm = new StakingRewardsMock(address(rTok), address(stkGov));
+        mkrNgt = new MkrNgtMock(address(0), address(0), 0); // TODO: set real values
 
         pip = new PipMock();
         delFactory = new DelegateFactoryMock(address(gov));
@@ -121,7 +124,7 @@ contract AllocatorVaultTest is DssTest {
         vm.prank(voter); voterDelegate = delFactory.create();
 
         vm.startPrank(pauseProxy);
-        engine = new LockstakeEngine(address(delFactory), address(nstJoin), ilk, address(stkGov), 15 * WAD / 100);
+        engine = new LockstakeEngine(address(delFactory), address(nstJoin), ilk, address(stkGov), 15 * WAD / 100, address(mkrNgt));
         engine.file("jug", jug);
         VatLike(vat).rely(address(engine));
         VatLike(vat).init(ilk);

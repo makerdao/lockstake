@@ -56,6 +56,13 @@ interface JugLike {
     function drip(bytes32) external returns (uint256);
 }
 
+interface MkrNgtLike {
+    function rate() external view returns (uint256);
+    function ngt() external view returns (address);
+    function ngtToMkr(address, uint256) external;
+    function mkrToNgt(address, uint256) external;
+}
+
 contract LockstakeEngine is Multicall {
     // --- storage variables ---
 
@@ -83,6 +90,9 @@ contract LockstakeEngine is Multicall {
     GemLike             immutable public gov;
     GemLike             immutable public stkGov;
     uint256             immutable public fee;
+    MkrNgtLike          immutable public mkrNgt;
+    GemLike             immutable public ngt;
+    uint256             immutable public mkrNgtRate;
 
     // --- events ---   
 
@@ -122,7 +132,7 @@ contract LockstakeEngine is Multicall {
 
     // --- constructor ---
 
-    constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address stkGov_, uint256 fee_) {
+    constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address stkGov_, uint256 fee_, address mkrNgt_) {
         delegateFactory = DelegateFactoryLike(delegateFactory_);
         nstJoin = NstJoinLike(nstJoin_);
         vat = nstJoin.vat();
@@ -133,6 +143,10 @@ contract LockstakeEngine is Multicall {
         fee = fee_;
         nst.approve(nstJoin_, type(uint256).max);
         vat.hope(nstJoin_);
+        mkrNgt = MkrNgtLike(mkrNgt_);
+        ngt = GemLike(mkrNgt.ngt());
+        mkrNgtRate = mkrNgt.rate();
+
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
@@ -212,9 +226,20 @@ contract LockstakeEngine is Multicall {
         emit Nope(urn, usr);
     }
 
+    function lockNgt(address urn, uint256 ngtWad) external urnAuth(urn) {
+        ngt.transferFrom(msg.sender, address(this), ngtWad);
+        ngt.approve(address(mkrNgt), ngtWad);
+        mkrNgt.ngtToMkr(address(this), ngtWad);
+        _lock(urn, ngtWad / mkrNgtRate);
+    }
+
     function lock(address urn, uint256 wad) external urnAuth(urn) {
-        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         gov.transferFrom(msg.sender, address(this), wad);
+        _lock(urn, wad);
+    }
+
+    function _lock(address urn, uint256 wad) internal {
+        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         address delegate_ = urnDelegates[urn];
         if (delegate_ != address(0)) {
             gov.approve(address(delegate_), wad);
@@ -228,7 +253,19 @@ contract LockstakeEngine is Multicall {
         emit Lock(urn, wad);
     }
 
+    function freeNgt(address urn, address to, uint256 ngtWad) external urnAuth(urn) {
+        uint256 freed = _free(urn, ngtWad / mkrNgtRate);
+        gov.approve(address(mkrNgt), freed);
+        mkrNgt.mkrToNgt(address(this), freed);
+        ngt.transfer(to, freed * mkrNgtRate);
+    }
+
     function free(address urn, address to, uint256 wad) external urnAuth(urn) {
+        uint256 freed = _free(urn, wad);
+        gov.transfer(to, freed);
+    }
+
+    function _free(address urn, uint256 wad) internal returns (uint256 freed) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         stkGov.burn(urn, wad);
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
@@ -238,9 +275,12 @@ contract LockstakeEngine is Multicall {
             DelegateLike(delegate_).free(wad);
         }
         uint256 burn = wad * fee / WAD;
-        gov.transfer(to, wad - burn);
         gov.burn(address(this), burn);
-        emit Free(urn, to, wad, burn);
+
+        //emit Free(urn, to, wad, burn);
+        emit Free(urn, address(0), wad, burn); // TODO: handle the event/s nicely
+
+        freed = wad - burn;
     }
 
     function delegate(address urn, address delegate_) external urnAuth(urn) {

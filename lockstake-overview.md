@@ -151,8 +151,8 @@ sequenceDiagram
     user->>engine: hope(`urn0`, ngtHandler)      
     
     user->>ngtHandler: lock(`urn0`, 250000)   
-    ngtHandler-->mkrNgt: ngtToMkr(address(this), 250000)
-    ngtHandler-->engine: lock(`urn0`, 10)
+    ngtHandler-->>mkrNgt: ngtToMkr(address(this), 250000)
+    ngtHandler-->>engine: lock(`urn0`, 10)
 ```
 
 Implementation: **TODO**.
@@ -261,22 +261,25 @@ An `init` function is provided for governance to artificially set the sticky pri
 
 **Example:**
 
-Below is a simple example of the sticky oracle mechanics for a TWAP window of 3 days, and an effective slope of 105%.
+Below is a simple example of the sticky oracle mechanics for a TWAP window of 3 days, and an effective slope of 105%. It assumes there has been an initiation period of 3 days (d0-d3) for a price of 1000.
+
+On each day `TWAP(sticky)` is calculated based on the `sticky samples` of the last 3 days (`TWAP window`). Then `cap` is calculated by multiplying `TWAP(sticky)` by 1.05. Finally, the curent day's sticky sample is updated as `min(cap, MKR oracle)`.
+
 We can see that although the MKR oracle price is fixed at 1080, the sticky price grows at a controlled rate since it is bounded by the `cap`. Once the `cap` outgrows the MKR oracle price, the MKR oracle price is used as the sticky price.
 
 ```
 
-days:         d0 -------- d1 -------- d2 -------- d3 -------- d4 -------- d5
+days:           d0 -------- d1 -------- d2 -------- d3 -------- d4 -------- d5
 
-MKR oracle:   ----------------------------------- 1080 ------ 1080 ------ 1080
+MKR oracle:     ----------------------------------- 1080 ------ 1080 ------ 1080
 
-TWAP window:  ----------------------------------- d0->d3 ---- d1->d4 ---- d2->d5
+TWAP window:    ----------------------------------- d0->d3 ---- d1->d4 ---- d2->d5
 
-TWAP(sticky): ----------------------------------- 1000 ------ 1016 ------ 1038
+TWAP(sticky):   ----------------------------------- 1000 ------ 1016 ------ 1038
 
-cap:          ----------------------------------- 1050 ------ 1066 ------ 1089
+cap:            ----------------------------------- 1050 ------ 1066 ------ 1089
 
-sticky price: 1000 ------ 1000 ------ 1000 ------ 1050 ------ 1066 ------ 1080
+sticky samples: 1000 ------ 1000 ------ 1000 ------ 1050 ------ 1066 ------ 1080
 
 
 ```

@@ -211,11 +211,11 @@ contract AllocatorVaultTest is DssTest {
         address urn = engine.getUrn(address(this), 0);
         vm.expectEmit(true, true, true, true);
         emit Open(address(this), urn);
-        assertEq(engine.open(), urn);
+        assertEq(engine.open(0), urn);
         assertEq(engine.usrAmts(address(this)), 1);
-        assertEq(engine.getUrn(address(this), 1), engine.open());
+        assertEq(engine.getUrn(address(this), 1), engine.open(1));
         assertEq(engine.usrAmts(address(this)), 2);
-        assertEq(engine.getUrn(address(this), 2), engine.open());
+        assertEq(engine.getUrn(address(this), 2), engine.open(2));
         assertEq(engine.usrAmts(address(this)), 3);
     }
 
@@ -225,7 +225,7 @@ contract AllocatorVaultTest is DssTest {
         vm.prank(pauseProxy); engine.addFarm(address(farm));
         gov.transfer(urnAuthed, 100_000 * 10**18);
         vm.startPrank(urnOwner);
-        address urn = engine.open();
+        address urn = engine.open(0);
         assertTrue(engine.isUrnAuth(urn, urnOwner));
         assertTrue(!engine.isUrnAuth(urn, urnAuthed));
         assertEq(engine.urnCan(urn, urnAuthed), 0);
@@ -257,10 +257,13 @@ contract AllocatorVaultTest is DssTest {
 
     function _testLockFree(bool withDelegate) internal {
         uint256 initialSupply = gov.totalSupply();
-        assertEq(gov.balanceOf(address(this)), 100_000 * 10**18);
-        address urn = engine.open();
+        address urn = engine.open(0);
+        deal(address(gov), address(this), uint256(type(int256).max) + 1); // deal gov to allow reaching the overflow revert
+        gov.approve(address(engine), uint256(type(int256).max) + 1);
         vm.expectRevert("LockstakeEngine/wad-overflow");
         engine.lock(urn, uint256(type(int256).max) + 1);
+        deal(address(gov), address(this), 100_000 * 10**18); // back to normal gov balance and allowance
+        gov.approve(address(engine), 100_000 * 10**18);
         vm.expectRevert("LockstakeEngine/wad-overflow");
         engine.free(urn, address(this), uint256(type(int256).max) + 1);
         if (withDelegate) {
@@ -312,7 +315,7 @@ contract AllocatorVaultTest is DssTest {
     }
 
     function testDelegate() public {
-        address urn = engine.open();
+        address urn = engine.open(0);
         vm.expectRevert("LockstakeEngine/not-valid-delegate");
         engine.delegate(urn, address(111));
         engine.delegate(urn, voterDelegate);
@@ -345,7 +348,7 @@ contract AllocatorVaultTest is DssTest {
 
     function testDrawWipe() public {
         deal(address(gov), address(this), 100_000 * 10**18, true);
-        address urn = engine.open();
+        address urn = engine.open(0);
         gov.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
         assertEq(_art(ilk, urn), 0);
@@ -383,7 +386,7 @@ contract AllocatorVaultTest is DssTest {
 
     function testSelectFarm() public {
         StakingRewardsMock farm2 = new StakingRewardsMock(address(rTok), address(stkGov));
-        address urn = engine.open();
+        address urn = engine.open(0);
         assertEq(engine.urnFarms(urn), address(0));
         vm.expectRevert("LockstakeEngine/non-existing-farm");
         engine.selectFarm(urn, address(farm));
@@ -406,7 +409,7 @@ contract AllocatorVaultTest is DssTest {
 
     function testStakeWithdraw() public {
         vm.prank(pauseProxy); engine.addFarm(address(farm));
-        address urn = engine.open();
+        address urn = engine.open(0);
         gov.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18);
         vm.expectRevert("LockstakeEngine/missing-selected-farm");
@@ -441,7 +444,7 @@ contract AllocatorVaultTest is DssTest {
         address urn = engine.getUrn(address(this), 0);
 
         bytes[] memory callsToExecute = new bytes[](4);
-        callsToExecute[0] = abi.encodeWithSignature("open()");
+        callsToExecute[0] = abi.encodeWithSignature("open(uint256)", 0);
         callsToExecute[1] = abi.encodeWithSignature("lock(address,uint256)", urn, 100_000 * 10**18);
         callsToExecute[2] = abi.encodeWithSignature("selectFarm(address,address)", urn, address(farm));
         callsToExecute[3] = abi.encodeWithSignature("stake(address,uint256,uint16)", urn, 100_000 * 10**18, 1);
@@ -450,7 +453,7 @@ contract AllocatorVaultTest is DssTest {
 
     function testGetReward() public {
         vm.prank(pauseProxy); engine.addFarm(address(farm));
-        address urn = engine.open();
+        address urn = engine.open(0);
         farm.setReward(address(urn), 20_000);
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(this)), 0);
         vm.expectEmit(true, true, true, true);
@@ -481,7 +484,7 @@ contract AllocatorVaultTest is DssTest {
         DogLike(dog).file(ilk, "hole", 10_000 * 10**45);
         vm.stopPrank();
 
-        urn = engine.open();
+        urn = engine.open(0);
         if (withDelegate) {
             engine.delegate(urn, voterDelegate);
         }

@@ -211,8 +211,9 @@ contract LockstakeEngine is Multicall {
     }
     // --- urn/delegation functions ---
 
-    function open() external returns (address urn) {
-        bytes32 salt = keccak256(abi.encode(msg.sender, usrAmts[msg.sender]++));
+    function open(uint256 index) external returns (address urn) {
+        require(index == usrAmts[msg.sender]++, "LockstakeEngine/urn-already-opened");
+        bytes32 salt = keccak256(abi.encode(msg.sender, index));
         urn = address(new LockstakeUrn{salt: salt}(address(vat), address(stkGov)));
         urnOwners[urn] = msg.sender;
         emit Open(msg.sender, urn);

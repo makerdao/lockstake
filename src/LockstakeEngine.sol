@@ -193,7 +193,7 @@ contract LockstakeEngine {
         ok = _urnAuth(urn, usr);
     }
 
-    // --- urn/delegation functions ---
+    // --- urn management functions ---
 
     function open() external returns (address urn) {
         bytes32 salt = keccak256(abi.encode(msg.sender, usrAmts[msg.sender]++));
@@ -212,7 +212,9 @@ contract LockstakeEngine {
         emit Nope(urn, usr);
     }
 
-    function lock(address urn, uint256 wad) external urnAuth(urn) {
+    // --- delegation/staking functions ---
+
+    function lock(address urn, uint256 wad, uint16 ref) external urnAuth(urn) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         gov.transferFrom(msg.sender, address(this), wad);
         address delegate_ = urnDelegates[urn];
@@ -225,11 +227,20 @@ contract LockstakeEngine {
         vat.slip(ilk, urn, int256(wad));
         vat.frob(ilk, urn, urn, address(0), int256(wad), 0);
         stkGov.mint(urn, wad);
+        address urnFarm = urnFarms[urn];
+        if (urnFarm != address(0)) {
+            require(farms[urnFarm] == 1, "Lockstake/farm-not-whitelisted-anymore");
+            LockstakeUrn(urn).stake(urnFarm, wad, ref);
+        }
         emit Lock(urn, wad);
     }
 
     function free(address urn, address to, uint256 wad) external urnAuth(urn) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
+        address urnFarm = urnFarms[urn];
+        if (urnFarm != address(0)) {
+            LockstakeUrn(urn).withdraw(urnFarm, wad);
+        }
         stkGov.burn(urn, wad);
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
@@ -243,22 +254,41 @@ contract LockstakeEngine {
         emit Free(urn, to, wad, burn);
     }
 
-    function delegate(address urn, address delegate_) external urnAuth(urn) {
-        require(delegate_ == address(0) || delegateFactory.isDelegate(delegate_) == 1, "LockstakeEngine/not-valid-delegate");
+    function selectDelegate(address urn, address delegate) external urnAuth(urn) {
+        require(delegate == address(0) || delegateFactory.isDelegate(delegate) == 1, "LockstakeEngine/not-valid-delegate");
         address prevDelegate = urnDelegates[urn];
-        require(prevDelegate != delegate_, "LockstakeEngine/same-delegate");
+        require(prevDelegate != delegate, "LockstakeEngine/same-delegate");
         (uint256 wad,) = vat.urns(ilk, urn);
         if (wad > 0) {
             if (prevDelegate != address(0)) {
                 DelegateLike(prevDelegate).free(wad);
             }
-            if (delegate_ != address(0)) {
-                gov.approve(address(delegate_), wad);
-                DelegateLike(delegate_).lock(wad);
+            if (delegate != address(0)) {
+                gov.approve(address(delegate), wad);
+                DelegateLike(delegate).lock(wad);
             }
         }
-        urnDelegates[urn] = delegate_;
-        emit Delegate(urn, delegate_);
+        urnDelegates[urn] = delegate;
+        emit Delegate(urn, delegate);
+    }
+
+    function selectFarm(address urn, address farm, uint16 ref) external urnAuth(urn) {
+        require(farm == address(0) || farms[farm] == 1, "LockstakeEngine/non-existing-farm");
+        address prevUrnFarm = urnFarms[urn];
+        uint256 balance;
+        if (prevUrnFarm != address(0)) {
+            balance = GemLike(prevUrnFarm).balanceOf(address(urn));
+            if (balance > 0) {
+                LockstakeUrn(urn).withdraw(prevUrnFarm, balance);
+            }
+        } else {
+            balance = stkGov.balanceOf(urn);
+        }
+        if (farm != address(0) && balance > 0) {
+            LockstakeUrn(urn).stake(farm, balance, ref);
+        }
+        urnFarms[urn] = farm;
+        emit SelectFarm(urn, farm);
     }
 
     // --- loan functions ---
@@ -282,30 +312,7 @@ contract LockstakeEngine {
         emit Wipe(urn, wad);
     }
 
-    // --- staking functions ---
-
-    function selectFarm(address urn, address farm) external urnAuth(urn) {
-        require(farms[farm] == 1, "LockstakeEngine/non-existing-farm");
-        address urnFarm = urnFarms[urn];
-        require(urnFarm == address(0) || GemLike(urnFarm).balanceOf(address(urn)) == 0, "LockstakeEngine/withdraw-first");
-        urnFarms[urn] = farm;
-        emit SelectFarm(urn, farm);
-    }
-
-    function stake(address urn, uint256 wad, uint16 ref) external urnAuth(urn) {
-        address urnFarm = urnFarms[urn];
-        require(urnFarm != address(0), "LockstakeEngine/missing-selected-farm");
-        require(farms[urnFarm] == 1, "LockstakeEngine/selected-farm-not-available-anymore");
-        LockstakeUrn(urn).stake(urnFarm, wad, ref);
-        emit Stake(urn, urnFarm, wad, ref);
-    }
-
-    function withdraw(address urn, uint256 wad) external urnAuth(urn) {
-        address urnFarm = urnFarms[urn];
-        require(urnFarm != address(0), "LockstakeEngine/missing-selected-farm");
-        LockstakeUrn(urn).withdraw(urnFarm, wad);
-        emit Withdraw(urn, urnFarm, wad);
-    }
+    // --- staking rewards function ---
 
     function getReward(address urn, address farm, address to) external urnAuth(urn) {
         uint256 amt = LockstakeUrn(urn).getReward(farm, to);
@@ -316,11 +323,8 @@ contract LockstakeEngine {
 
     function onKick(address urn, uint256 wad) external auth {
         address urnFarm = urnFarms[urn];
-        if (urnFarm != address(0)){
-            uint256 freed = GemLike(stkGov).balanceOf(address(urn));
-            if (wad > freed) {
-                LockstakeUrn(urn).withdraw(urnFarm, wad - freed);
-            }
+        if (urnFarm != address(0)) {
+            LockstakeUrn(urn).withdraw(urnFarm, wad);
         }
         stkGov.burn(urn, wad); // Burn the whole liquidated amount of staking token
         address delegate_ = urnDelegates[urn];
@@ -354,6 +358,10 @@ contract LockstakeEngine {
             vat.slip(ilk, urn, int256(left));
             vat.frob(ilk, urn, urn, address(0), int256(left), 0);
             stkGov.mint(urn, left);
+            address urnFarm = urnFarms[urn];
+            if (urnFarm != address(0)) { // TODO: here it's complicated to check farms[urnFarm] == 1 as we can't revert nor we want to mint without staking due to current assumptions
+                LockstakeUrn(urn).stake(urnFarm, left, 0);
+            }
         }
         emit OnTakeLeftovers(urn, tot, left, burn);
     }

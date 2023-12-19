@@ -12,15 +12,13 @@ The LockstakeEngine is the main contract in the set of contracts that implement 
 
 When withdrawing back the MKR the user has to pay an exit fee.
 
-**TODO**: is exit fee configurable?
-
 **System Attributes:**
 
 * A single user address can open multiple positions (each denoted as `urn`).
 * Each `urn` relates to zero or one chosen delegate contract, zero or one chosen farm, and one vault.
 * MKR cannot be moved outside of an `urn` or between `urn`s without paying the exit fee.
 * In case a delegate contract is chosen, the user's entire locked MKR amount is delegated.
-* In case a farm is chosen, the user can choose how much of its MKR credit to deposit for farming.
+* In case a farm is chosen, the user can choose how much of its MKR credit to stake for farming.
 * The entire locked MKR amount is also credited as collateral for the user, however the user itself decides if and how much NST to borrow.
 * A user can delegate control of an `urn` that it controls to another EOA/contract.
 
@@ -87,6 +85,8 @@ The following functions are called from the LockstakeClipper (see below) through
 
 * `farms` - Whitelisted set of farms to choose from.
 * `jug` - The Dai lending rate calculation module.
+
+**TODO**: is exit fee configurable?
 
 Up to date implementation: https://github.com/makerdao/lockstake/commit/fae51fb82c518e1b0cbb238c1a257b2feeaf9982
 
@@ -200,17 +200,17 @@ Up to date implementation: https://github.com/makerdao/dss-flappers/commit/6f736
 
 ## 7. StakingRewards
 
-The SLE uses a Maker modified [version](https://github.com/telome/endgame-toolkit/blob/2d3aa2af6d736ad312f818ba826bf85c5db4d17c/README.md#farms) of the Synthetix Staking Reward as the farm for distributing NST to stakers.
+The SLE uses a Maker modified [version](https://github.com/makerdao/endgame-toolkit/blob/master/README.md#stakingrewards) of the Synthetix Staking Reward as the farm for distributing NST to stakers.
 
 For compatibility with the SBE, the assumption is that the duration of each farming distribution (`farm.duration`) is similar to the flapper's cooldown period (`flap.hop`). This in practice divides the overall farming reward distribution to a set of smaller non overlapping distributions. It also allows for periods where there is no distribution at all.
 
-The StakingRewards contract `setDuration` function was modified to enable governance to change the farming distribution duration even if the previous distribution was not done. This now supports changing it simultaneously with the SBE cooldown period (through a governance spell).
+The StakingRewards contract `setRewardsDuration` function was modified to enable governance to change the farming distribution duration even if the previous distribution has not finished. This now supports changing it simultaneously with the SBE cooldown period (through a governance spell).
 
 **Configurable Parameters:**
 * `rewardsDistribution` - The address which is allowed to start a rewards distribution. Will be set to the splitter.
 * `rewardsDuration` - The amount of seconds each distribution should take.
 
-Up to date implementation: https://github.com/telome/endgame-toolkit/commit/2d3aa2af6d736ad312f818ba826bf85c5db4d17c
+Up to date implementation: https://github.com/makerdao/endgame-toolkit/commit/1a857ee888d859b3b08e52ee12f721d1f3ce80c6
 
 ## 8. Flappers
 
@@ -245,7 +245,7 @@ Up to date implementation: https://github.com/makerdao/dss-flappers/commit/78f2e
 ## 9. Sticky Oracle
 ### 9.a. StickyOracle 
 
-The MKR oracle for the SLE vaults has sticky upwards price movement. It works by operating both on a market price measured from the MKR underlying oracle, and a Sticky Price. The Sticky Price is what is actually used for calculating Liquidation Ratio and Soft Liquidation Ratio.
+The MKR oracle for the SLE vaults has sticky upwards price movement. It works by operating both on a market price measured from the MKR underlying oracle, and a Sticky Price. The Sticky Price is what is actually used for calculating the Liquidation Ratio.
 
 Whenever the real price is below the Sticky Price, the Sticky Price instantly adjusts down to be equal to the real price.
 
@@ -257,13 +257,13 @@ The `cap` is stored daily (upon `poke` operations). It is calculated from the pr
 
 In case a `poke` operation was not done on the current day, or in case a previous sample is missing for the TWAP calculation on `poke`, the previous day's `cap` will be used.
 
-An `init` function is provided for governance to artificially set the sticky prices samples of a certain amount of days in the past. This can enhance the current `cap` calculation, as previous samples will not be missing.
+An `init` function is provided to initiate the oracle and for governance to artificially set the sticky price samples of a certain amount of days in the past (in case it desires). The setting of past samples can enhance the current `cap` calculation, as these samples will not be missing from the TWAP computation.
 
 **Example:**
 
 Below is a simple example of the sticky oracle mechanics for a TWAP window of 3 days, and an effective slope of 105%. It assumes there has been an initiation period of 3 days (d0-d3) for a price of 1000.
 
-On each day `TWAP(sticky)` is calculated based on the `sticky samples` of the last 3 days (`TWAP window`). Then `cap` is calculated by multiplying `TWAP(sticky)` by 1.05. Finally, the curent day's sticky sample is updated as `min(cap, MKR oracle)`.
+On each day `TWAP(sticky)` is calculated based on the `sticky samples` of the last 3 days (`TWAP window`). Then `cap` is calculated by multiplying `TWAP(sticky)` by 1.05. Finally, the current day's sticky sample is updated as `min(cap, MKR oracle)`.
 
 We can see that although the MKR oracle price is fixed at 1080, the sticky price grows at a controlled rate since it is bounded by the `cap`. Once the `cap` outgrows the MKR oracle price, the MKR oracle price is used as the sticky price.
 
@@ -284,8 +284,6 @@ sticky samples: 1000 ------ 1000 ------ 1000 ------ 1050 ------ 1066 ------ 1080
 
 ```
 
-
-
 **Configurable Parameters:**
 
 * `buds` - Whitelisted oracle readers.
@@ -297,7 +295,7 @@ Up to date implementation: https://github.com/makerdao/lockstake/commit/1ed6d987
 
 ### 9.b. Cron Keeper Job
 
-For performing `poke` on the Sticky Oracle a simple keeper job contract will be added. Since the `poke` will revert if it was already performed on that certain day, the job can return a     workable status whenever it does not revert.
+For performing `poke` on the Sticky Oracle a simple keeper job contract will be added. Since the `poke` will revert if it was already performed on that certain day, the job can return a workable status whenever it does not revert.
 
 Implementation - **TODO**
 
@@ -326,7 +324,7 @@ Implementation - **TODO**
 
 Under normal circumstances the Stability Fee of the SLE vaults is equal to the Base Rate. However, when the max debt ceiling is exceeded there needs to be a mechanism for incentivizing wind down.
 
-To achieve this, the STABILITY-RATE-SETTER will increase the stability fee when such a situation takes place, and will allow returning to the base rate once the max debt ceiling has again been reach.
+To achieve this, the STABILITY-RATE-SETTER will increase the stability fee when such a situation takes place, and will allow returning to the Base Rate once the max debt ceiling has again been reached.
 
 Implementation - **TODO**
 
@@ -345,7 +343,7 @@ Implementation - **TODO**
 Implementation - **TODO**
     
 ## General Notes
-* In many of the modules, such as the splitter and the flappers, NGT can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.
+* In many of the modules, such as the splitter and the flappers, NST can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.
 * The SLE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.
 
 

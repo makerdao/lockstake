@@ -105,7 +105,9 @@ contract LockstakeEngine is Multicall {
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
     event Delegate(address indexed urn, address indexed delegate);
+    event LockNgt(address indexed urn, uint256 ngtWad);
     event Lock(address indexed urn, uint256 wad);
+    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
@@ -231,11 +233,15 @@ contract LockstakeEngine is Multicall {
         ngt.approve(address(mkrNgt), ngtWad);
         mkrNgt.ngtToMkr(address(this), ngtWad);
         _lock(urn, ngtWad / mkrNgtRate);
+
+        emit LockNgt(urn, ngtWad);
     }
 
     function lock(address urn, uint256 wad) external urnAuth(urn) {
         gov.transferFrom(msg.sender, address(this), wad);
         _lock(urn, wad);
+
+        emit Lock(urn, wad);
     }
 
     function _lock(address urn, uint256 wad) internal {
@@ -250,19 +256,22 @@ contract LockstakeEngine is Multicall {
         vat.slip(ilk, urn, int256(wad));
         vat.frob(ilk, urn, urn, address(0), int256(wad), 0);
         stkGov.mint(urn, wad);
-        emit Lock(urn, wad);
     }
 
     function freeNgt(address urn, address to, uint256 ngtWad) external urnAuth(urn) {
-        uint256 freed = _free(urn, ngtWad / mkrNgtRate);
+        uint256 wad = ngtWad / mkrNgtRate;
+        uint256 freed = _free(urn, wad);
         gov.approve(address(mkrNgt), freed);
-        mkrNgt.mkrToNgt(address(this), freed);
-        ngt.transfer(to, freed * mkrNgtRate);
+        mkrNgt.mkrToNgt(to, freed);
+
+        emit FreeNgt(urn, to, ngtWad, wad - freed);
     }
 
     function free(address urn, address to, uint256 wad) external urnAuth(urn) {
         uint256 freed = _free(urn, wad);
         gov.transfer(to, freed);
+
+        emit Free(urn, to, wad, wad - freed);
     }
 
     function _free(address urn, uint256 wad) internal returns (uint256 freed) {
@@ -276,10 +285,6 @@ contract LockstakeEngine is Multicall {
         }
         uint256 burn = wad * fee / WAD;
         gov.burn(address(this), burn);
-
-        //emit Free(urn, to, wad, burn);
-        emit Free(urn, address(0), wad, burn); // TODO: handle the event/s nicely
-
         freed = wad - burn;
     }
 

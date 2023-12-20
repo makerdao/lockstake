@@ -106,10 +106,10 @@ contract LockstakeEngine is Multicall {
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
     event Delegate(address indexed urn, address indexed delegate);
-    event LockNgt(address indexed urn, uint256 ngtWad);
     event Lock(address indexed urn, uint256 wad);
-    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
+    event LockNgt(address indexed urn, uint256 ngtWad);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
+    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
     event SelectFarm(address indexed urn, address farm);
@@ -227,8 +227,7 @@ contract LockstakeEngine is Multicall {
     // --- urn/delegation functions ---
 
     function open(uint256 index) external returns (address urn) {
-        require(index == usrAmts[msg.sender]++, "LockstakeEngine/urn-already-opened");
-
+        require(index == usrAmts[msg.sender]++, "LockstakeEngine/wrong-urn-index");
         uint256 salt = uint256(keccak256(abi.encode(msg.sender, index)));
         bytes memory initCode = _initCode();
         assembly {
@@ -236,7 +235,6 @@ contract LockstakeEngine is Multicall {
             if iszero(extcodesize(urn)) { revert(0, 0) }
         }
         LockstakeUrn(urn).init();
-
         urnOwners[urn] = msg.sender;
         emit Open(msg.sender, urn);
     }
@@ -251,17 +249,17 @@ contract LockstakeEngine is Multicall {
         emit Nope(urn, usr);
     }
 
+    function lock(address urn, uint256 wad) external urnAuth(urn) {
+        mkr.transferFrom(msg.sender, address(this), wad);
+        _lock(urn, wad);
+        emit Lock(urn, wad);
+    }
+
     function lockNgt(address urn, uint256 ngtWad) external urnAuth(urn) {
         ngt.transferFrom(msg.sender, address(this), ngtWad);
         mkrNgt.ngtToMkr(address(this), ngtWad);
         _lock(urn, ngtWad / mkrNgtRate);
         emit LockNgt(urn, ngtWad);
-    }
-
-    function lock(address urn, uint256 wad) external urnAuth(urn) {
-        mkr.transferFrom(msg.sender, address(this), wad);
-        _lock(urn, wad);
-        emit Lock(urn, wad);
     }
 
     function _lock(address urn, uint256 wad) internal {
@@ -278,17 +276,17 @@ contract LockstakeEngine is Multicall {
         stkMkr.mint(urn, wad);
     }
 
+    function free(address urn, address to, uint256 wad) external urnAuth(urn) {
+        uint256 freed = _free(urn, wad);
+        mkr.transfer(to, freed);
+        emit Free(urn, to, wad, wad - freed);
+    }
+
     function freeNgt(address urn, address to, uint256 ngtWad) external urnAuth(urn) {
         uint256 wad = ngtWad / mkrNgtRate;
         uint256 freed = _free(urn, wad);
         mkrNgt.mkrToNgt(to, freed);
         emit FreeNgt(urn, to, ngtWad, wad - freed);
-    }
-
-    function free(address urn, address to, uint256 wad) external urnAuth(urn) {
-        uint256 freed = _free(urn, wad);
-        mkr.transfer(to, freed);
-        emit Free(urn, to, wad, wad - freed);
     }
 
     function _free(address urn, uint256 wad) internal returns (uint256 freed) {

@@ -85,7 +85,9 @@ contract LockstakeEngineTest is DssTest {
     event DelFarm(address farm);
     event Open(address indexed owner, address urn);
     event Lock(address indexed urn, uint256 wad);
+    event LockNgt(address indexed urn, uint256 ngtWad);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
+    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
     event Delegate(address indexed urn, address indexed delegate_);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
@@ -110,7 +112,7 @@ contract LockstakeEngineTest is DssTest {
         vat = ChainlogLike(LOG).getAddress("MCD_VAT");
         spot = ChainlogLike(LOG).getAddress("MCD_SPOT");
         dog = ChainlogLike(LOG).getAddress("MCD_DOG");
-        mkr = GemMock(ChainlogLike(LOG).getAddress("MCD_GOV"));
+        mkr = new GemMock(0);
         jug = ChainlogLike(LOG).getAddress("MCD_JUG");
         nst = new NstMock();
         nstJoin = new NstJoinMock(vat, address(nst));
@@ -140,6 +142,7 @@ contract LockstakeEngineTest is DssTest {
         vm.stopPrank();
 
         deal(address(mkr), address(this), 100_000 * 10**18, true);
+        deal(address(ngt), address(this), 100_000 * 25_000 * 10**18, true);
 
         // Add some existing DAI assigned to nstJoin to avoid a particular error
         stdstore.target(address(vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(100_000 * RAD);
@@ -174,18 +177,20 @@ contract LockstakeEngineTest is DssTest {
         checkModifier(address(engine), "LockstakeEngine/not-authorized", authedMethods);
         vm.stopPrank();
 
-        bytes4[] memory urnOwnersMethods = new bytes4[](11);
+        bytes4[] memory urnOwnersMethods = new bytes4[](13);
         urnOwnersMethods[0]  = engine.hope.selector;
         urnOwnersMethods[1]  = engine.nope.selector;
         urnOwnersMethods[2]  = engine.lock.selector;
-        urnOwnersMethods[3]  = engine.free.selector;
-        urnOwnersMethods[4]  = engine.delegate.selector;
-        urnOwnersMethods[5]  = engine.draw.selector;
-        urnOwnersMethods[6]  = engine.wipe.selector;
-        urnOwnersMethods[7]  = engine.selectFarm.selector;
-        urnOwnersMethods[8]  = engine.stake.selector;
-        urnOwnersMethods[9]  = engine.withdraw.selector;
-        urnOwnersMethods[10] = engine.getReward.selector;
+        urnOwnersMethods[3]  = engine.lockNgt.selector;
+        urnOwnersMethods[4]  = engine.free.selector;
+        urnOwnersMethods[5]  = engine.freeNgt.selector;
+        urnOwnersMethods[6]  = engine.delegate.selector;
+        urnOwnersMethods[7]  = engine.draw.selector;
+        urnOwnersMethods[8]  = engine.wipe.selector;
+        urnOwnersMethods[9]  = engine.selectFarm.selector;
+        urnOwnersMethods[10]  = engine.stake.selector;
+        urnOwnersMethods[11]  = engine.withdraw.selector;
+        urnOwnersMethods[12] = engine.getReward.selector;
 
         vm.startPrank(address(0xBEEF));
         checkModifier(address(engine), "LockstakeEngine/urn-not-authorized", urnOwnersMethods);
@@ -211,10 +216,14 @@ contract LockstakeEngineTest is DssTest {
     function testOpen() public {
         assertEq(engine.usrAmts(address(this)), 0);
         address urn = engine.getUrn(address(this), 0);
+        vm.expectRevert("LockstakeEngine/wrong-urn-index");
+        engine.open(1);
         vm.expectEmit(true, true, true, true);
         emit Open(address(this), urn);
         assertEq(engine.open(0), urn);
         assertEq(engine.usrAmts(address(this)), 1);
+        vm.expectRevert("LockstakeEngine/wrong-urn-index");
+        engine.open(2);
         assertEq(engine.getUrn(address(this), 1), engine.open(1));
         assertEq(engine.usrAmts(address(this)), 2);
         assertEq(engine.getUrn(address(this), 2), engine.open(2));
@@ -226,6 +235,7 @@ contract LockstakeEngineTest is DssTest {
         address urnAuthed = address(456);
         vm.prank(pauseProxy); engine.addFarm(address(farm));
         mkr.transfer(urnAuthed, 100_000 * 10**18);
+        ngt.transfer(urnAuthed, 100_000 * 25_000 * 10**18);
         vm.startPrank(urnOwner);
         address urn = engine.open(0);
         assertTrue(engine.isUrnAuth(urn, urnOwner));
@@ -242,6 +252,11 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_ink(ilk, urn), 100_000 * 10**18);
         engine.free(urn, address(this), 50_000 * 10**18);
         assertEq(_ink(ilk, urn), 50_000 * 10**18);
+        ngt.approve(address(engine), 100_000 * 25_000 * 10**18);
+        engine.lockNgt(urn, 100_000 * 25_000 * 10**18);
+        assertEq(_ink(ilk, urn), 150_000 * 10**18);
+        engine.freeNgt(urn, address(this), 50_000 * 25_000 * 10**18);
+        assertEq(_ink(ilk, urn), 100_000 * 10**18);
         engine.delegate(urn, voterDelegate);
         assertEq(engine.urnDelegates(urn), voterDelegate);
         engine.draw(urn, 1);
@@ -314,6 +329,58 @@ contract LockstakeEngineTest is DssTest {
 
     function testLockFreeWithDelegate() public {
         _testLockFree(true);
+    }
+
+    function _testLockFreeNgt(bool withDelegate) internal {
+        uint256 initialSupply = ngt.totalSupply();
+        address urn = engine.open(0);
+        // Note: wad-overflow cannot be reached for lockNgt and freeNgt as we these functions will first divide by the rate
+        if (withDelegate) {
+            engine.delegate(urn, voterDelegate);
+        }
+        assertEq(_ink(ilk, urn), 0);
+        assertEq(stkMkr.balanceOf(urn), 0);
+        ngt.approve(address(engine), 100_000 * 25_000 * 10**18);
+        vm.expectEmit(true, true, true, true);
+        emit LockNgt(urn, 100_000 * 25_000 * 10**18);
+        engine.lockNgt(urn, 100_000 * 25_000 * 10**18);
+        assertEq(_ink(ilk, urn), 100_000 * 10**18);
+        assertEq(stkMkr.balanceOf(urn), 100_000 * 10**18);
+        assertEq(ngt.balanceOf(address(this)), 0);
+        if (withDelegate) {
+            assertEq(mkr.balanceOf(address(engine)), 0);
+            assertEq(mkr.balanceOf(address(voterDelegate)), 100_000 * 10**18); // Remains in delegate as it is a mock (otherwise it would be in the Chief)
+        } else {
+            assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
+        }
+        assertEq(ngt.totalSupply(), initialSupply - 100_000 * 25_000 * 10**18);
+        vm.expectEmit(true, true, true, true);
+        emit FreeNgt(urn, address(this), 40_000 * 25_000 * 10**18, 40_000 * 10**18 * 15 / 100);
+        engine.freeNgt(urn, address(this), 40_000 * 25_000 * 10**18);
+        assertEq(_ink(ilk, urn), 60_000 * 10**18);
+        assertEq(stkMkr.balanceOf(urn), 60_000 * 10**18);
+        assertEq(ngt.balanceOf(address(this)), 40_000 * 25_000 * 10**18 - 40_000 * 25_000 * 10**18 * 15 / 100);
+        vm.expectEmit(true, true, true, true);
+        emit FreeNgt(urn, address(123), 10_000 * 25_000 * 10**18, 10_000 * 10**18 * 15 / 100);
+        engine.freeNgt(urn, address(123), 10_000 * 25_000 * 10**18);
+        assertEq(_ink(ilk, urn), 50_000 * 10**18);
+        assertEq(stkMkr.balanceOf(urn), 50_000 * 10**18);
+        assertEq(ngt.balanceOf(address(123)), 10_000 * 25_000 * 10**18 - 10_000 * 25_000 * 10**18 * 15 / 100);
+        if (withDelegate) {
+            assertEq(mkr.balanceOf(address(engine)), 0);
+            assertEq(mkr.balanceOf(address(voterDelegate)), 50_000 * 10**18);
+        } else {
+            assertEq(mkr.balanceOf(address(engine)), 50_000 * 10**18);
+        }
+        assertEq(ngt.totalSupply(), initialSupply - (100_000 - 50_000) * 25_000 * 10**18 - 50_000 * 25_000 * 10**18 * 15 / 100);
+    }
+
+    function testLockFreeNgtNoDelegate() public {
+        _testLockFreeNgt(false);
+    }
+
+    function testLockFreeNgtWithDelegate() public {
+        _testLockFreeNgt(true);
     }
 
     function testDelegate() public {

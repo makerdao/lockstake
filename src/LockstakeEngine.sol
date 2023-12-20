@@ -105,10 +105,10 @@ contract LockstakeEngine is Multicall {
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
     event Delegate(address indexed urn, address indexed delegate);
-    event LockNgt(address indexed urn, uint256 ngtWad);
     event Lock(address indexed urn, uint256 wad);
-    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
+    event LockNgt(address indexed urn, uint256 ngtWad);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
+    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
     event SelectFarm(address indexed urn, address farm);

@@ -408,6 +408,7 @@ contract LockstakeEngine is Multicall {
             address urnFarm = urnFarms[urn];
             if (urnFarm != address(0)) { 
                 _cleanFarm(urn, urnFarm);
+                urnFarms[urn] = address(0);
             }
         }
         emit OnTakeLeftovers(urn, tot, left, burn);

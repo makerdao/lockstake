@@ -171,7 +171,7 @@ interface VowLike {
 
 }
 
-contract ClipperTest is DssTest {
+contract LockstakeClipperTest is DssTest {
     address     pauseProxy;
     VatLike     vat;
     DogLike     dog;

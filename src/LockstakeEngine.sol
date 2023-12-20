@@ -17,6 +17,7 @@
 pragma solidity ^0.8.16;
 
 import { LockstakeUrn } from "src/LockstakeUrn.sol";
+import { Multicall } from "src/Multicall.sol";
 
 interface DelegateFactoryLike {
     function gov() external view returns (GemLike);
@@ -55,7 +56,14 @@ interface JugLike {
     function drip(bytes32) external returns (uint256);
 }
 
-contract LockstakeEngine {
+interface MkrNgtLike {
+    function rate() external view returns (uint256);
+    function ngt() external view returns (address);
+    function ngtToMkr(address, uint256) external;
+    function mkrToNgt(address, uint256) external;
+}
+
+contract LockstakeEngine is Multicall {
     // --- storage variables ---
 
     mapping(address => uint256)                     public wards;        // usr => 1 == access
@@ -79,9 +87,12 @@ contract LockstakeEngine {
     NstJoinLike         immutable public nstJoin;
     GemLike             immutable public nst;
     bytes32             immutable public ilk;
-    GemLike             immutable public gov;
-    GemLike             immutable public stkGov;
+    GemLike             immutable public mkr;
+    GemLike             immutable public stkMkr;
     uint256             immutable public fee;
+    MkrNgtLike          immutable public mkrNgt;
+    GemLike             immutable public ngt;
+    uint256             immutable public mkrNgtRate;
 
     // --- events ---   
 
@@ -95,7 +106,9 @@ contract LockstakeEngine {
     event Nope(address indexed urn, address indexed usr);
     event Delegate(address indexed urn, address indexed delegate);
     event Lock(address indexed urn, uint256 wad);
+    event LockNgt(address indexed urn, uint256 ngtWad);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
+    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
     event SelectFarm(address indexed urn, address farm);
@@ -121,17 +134,23 @@ contract LockstakeEngine {
 
     // --- constructor ---
 
-    constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address stkGov_, uint256 fee_) {
+    constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address stkMkr_, uint256 fee_, address mkrNgt_) {
         delegateFactory = DelegateFactoryLike(delegateFactory_);
         nstJoin = NstJoinLike(nstJoin_);
         vat = nstJoin.vat();
         nst = nstJoin.nst();
         ilk = ilk_;
-        gov = delegateFactory.gov();
-        stkGov = GemLike(stkGov_);
+        mkr = delegateFactory.gov();
+        stkMkr = GemLike(stkMkr_);
         fee = fee_;
         nst.approve(nstJoin_, type(uint256).max);
         vat.hope(nstJoin_);
+        mkrNgt = MkrNgtLike(mkrNgt_);
+        ngt = GemLike(mkrNgt.ngt());
+        ngt.approve(address(mkrNgt), type(uint256).max);
+        mkr.approve(address(mkrNgt), type(uint256).max);
+        mkrNgtRate = mkrNgt.rate();
+
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
@@ -181,7 +200,7 @@ contract LockstakeEngine {
 
     function getUrn(address owner, uint256 index) external view returns (address urn) {
         uint256 salt = uint256(keccak256(abi.encode(owner, index)));
-        bytes32 codeHash = keccak256(abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkGov)));
+        bytes32 codeHash = keccak256(abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkMkr)));
         urn = address(uint160(uint256(
             keccak256(
                 abi.encodePacked(bytes1(0xff), address(this), salt, codeHash)
@@ -192,12 +211,12 @@ contract LockstakeEngine {
     function isUrnAuth(address urn, address usr) external view returns (bool ok) {
         ok = _urnAuth(urn, usr);
     }
-
     // --- urn/delegation functions ---
 
-    function open() external returns (address urn) {
-        bytes32 salt = keccak256(abi.encode(msg.sender, usrAmts[msg.sender]++));
-        urn = address(new LockstakeUrn{salt: salt}(address(vat), address(stkGov)));
+    function open(uint256 index) external returns (address urn) {
+        require(index == usrAmts[msg.sender]++, "LockstakeEngine/wrong-urn-index");
+        bytes32 salt = keccak256(abi.encode(msg.sender, index));
+        urn = address(new LockstakeUrn{salt: salt}(address(vat), address(stkMkr)));
         urnOwners[urn] = msg.sender;
         emit Open(msg.sender, urn);
     }
@@ -213,24 +232,48 @@ contract LockstakeEngine {
     }
 
     function lock(address urn, uint256 wad) external urnAuth(urn) {
-        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
-        gov.transferFrom(msg.sender, address(this), wad);
-        address delegate_ = urnDelegates[urn];
-        if (delegate_ != address(0)) {
-            gov.approve(address(delegate_), wad);
-            DelegateLike(delegate_).lock(wad);
-        }
-        // TODO: define if we want an internal registry to register how much is locked per user,
-        // the vat.slip and stkGov balance act already as a registry so probably not needed an extra one
-        vat.slip(ilk, urn, int256(wad));
-        vat.frob(ilk, urn, urn, address(0), int256(wad), 0);
-        stkGov.mint(urn, wad);
+        mkr.transferFrom(msg.sender, address(this), wad);
+        _lock(urn, wad);
         emit Lock(urn, wad);
     }
 
-    function free(address urn, address to, uint256 wad) external urnAuth(urn) {
+    function lockNgt(address urn, uint256 ngtWad) external urnAuth(urn) {
+        ngt.transferFrom(msg.sender, address(this), ngtWad);
+        mkrNgt.ngtToMkr(address(this), ngtWad);
+        _lock(urn, ngtWad / mkrNgtRate);
+        emit LockNgt(urn, ngtWad);
+    }
+
+    function _lock(address urn, uint256 wad) internal {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
-        stkGov.burn(urn, wad);
+        address delegate_ = urnDelegates[urn];
+        if (delegate_ != address(0)) {
+            mkr.approve(address(delegate_), wad);
+            DelegateLike(delegate_).lock(wad);
+        }
+        // TODO: define if we want an internal registry to register how much is locked per user,
+        // the vat.slip and stkMkr balance act already as a registry so probably not needed an extra one
+        vat.slip(ilk, urn, int256(wad));
+        vat.frob(ilk, urn, urn, address(0), int256(wad), 0);
+        stkMkr.mint(urn, wad);
+    }
+
+    function free(address urn, address to, uint256 wad) external urnAuth(urn) {
+        uint256 freed = _free(urn, wad);
+        mkr.transfer(to, freed);
+        emit Free(urn, to, wad, wad - freed);
+    }
+
+    function freeNgt(address urn, address to, uint256 ngtWad) external urnAuth(urn) {
+        uint256 wad = ngtWad / mkrNgtRate;
+        uint256 freed = _free(urn, wad);
+        mkrNgt.mkrToNgt(to, freed);
+        emit FreeNgt(urn, to, ngtWad, wad - freed);
+    }
+
+    function _free(address urn, uint256 wad) internal returns (uint256 freed) {
+        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
+        stkMkr.burn(urn, wad);
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
         address delegate_ = urnDelegates[urn];
@@ -238,9 +281,8 @@ contract LockstakeEngine {
             DelegateLike(delegate_).free(wad);
         }
         uint256 burn = wad * fee / WAD;
-        gov.transfer(to, wad - burn);
-        gov.burn(address(this), burn);
-        emit Free(urn, to, wad, burn);
+        mkr.burn(address(this), burn);
+        freed = wad - burn;
     }
 
     function delegate(address urn, address delegate_) external urnAuth(urn) {
@@ -253,7 +295,7 @@ contract LockstakeEngine {
                 DelegateLike(prevDelegate).free(wad);
             }
             if (delegate_ != address(0)) {
-                gov.approve(address(delegate_), wad);
+                mkr.approve(address(delegate_), wad);
                 DelegateLike(delegate_).lock(wad);
             }
         }
@@ -317,22 +359,22 @@ contract LockstakeEngine {
     function onKick(address urn, uint256 wad) external auth {
         address urnFarm = urnFarms[urn];
         if (urnFarm != address(0)){
-            uint256 freed = GemLike(stkGov).balanceOf(address(urn));
+            uint256 freed = GemLike(stkMkr).balanceOf(address(urn));
             if (wad > freed) {
                 LockstakeUrn(urn).withdraw(urnFarm, wad - freed);
             }
         }
-        stkGov.burn(urn, wad); // Burn the whole liquidated amount of staking token
+        stkMkr.burn(urn, wad); // Burn the whole liquidated amount of staking token
         address delegate_ = urnDelegates[urn];
         if (delegate_ != address(0)) {
-            DelegateLike(delegate_).free(wad); // Undelegate liquidated amount and retain the GOV tokens
+            DelegateLike(delegate_).free(wad); // Undelegate liquidated amount and retain the MKR tokens
         }
         // Urn confiscation happens in Dog contract where ilk vat.gem is sent to the LockstakeClipper
         emit OnKick(urn, wad);
     }
 
     function onTake(address urn, address who, uint256 wad) external auth {
-        gov.transfer(who, wad); // Free GOV to the auction buyer
+        mkr.transfer(who, wad); // Free MKR to the auction buyer
         emit OnTake(urn, who, wad);
     }
 
@@ -344,22 +386,22 @@ contract LockstakeEngine {
         } else {
             unchecked { left = left - burn; }
         }
-        gov.burn(address(this), burn); // Burn GOV
+        mkr.burn(address(this), burn); // Burn MKR
         if (left > 0) {
             address delegate_ = urnDelegates[urn];
             if (delegate_ != address(0)) {
-                gov.approve(address(delegate_), left);
+                mkr.approve(address(delegate_), left);
                 DelegateLike(delegate_).lock(left);
             }
             vat.slip(ilk, urn, int256(left));
             vat.frob(ilk, urn, urn, address(0), int256(left), 0);
-            stkGov.mint(urn, left);
+            stkMkr.mint(urn, left);
         }
         emit OnTakeLeftovers(urn, tot, left, burn);
     }
 
     function onYank(address urn, uint256 wad) external auth {
-        gov.burn(address(this), wad);
+        mkr.burn(address(this), wad);
         emit OnYank(urn, wad);
     }
 }

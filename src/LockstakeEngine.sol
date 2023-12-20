@@ -87,8 +87,8 @@ contract LockstakeEngine is Multicall {
     NstJoinLike         immutable public nstJoin;
     GemLike             immutable public nst;
     bytes32             immutable public ilk;
-    GemLike             immutable public gov;
-    GemLike             immutable public stkGov;
+    GemLike             immutable public mkr;
+    GemLike             immutable public stkMkr;
     uint256             immutable public fee;
     MkrNgtLike          immutable public mkrNgt;
     GemLike             immutable public ngt;
@@ -134,21 +134,21 @@ contract LockstakeEngine is Multicall {
 
     // --- constructor ---
 
-    constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address stkGov_, uint256 fee_, address mkrNgt_) {
+    constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address stkMkr_, uint256 fee_, address mkrNgt_) {
         delegateFactory = DelegateFactoryLike(delegateFactory_);
         nstJoin = NstJoinLike(nstJoin_);
         vat = nstJoin.vat();
         nst = nstJoin.nst();
         ilk = ilk_;
-        gov = delegateFactory.gov();
-        stkGov = GemLike(stkGov_);
+        mkr = delegateFactory.gov();
+        stkMkr = GemLike(stkMkr_);
         fee = fee_;
         nst.approve(nstJoin_, type(uint256).max);
         vat.hope(nstJoin_);
         mkrNgt = MkrNgtLike(mkrNgt_);
         ngt = GemLike(mkrNgt.ngt());
         ngt.approve(address(mkrNgt), type(uint256).max);
-        gov.approve(address(mkrNgt), type(uint256).max);
+        mkr.approve(address(mkrNgt), type(uint256).max);
         mkrNgtRate = mkrNgt.rate();
 
         wards[msg.sender] = 1;
@@ -200,7 +200,7 @@ contract LockstakeEngine is Multicall {
 
     function getUrn(address owner, uint256 index) external view returns (address urn) {
         uint256 salt = uint256(keccak256(abi.encode(owner, index)));
-        bytes32 codeHash = keccak256(abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkGov)));
+        bytes32 codeHash = keccak256(abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkMkr)));
         urn = address(uint160(uint256(
             keccak256(
                 abi.encodePacked(bytes1(0xff), address(this), salt, codeHash)
@@ -216,7 +216,7 @@ contract LockstakeEngine is Multicall {
     function open(uint256 index) external returns (address urn) {
         require(index == usrAmts[msg.sender]++, "LockstakeEngine/urn-already-opened");
         bytes32 salt = keccak256(abi.encode(msg.sender, index));
-        urn = address(new LockstakeUrn{salt: salt}(address(vat), address(stkGov)));
+        urn = address(new LockstakeUrn{salt: salt}(address(vat), address(stkMkr)));
         urnOwners[urn] = msg.sender;
         emit Open(msg.sender, urn);
     }
@@ -239,7 +239,7 @@ contract LockstakeEngine is Multicall {
     }
 
     function lock(address urn, uint256 wad) external urnAuth(urn) {
-        gov.transferFrom(msg.sender, address(this), wad);
+        mkr.transferFrom(msg.sender, address(this), wad);
         _lock(urn, wad);
         emit Lock(urn, wad);
     }
@@ -248,14 +248,14 @@ contract LockstakeEngine is Multicall {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         address delegate_ = urnDelegates[urn];
         if (delegate_ != address(0)) {
-            gov.approve(address(delegate_), wad);
+            mkr.approve(address(delegate_), wad);
             DelegateLike(delegate_).lock(wad);
         }
         // TODO: define if we want an internal registry to register how much is locked per user,
-        // the vat.slip and stkGov balance act already as a registry so probably not needed an extra one
+        // the vat.slip and stkMkr balance act already as a registry so probably not needed an extra one
         vat.slip(ilk, urn, int256(wad));
         vat.frob(ilk, urn, urn, address(0), int256(wad), 0);
-        stkGov.mint(urn, wad);
+        stkMkr.mint(urn, wad);
     }
 
     function freeNgt(address urn, address to, uint256 ngtWad) external urnAuth(urn) {
@@ -267,13 +267,13 @@ contract LockstakeEngine is Multicall {
 
     function free(address urn, address to, uint256 wad) external urnAuth(urn) {
         uint256 freed = _free(urn, wad);
-        gov.transfer(to, freed);
+        mkr.transfer(to, freed);
         emit Free(urn, to, wad, wad - freed);
     }
 
     function _free(address urn, uint256 wad) internal returns (uint256 freed) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
-        stkGov.burn(urn, wad);
+        stkMkr.burn(urn, wad);
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
         address delegate_ = urnDelegates[urn];
@@ -281,7 +281,7 @@ contract LockstakeEngine is Multicall {
             DelegateLike(delegate_).free(wad);
         }
         uint256 burn = wad * fee / WAD;
-        gov.burn(address(this), burn);
+        mkr.burn(address(this), burn);
         freed = wad - burn;
     }
 
@@ -295,7 +295,7 @@ contract LockstakeEngine is Multicall {
                 DelegateLike(prevDelegate).free(wad);
             }
             if (delegate_ != address(0)) {
-                gov.approve(address(delegate_), wad);
+                mkr.approve(address(delegate_), wad);
                 DelegateLike(delegate_).lock(wad);
             }
         }
@@ -359,22 +359,22 @@ contract LockstakeEngine is Multicall {
     function onKick(address urn, uint256 wad) external auth {
         address urnFarm = urnFarms[urn];
         if (urnFarm != address(0)){
-            uint256 freed = GemLike(stkGov).balanceOf(address(urn));
+            uint256 freed = GemLike(stkMkr).balanceOf(address(urn));
             if (wad > freed) {
                 LockstakeUrn(urn).withdraw(urnFarm, wad - freed);
             }
         }
-        stkGov.burn(urn, wad); // Burn the whole liquidated amount of staking token
+        stkMkr.burn(urn, wad); // Burn the whole liquidated amount of staking token
         address delegate_ = urnDelegates[urn];
         if (delegate_ != address(0)) {
-            DelegateLike(delegate_).free(wad); // Undelegate liquidated amount and retain the GOV tokens
+            DelegateLike(delegate_).free(wad); // Undelegate liquidated amount and retain the MKR tokens
         }
         // Urn confiscation happens in Dog contract where ilk vat.gem is sent to the LockstakeClipper
         emit OnKick(urn, wad);
     }
 
     function onTake(address urn, address who, uint256 wad) external auth {
-        gov.transfer(who, wad); // Free GOV to the auction buyer
+        mkr.transfer(who, wad); // Free MKR to the auction buyer
         emit OnTake(urn, who, wad);
     }
 
@@ -386,22 +386,22 @@ contract LockstakeEngine is Multicall {
         } else {
             unchecked { left = left - burn; }
         }
-        gov.burn(address(this), burn); // Burn GOV
+        mkr.burn(address(this), burn); // Burn MKR
         if (left > 0) {
             address delegate_ = urnDelegates[urn];
             if (delegate_ != address(0)) {
-                gov.approve(address(delegate_), left);
+                mkr.approve(address(delegate_), left);
                 DelegateLike(delegate_).lock(left);
             }
             vat.slip(ilk, urn, int256(left));
             vat.frob(ilk, urn, urn, address(0), int256(left), 0);
-            stkGov.mint(urn, left);
+            stkMkr.mint(urn, left);
         }
         emit OnTakeLeftovers(urn, tot, left, burn);
     }
 
     function onYank(address urn, uint256 wad) external auth {
-        gov.burn(address(this), wad);
+        mkr.burn(address(this), wad);
         emit OnYank(urn, wad);
     }
 }

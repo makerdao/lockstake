@@ -315,15 +315,19 @@ contract LockstakeEngine is Multicall {
         emit Delegate(urn, delegate);
     }
 
+    function _cleanFarm(address urn, address farm) internal returns (uint256 balance) {
+        balance = GemLike(farm).balanceOf(address(urn));
+        if (balance > 0) {
+            LockstakeUrn(urn).withdraw(farm, balance);
+        }
+    }
+
     function selectFarm(address urn, address farm, uint16 ref) external urnAuth(urn) {
         require(farm == address(0) || farms[farm] == 1, "LockstakeEngine/non-existing-farm");
         address prevUrnFarm = urnFarms[urn];
         uint256 balance;
         if (prevUrnFarm != address(0)) {
-            balance = GemLike(prevUrnFarm).balanceOf(address(urn));
-            if (balance > 0) {
-                LockstakeUrn(urn).withdraw(prevUrnFarm, balance);
-            }
+            balance = _cleanFarm(urn, prevUrnFarm);
         } else {
             balance = stkMkr.balanceOf(urn);
         }
@@ -403,8 +407,7 @@ contract LockstakeEngine is Multicall {
             stkMkr.mint(urn, left);
             address urnFarm = urnFarms[urn];
             if (urnFarm != address(0)) { 
-                urnFarms[urn] = address(0);
-                LockstakeUrn(urn).withdraw(urnFarm, GemLike(urnFarm).balanceOf(address(urn)));
+                _cleanFarm(urn, urnFarm);
             }
         }
         emit OnTakeLeftovers(urn, tot, left, burn);

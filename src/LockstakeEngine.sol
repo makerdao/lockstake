@@ -147,6 +147,8 @@ contract LockstakeEngine is Multicall {
         vat.hope(nstJoin_);
         mkrNgt = MkrNgtLike(mkrNgt_);
         ngt = GemLike(mkrNgt.ngt());
+        ngt.approve(address(mkrNgt), type(uint256).max);
+        gov.approve(address(mkrNgt), type(uint256).max);
         mkrNgtRate = mkrNgt.rate();
 
         wards[msg.sender] = 1;
@@ -231,17 +233,14 @@ contract LockstakeEngine is Multicall {
 
     function lockNgt(address urn, uint256 ngtWad) external urnAuth(urn) {
         ngt.transferFrom(msg.sender, address(this), ngtWad);
-        ngt.approve(address(mkrNgt), ngtWad);
         mkrNgt.ngtToMkr(address(this), ngtWad);
         _lock(urn, ngtWad / mkrNgtRate);
-
         emit LockNgt(urn, ngtWad);
     }
 
     function lock(address urn, uint256 wad) external urnAuth(urn) {
         gov.transferFrom(msg.sender, address(this), wad);
         _lock(urn, wad);
-
         emit Lock(urn, wad);
     }
 
@@ -262,16 +261,13 @@ contract LockstakeEngine is Multicall {
     function freeNgt(address urn, address to, uint256 ngtWad) external urnAuth(urn) {
         uint256 wad = ngtWad / mkrNgtRate;
         uint256 freed = _free(urn, wad);
-        gov.approve(address(mkrNgt), freed);
         mkrNgt.mkrToNgt(to, freed);
-
         emit FreeNgt(urn, to, ngtWad, wad - freed);
     }
 
     function free(address urn, address to, uint256 wad) external urnAuth(urn) {
         uint256 freed = _free(urn, wad);
         gov.transfer(to, freed);
-
         emit Free(urn, to, wad, wad - freed);
     }
 

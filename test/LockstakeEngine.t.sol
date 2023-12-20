@@ -74,6 +74,7 @@ contract AllocatorVaultTest is DssTest {
     GemMock             public rTok;
     StakingRewardsMock  public farm;
     MkrNgtMock          public mkrNgt;
+    GemMock             public ngt;
     bytes32             public ilk = "LSE";
     address             public voter;
     address             public voterDelegate;
@@ -116,7 +117,8 @@ contract AllocatorVaultTest is DssTest {
         stkGov = new GemMock(0);
         rTok = new GemMock(0);
         farm = new StakingRewardsMock(address(rTok), address(stkGov));
-        mkrNgt = new MkrNgtMock(address(0), address(0), 0); // TODO: set real values
+        ngt = new GemMock(0);
+        mkrNgt = new MkrNgtMock(address(gov), address(ngt), 25_000);
 
         pip = new PipMock();
         delFactory = new DelegateFactoryMock(address(gov));

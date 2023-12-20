@@ -54,7 +54,7 @@ interface CalcLike {
     function file(bytes32, uint256) external;
 }
 
-contract AllocatorVaultTest is DssTest {
+contract LockstakeEngineTest is DssTest {
     using stdStorage for StdStorage;
 
     address             public pauseProxy;

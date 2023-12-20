@@ -151,7 +151,7 @@ contract LockstakeEngine is Multicall {
         ngt.approve(address(mkrNgt), type(uint256).max);
         mkr.approve(address(mkrNgt), type(uint256).max);
         mkrNgtRate = mkrNgt.rate();
-        urnImplementation = address(new LockstakeUrn(address(vat), stkGov_));
+        urnImplementation = address(new LockstakeUrn(address(vat), stkMkr_));
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);

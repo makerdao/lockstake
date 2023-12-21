@@ -397,9 +397,9 @@ contract LockstakeEngine is Multicall {
         if (left > 0) {
             vat.slip(ilk, urn, int256(left));
             vat.frob(ilk, urn, urn, address(0), int256(left), 0);
+            stkMkr.mint(urn, left);
             _selectDelegate(urn, urnDelegates[urn], address(0));
             _selectFarm(urn, address(0), 0);
-            stkMkr.mint(urn, left);
         }
         emit OnTakeLeftovers(urn, tot, left, burn);
     }

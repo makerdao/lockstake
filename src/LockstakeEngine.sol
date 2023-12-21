@@ -326,13 +326,14 @@ contract LockstakeEngine is Multicall {
     }
 
     function _selectFarm(address urn, address farm, uint16 ref) internal {
-        address prevUrnFarm = urnFarms[urn];
-        if (prevUrnFarm != address(0)) {
-            uint256 balance = GemLike(farm).balanceOf(address(urn));
+        address urnFarm = urnFarms[urn];
+        if (urnFarm != address(0)) {
+            uint256 balance = GemLike(urnFarm).balanceOf(address(urn));
             if (balance > 0) {
-                LockstakeUrn(urn).withdraw(farm, balance);
+                LockstakeUrn(urn).withdraw(urnFarm, balance);
             }
-        } else if (farm != address(0)) {
+        }
+        if (farm != address(0)) {
             uint256 balance = stkMkr.balanceOf(urn);
             if (balance > 0) {
                 LockstakeUrn(urn).stake(farm, balance, ref);

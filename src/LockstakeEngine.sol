@@ -230,11 +230,8 @@ contract LockstakeEngine is Multicall {
         require(index == usrAmts[msg.sender]++, "LockstakeEngine/wrong-urn-index");
         uint256 salt = uint256(keccak256(abi.encode(msg.sender, index)));
         bytes memory initCode = _initCode();
-        assembly {
-            urn := create2(0, add(initCode, 0x20), 0x37, salt)
-            if iszero(extcodesize(urn)) { revert(0, 0) }
-        }
-        LockstakeUrn(urn).init();
+        assembly { urn := create2(0, add(initCode, 0x20), 0x37, salt) }
+        LockstakeUrn(urn).init(); // would revert if create2 had failed
         urnOwners[urn] = msg.sender;
         emit Open(msg.sender, urn);
     }

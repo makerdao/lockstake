@@ -104,14 +104,14 @@ contract LockstakeEngine is Multicall {
     event Open(address indexed owner, address urn);
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
-    event Delegate(address indexed urn, address indexed delegate);
+    event SelectDelegate(address indexed urn, address indexed delegate);
+    event SelectFarm(address indexed urn, address farm, uint16 ref);
     event Lock(address indexed urn, uint256 wad, uint16 ref);
     event LockNgt(address indexed urn, uint256 ngtWad, uint16 ref);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
     event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
-    event SelectFarm(address indexed urn, address farm, uint16 ref);
     event Stake(address indexed urn, address indexed farm, uint256 wad, uint16 ref);
     event Withdraw(address indexed urn, address indexed farm, uint256 wad);
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
@@ -234,6 +234,51 @@ contract LockstakeEngine is Multicall {
 
     // --- delegation/staking functions ---
 
+    function selectDelegate(address urn, address delegate) external urnAuth(urn) {
+        require(delegate == address(0) || delegateFactory.isDelegate(delegate) == 1, "LockstakeEngine/not-valid-delegate");
+        address prevDelegate = urnDelegates[urn];
+        require(prevDelegate != delegate, "LockstakeEngine/same-delegate");
+        (uint256 ink,) = vat.urns(ilk, urn);
+        _selectDelegate(urn, ink, prevDelegate, delegate);
+        emit SelectDelegate(urn, delegate);
+    }
+
+    function _selectDelegate(address urn, uint256 wad, address prevDelegate, address delegate) internal {
+        if (wad > 0) {
+            if (prevDelegate != address(0)) {
+                DelegateLike(prevDelegate).free(wad);
+            }
+            if (delegate != address(0)) {
+                mkr.approve(address(delegate), wad);
+                DelegateLike(delegate).lock(wad);
+            }
+        }
+        urnDelegates[urn] = delegate;
+    }
+
+    function selectFarm(address urn, address farm, uint16 ref) external urnAuth(urn) {
+        require(farm == address(0) || farms[farm] == 1, "LockstakeEngine/non-existing-farm");
+        _selectFarm(urn, farm, ref);
+        emit SelectFarm(urn, farm, ref);
+    }
+
+    function _selectFarm(address urn, address farm, uint16 ref) internal {
+        address urnFarm = urnFarms[urn];
+        if (urnFarm != address(0)) {
+            uint256 balance = GemLike(urnFarm).balanceOf(address(urn));
+            if (balance > 0) {
+                LockstakeUrn(urn).withdraw(urnFarm, balance);
+            }
+        }
+        if (farm != address(0)) {
+            uint256 balance = stkMkr.balanceOf(urn);
+            if (balance > 0) {
+                LockstakeUrn(urn).stake(farm, balance, ref);
+            }
+        }
+        urnFarms[urn] = farm;
+    }
+
     function lock(address urn, uint256 wad, uint16 ref) external urnAuth(urn) {
         mkr.transferFrom(msg.sender, address(this), wad);
         _lock(urn, wad, ref);
@@ -297,51 +342,6 @@ contract LockstakeEngine is Multicall {
         freed = wad - burn;
     }
 
-    function selectDelegate(address urn, address delegate) external urnAuth(urn) {
-        require(delegate == address(0) || delegateFactory.isDelegate(delegate) == 1, "LockstakeEngine/not-valid-delegate");
-        address prevDelegate = urnDelegates[urn];
-        require(prevDelegate != delegate, "LockstakeEngine/same-delegate");
-        _selectDelegate(urn, prevDelegate, delegate);
-        emit Delegate(urn, delegate);
-    }
-
-    function _selectDelegate(address urn, address prevDelegate, address delegate) internal {
-        (uint256 wad,) = vat.urns(ilk, urn);
-        if (wad > 0) {
-            if (prevDelegate != address(0)) {
-                DelegateLike(prevDelegate).free(wad);
-            }
-            if (delegate != address(0)) {
-                mkr.approve(address(delegate), wad);
-                DelegateLike(delegate).lock(wad);
-            }
-        }
-        urnDelegates[urn] = delegate;
-    }
-
-    function selectFarm(address urn, address farm, uint16 ref) external urnAuth(urn) {
-        require(farm == address(0) || farms[farm] == 1, "LockstakeEngine/non-existing-farm");
-        _selectFarm(urn, farm, ref);
-        emit SelectFarm(urn, farm, ref);
-    }
-
-    function _selectFarm(address urn, address farm, uint16 ref) internal {
-        address urnFarm = urnFarms[urn];
-        if (urnFarm != address(0)) {
-            uint256 balance = GemLike(urnFarm).balanceOf(address(urn));
-            if (balance > 0) {
-                LockstakeUrn(urn).withdraw(urnFarm, balance);
-            }
-        }
-        if (farm != address(0)) {
-            uint256 balance = stkMkr.balanceOf(urn);
-            if (balance > 0) {
-                LockstakeUrn(urn).stake(farm, balance, ref);
-            }
-        }
-        urnFarms[urn] = farm;
-    }
-
     // --- loan functions ---
 
     function draw(address urn, uint256 wad) external urnAuth(urn) {
@@ -373,7 +373,8 @@ contract LockstakeEngine is Multicall {
     // --- liquidation callback functions ---
 
     function onKick(address urn, uint256 wad) external auth {
-        _selectDelegate(urn, urnDelegates[urn], address(0));
+        (uint256 ink,) = vat.urns(ilk, urn);
+        _selectDelegate(urn, ink + wad, urnDelegates[urn], address(0));
         _selectFarm(urn, address(0), 0);
         stkMkr.burn(urn, wad); // Burn the liquidated amount of staking token
         // Urn confiscation happens in Dog contract where ilk vat.gem is sent to the LockstakeClipper
@@ -398,7 +399,8 @@ contract LockstakeEngine is Multicall {
             vat.slip(ilk, urn, int256(left));
             vat.frob(ilk, urn, urn, address(0), int256(left), 0);
             stkMkr.mint(urn, left);
-            _selectDelegate(urn, urnDelegates[urn], address(0));
+            (uint256 ink,) = vat.urns(ilk, urn);
+            _selectDelegate(urn, ink, urnDelegates[urn], address(0));
             _selectFarm(urn, address(0), 0);
         }
         emit OnTakeLeftovers(urn, tot, left, burn);

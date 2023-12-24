@@ -19,8 +19,7 @@ There is also support for locking and freeing NGT instead of MKR.
 * A single user address can open multiple positions (each denoted as `urn`).
 * Each `urn` relates to zero or one chosen delegate contract, zero or one chosen farm, and one vault.
 * MKR cannot be moved outside of an `urn` or between `urn`s without paying the exit fee.
-* In case a delegate contract is chosen, the user's entire locked MKR amount is delegated.
-* In case a farm is chosen, the user can choose how much of its MKR credit to stake for farming.
+* At any time the user's entire locked MKR amount is either staked or not, and is either delegated or not.
 * The entire locked MKR amount is also credited as collateral for the user. However, the user itself decides if and how much NST to borrow, and should be aware of liquidation risk.
 * A user can delegate control of an `urn` that it controls to another EOA/contract. This is helpful for supporting manager-type contracts that can be built on top of the engine.
 
@@ -29,16 +28,14 @@ There is also support for locking and freeing NGT instead of MKR.
 * `open(uint256 index)` - Create a new `urn` for the sender. The `index` parameter specifies how many `urn`s have been created so far by the user (should be 0 for the first call). It is used to avoid race conditions.
 * `hope(address urn, address usr)` - Allow `usr` to also manage the sender's controlled `urn`.
 * `nope(address urn, address usr)` - Disallow `usr` from managing the sender's controlled `urn`.
-* `lock(address urn, uint256 wad)` - Deposit `wad` amount of MKR into the `urn`. This also delegates the newly deposited MKR to the chosen delegate (if such exists).
-* `lockNgt(address urn, uint256 ngtWad)` -  Deposit `ngtWad` amount of NGT. The NGT is first converted to MKR, which then gets deposited into the `urn`. The MKR is also delegated to the chosen delegate (if such exists).
-* `free(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR, but will require the user to withdraw from the farm and/or pay down debt beforehand if needed.
-* `freeNgt(address urn, address to, uint256 ngtWad)` - Withdraw `ngtWad` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the freed MKR, but will require the user to withdraw from the farm and/or pay down debt beforehand if needed.
-* `delegate(address urn, address delegate_)` - Choose which delegate contract to delegate the `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
+* `lock(address urn, uint256 wad, uint16 ref)` - Deposit `wad` amount of MKR into the `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
+* `lockNgt(address urn, uint256 ngtWad)` - Deposit `ngtWad` amount of NGT. The NGT is first converted to MKR, which then gets deposited into the `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
+* `free(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed.
+* `freeNgt(address urn, address to, uint256 ngtWad)` - Withdraw `ngtWad` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed.
+* `selectDelegate(address urn, address delegate)` - Choose which delegate contract to delegate the `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
+* `selectFarm(address urn, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
 * `draw(address urn, uint256 wad)` - Generate `wad` amount of NST using the `urn`’s MKR as collateral
 * `wipe(address urn, uint256 wad)` - Repay `wad` amount of NST backed by the `urn`’s MKR.
-* `selectFarm(address urn, address farm)` - Select which farm (from the whitelisted ones) the `urn` will use for depositing its MKR credit (denoted as `stkMKR`).
-* `stake(address urn, uint256 wad, uint16 ref)` - Deposit `wad` amount of `stkMKR` in the previously selected farm.
-* `withdraw(address urn, uint256 wad)` - Withdraw `wad` amount of `stkMKR` previously deposited in the selected farm.
 * `getReward(address urn, address farm, address to)` - Claim the reward generated from the `urn`'s selected farm and send it to the specified `to` address.
 * `multicall(bytes[] calldata data)` - Batch multiple methods in a single call to the contract.
 
@@ -61,20 +58,19 @@ sequenceDiagram
     engine-->>urn0: (creation)
     engine-->>user: return `urn0` address
        
-    user->>engine: lock(`urn0`, 10)
-    engine-->>vat: vat.frob(ilk, `urn0`, `urn0`, address(0), int256(wad), 0) // lock collateral
+    user->>engine: lock(`urn0`, 10, 0)
+    engine-->>vat: vat.frob(ilk, `urn0`, `urn0`, address(0), 10, 0) // lock collateral
     
-    user->>engine: delegate(`urn0`, `delegate0`)
+    user->>engine: selectDelegate(`urn0`, `delegate0`)
     engine-->>delegate0: lock(10)
     
-    user->>engine: selectFarm(`farm0`)
+    user->>engine: selectFarm(`urn0`, `farm0`, `ref`)
+    engine-->>urn0: stake(`farm0`, 10, `ref`)
+    urn0-->>farm0: stake(10, `ref`);
     
-    user->>engine: stake(`urn0`, 10, 0)
-    engine-->>urn0: stake(`farm0`, 10, 0)
-    urn0-->>farm0: stake(100, 0);
        
     user->>engine: draw(`urn0`, 1000)
-    engine-->>vat: vat.frob(ilk, `urn0`, address(0), address(this), 0, int256(dart)) // borrow
+    engine-->>vat: vat.frob(ilk, `urn0`, address(0), address(this), 0, 1000) // borrow
 ```
 
 **Multicall:**
@@ -97,10 +93,10 @@ Upon calling `open`, an `urn` contract is deployed for each position. The `urn` 
 
 The following functions are called from the LockstakeClipper (see below) throughout the liquidation process.
 
-* `onKick(address urn, uint256 wad)` - Withdraw `wad` amount of `stkGov` from the chosen farm and undelegate the same amount of MKR from the chosen `urn`'s delegate. The MKR stays in the current contract until it is taken or returned as leftovers to the `urn`.
+* `onKick(address urn, uint256 wad)` - Undelegate and unstake the entire `urn`'s MKR amount. Also burn the liquidated amount of staking token (`stkMkr`).
 * `onTake(address urn, address who, uint256 wad)` - Transfer MKR to the liquidation auction buyer.
-* `onTakeLeftovers(address urn, uint256 tot, uint256 left)` - Burn a proportional amount of the MKR which was bought in the auction and return the rest to the `urn`. The returned amount is redelegated (but not restaked in the farm).
-* `onYank(address urn, uint256 wad)` - Burns the auction's MKR (in case of an auction cancellation).
+* `onTakeLeftovers(address urn, uint256 tot, uint256 left)` - Burn a proportional amount of the MKR which was bought in the auction and return the rest to the `urn`. This again undelegates and unstakes the entire `urn`'s MKR amount (in case any of it was restaked or redelegated during the auction).
+* `onYank(address urn, uint256 wad)` - Burn the auction's MKR (in case of an auction cancellation).
 
 
 **Configurable Parameters:**
@@ -110,7 +106,7 @@ The following functions are called from the LockstakeClipper (see below) through
 
 **TODO**: is exit fee configurable?
 
-Up to date implementation: https://github.com/makerdao/lockstake/pull/7
+Up to date implementation: https://github.com/makerdao/lockstake/commit/e5209ff6fed4d870025829cb8b94d2b47355019a
 
 ## 2. LockstakeClipper
 
@@ -133,14 +129,12 @@ The SLE liquidation process differs from the usual liquidations by the fact that
 * `tip` - Flat fee to suck from vow to incentivize keepers.
 * `chost` - Cache the ilk dust times the ilk chop to prevent excessive SLOADs.
 
-Up to date implementation: https://github.com/makerdao/lockstake/commit/fae51fb82c518e1b0cbb238c1a257b2feeaf9982
+Up to date implementation: https://github.com/makerdao/lockstake/commit/e5209ff6fed4d870025829cb8b94d2b47355019a
 
 ## 3. Vote Delegation
 ### 3.a. VoteDelegate
 
 The SLE integrates with the current [VoteDelegate](https://github.com/makerdao/vote-delegate/blob/c2345b78376d5b0bb24749a97f82fe9171b53394/src/VoteDelegate.sol) contracts almost as is. However, in order to support long-term locking the delegates expiration functionality needs to be removed.
-
-Implementation: **TODO**.
 
 ### 3.b. VoteDelegateFactory
 
@@ -148,21 +142,19 @@ Since the VoteDelegate code is being modified (as described above), the factory 
 
 Note that it is important for the SLE to only allow using VoteDelegate contracts from the factory, so it can be made sure that liquidations can not be blocked.
 
-Up to date implementation: https://github.com/makerdao/vote-delegate/blob/c2345b78376d5b0bb24749a97f82fe9171b53394/src/VoteDelegateFactory.sol
+Up to date implementation: https://github.com/makerdao/vote-delegate/tree/v2/src
 
 ## 4. Keepers Support
 
 In general participating in MKR liquidations should be pretty straightforward using the existing on-chain liquidity. However there is a small caveat:
 
-Current Makerdao ecosystem keepers expect receiving collateral in the form of `vat.gem` (ususally to a keeper arbitrage callee contract), which they then need to `exit` to ERC20 from. However the SLE liquidation mechanism sends the MKR directly in the form of ERC20, which requires a slight change in the keepers mode of operation.
+Current Makerdao ecosystem keepers expect receiving collateral in the form of `vat.gem` (usually to a keeper arbitrage callee contract), which they then need to `exit` to ERC20 from. However the SLE liquidation mechanism sends the MKR directly in the form of ERC20, which requires a slight change in the keepers mode of operation.
 
 For example, keepers using the Maker supplied [exchange-callee for Uniswap V2](https://github.com/makerdao/exchange-callees/blob/3b080ecd4169fe09a59be51e2f85ddcea3242461/src/UniswapV2Callee.sol#L109) would need to use a version that gets the `gem` instead of the `gemJoin` and does not call `gemJoin.exit`.
 
-Implementation of exchange callee modifications - **TODO**
-
 ## 5. Splitter
 
-The Splitter contract is in charge of distributing the Surplus Buffer funds on each `vow.flap` to the Smart Burn Engine (SBE) and the SLE farm. The total amount sent each time is `vow.bump`.
+The Splitter contract is in charge of distributing the Surplus Buffer funds on each `vow.flap` to the Smart Burn Engine (SBE) and the SLE's NST farm. The total amount sent each time is `vow.bump`.
 
 To accomplish this, it exposes a `kick` operation to be triggered periodically. Its logic withdraws DAI from the `vow` and splits it in two parts. The first part (`burn`) is sent to the underlying `flapper` contract to be processed by the SBE. The second part (`WAD - burn`) is distributed as reward to a `farm` contract. Note that`burn == 1 WAD` indicates funneling 100% of the DAI to the SBE without sending any rewards to the farm.
 
@@ -247,17 +239,17 @@ We can see that although the MKR oracle price is fixed at 1080, the sticky price
 
 ```
 
-days:           d0 -------- d1 -------- d2 -------- d3 -------- d4 -------- d5
+days:           d0 ------- d1 ------- d2 ------- d3 ------- d4 ------- d5
 
-MKR oracle:     ----------------------------------- 1080 ------ 1080 ------ 1080
+MKR oracle:     -------------------------------- 1080 ----- 1080 ----- 1080
 
-TWAP window:    ----------------------------------- d0->d3 ---- d1->d4 ---- d2->d5
+TWAP window:    -------------------------------- d0->d3 --- d1->d4 --- d2->d5
 
-TWAP(sticky):   ----------------------------------- 1000 ------ 1016 ------ 1038
+TWAP(sticky):   -------------------------------- 1000 ----- 1016 ----- 1038
 
-cap:            ----------------------------------- 1050 ------ 1066 ------ 1089
+cap:            -------------------------------- 1050 ----- 1066 ----- 1089
 
-sticky samples: 1000 ------ 1000 ------ 1000 ------ 1050 ------ 1066 ------ 1080
+sticky samples: 1000 ----- 1000 ----- 1000 ----- 1050 ----- 1066 ----- 1080
 
 
 ```
@@ -275,8 +267,6 @@ Up to date implementation: https://github.com/makerdao/lockstake/commit/1ed6d987
 
 For performing `poke` on the Sticky Oracle a simple keeper job contract will be added. Since the `poke` will revert if it was already performed on that certain day, the job can return a workable status whenever it does not revert.
 
-Implementation - **TODO**
-
 ## 9. Debt Ceiling Instant Access Module
 ### 9.a. DC-IAM-SETTER
 
@@ -289,13 +279,9 @@ Note that the above amount of Uniswap held DAI is equivalent to 40% of Elixir va
 
 The Surplus Buffer amount of DAI can be fetched easily (`vat.dai(vow) - vat.sin(vow)`). However, the Uniswap owned DAI calculation needs to be resistent to manipulation. For that we can use the [fair token prices](https://github.com/Uniswap/v2-periphery/blob/0335e8f7e1bd1e8d8329fd300aea2ef2f36dd19f/contracts/libraries/UniswapV2LiquidityMathLibrary.sol#L116) (which requires reading the MKR oracle).
 
-Implementation - **TODO**
-
 ### 9.b. Cron Keeper Job
 
 For triggering the DC-IAM-SETTER a keeper job contract will be added. It should hold sensitivity thresholds, similarly to how the current autoline job [does](https://github.com/makerdao/dss-cron/blob/ae1300023b5db04851b1e8f926e5b7a59ffd18b0/src/AutoLineJob.sol#L47).
-
-Implementation - **TODO**
 
 ## 10. Stability Rate Setter
 ### 10.a. STABILITY-RATE-SETTER
@@ -304,21 +290,13 @@ Under normal circumstances the Stability Fee of the SLE vaults is equal to the B
 
 To achieve this, the STABILITY-RATE-SETTER will increase the stability fee when such a situation takes place, and will allow returning to the Base Rate once the max debt ceiling has again been reached.
 
-Implementation - **TODO**
-
 ### 10.b. Cron Keeper Job
 
 For triggering the STABILITY-RATE-SETTER a keeper job contract will be added. It should hold sensitivity thresholds, similarly to how the current autoline job [does](https://github.com/makerdao/dss-cron/blob/ae1300023b5db04851b1e8f926e5b7a59ffd18b0/src/AutoLineJob.sol#L47).
 
-Implementation - **TODO**
-
 ## 11. Deployment Scripts
 
-Implementation - **TODO**
-
 ## 12. Formal Verification
-
-Implementation - **TODO**
     
 ## General Notes
 * In many of the modules, such as the splitter and the flappers, NST can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.

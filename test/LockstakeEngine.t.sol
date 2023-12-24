@@ -5,6 +5,7 @@ pragma solidity ^0.8.16;
 import "dss-test/DssTest.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
+import { LockstakeUrn } from "src/LockstakeUrn.sol";
 import { PipMock } from "test/mocks/PipMock.sol";
 import { DelegateFactoryMock, DelegateMock } from "test/mocks/DelegateMock.sol";
 import { GemMock } from "test/mocks/GemMock.sol";
@@ -18,6 +19,7 @@ interface ChainlogLike {
 }
 
 interface VatLike {
+    function can(address, address) external view returns (bool);
     function dai(address) external view returns (uint256);
     function gem(bytes32, address) external view returns (uint256);
     function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
@@ -218,12 +220,24 @@ contract LockstakeEngineTest is DssTest {
         address urn = engine.getUrn(address(this), 0);
         vm.expectRevert("LockstakeEngine/wrong-urn-index");
         engine.open(1);
+
+        assertEq(VatLike(vat).can(urn, address(engine)), false);
+        assertEq(stkMkr.allowance(urn, address(engine)), 0);
         vm.expectEmit(true, true, true, true);
         emit Open(address(this), urn);
         assertEq(engine.open(0), urn);
         assertEq(engine.usrAmts(address(this)), 1);
+        assertEq(VatLike(vat).can(urn, address(engine)), true);
+        assertEq(stkMkr.allowance(urn, address(engine)), type(uint256).max);
+        assertEq(LockstakeUrn(urn).engine(), address(engine));
+        assertEq(address(LockstakeUrn(urn).stkGov()), address(stkMkr));
+        assertEq(address(LockstakeUrn(urn).vat()), vat);
+        vm.expectRevert("LockstakeUrn/not-engine");
+        LockstakeUrn(urn).init();
+
         vm.expectRevert("LockstakeEngine/wrong-urn-index");
         engine.open(2);
+
         assertEq(engine.getUrn(address(this), 1), engine.open(1));
         assertEq(engine.usrAmts(address(this)), 2);
         assertEq(engine.getUrn(address(this), 2), engine.open(2));

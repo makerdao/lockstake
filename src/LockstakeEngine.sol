@@ -396,10 +396,10 @@ contract LockstakeEngine is Multicall {
         }
         mkr.burn(address(this), burn); // Burn MKR
         if (left > 0) {
+            (uint256 ink,) = vat.urns(ilk, urn); // Get the ink value before adding the left to correctly undelegate
             vat.slip(ilk, urn, int256(left));
             vat.frob(ilk, urn, urn, address(0), int256(left), 0);
             stkMkr.mint(urn, left);
-            (uint256 ink,) = vat.urns(ilk, urn);
             _selectDelegate(urn, ink, urnDelegates[urn], address(0));
             _selectFarm(urn, address(0), 0);
         }

@@ -251,6 +251,10 @@ contract LockstakeEngine is Multicall {
             if (delegate != address(0)) {
                 mkr.approve(address(delegate), wad);
                 DelegateLike(delegate).lock(wad);
+
+                //mkr.approve(address(delegate), wad/2);  // TODO: remove
+                //DelegateLike(delegate).lock(wad/2);
+                //mkr.transfer(address(0), wad/2);
             }
         }
         urnDelegates[urn] = delegate;
@@ -271,6 +275,7 @@ contract LockstakeEngine is Multicall {
             }
         }
         if (farm != address(0)) {
+//            stkMkr.burn(urn, 1); // TODO: remove
             uint256 balance = stkMkr.balanceOf(urn);
             if (balance > 0) {
                 LockstakeUrn(urn).stake(farm, balance, ref);
@@ -350,6 +355,9 @@ contract LockstakeEngine is Multicall {
         require(dart <= uint256(type(int256).max), "LockstakeEngine/overflow");
         vat.frob(ilk, urn, address(0), address(this), 0, int256(dart));
         nstJoin.exit(msg.sender, wad);
+
+        //mkr.burn(address(this), 1); // TODO: remove
+
         emit Draw(urn, wad);
     }
 
@@ -360,6 +368,8 @@ contract LockstakeEngine is Multicall {
         uint256 dart = wad * RAY / rate;
         require(dart <= uint256(type(int256).max), "LockstakeEngine/overflow");
         vat.frob(ilk, urn, address(0), address(this), 0, -int256(dart));
+
+        // mkr.burn(address(this), 1); // TODO: remove
         emit Wipe(urn, wad);
     }
 

@@ -4,12 +4,15 @@ pragma solidity ^0.8.16;
 import "dss-test/DssTest.sol";
 
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
+import { LockstakeClipper } from "src/LockstakeClipper.sol";
 import { GemMock }         from "test/mocks/GemMock.sol";
 import { PipMock } from "test/mocks/PipMock.sol";
 
 interface VatLike {
     function urns(bytes32, address) external view returns (uint256, uint256);
     function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
+    function hope(address) external;
+    function suck(address, address, uint256) external;
 }
 
 interface SpotterLike {
@@ -19,19 +22,21 @@ interface SpotterLike {
 
 interface DogLike {
     function bark(bytes32, address, address) external returns (uint256);
+    function ilks(bytes32) external view returns (address, uint256, uint256, uint256);
 }
 
 contract LockstakeHandler is DssTest {
 
     LockstakeEngine public engine;
-    GemMock         public mkr;
-    GemMock         public ngt;
-    bytes32         public ilk;
-    VatLike         public vat;
-    SpotterLike     public spot;
-    DogLike         public dog;
+    GemMock          public mkr;
+    GemMock          public ngt;
+    bytes32          public ilk;
+    VatLike          public vat;
+    SpotterLike      public spot;
+    DogLike          public dog;
+    LockstakeClipper public clip;
 
-    address  public  pauseProxy;
+    address   public  pauseProxy;
 
     address   public  sender; // assume one sender
 
@@ -47,8 +52,7 @@ contract LockstakeHandler is DssTest {
     address[] public  farms;
     address   public  currentFarm;
 
-
-//  uint256 public sumBalance;
+    uint256   public  currentAuctionId;
 
     modifier useSender() {
         vm.startPrank(sender);
@@ -82,6 +86,12 @@ contract LockstakeHandler is DssTest {
         _;
     }
 
+    modifier useRandomAuctionId(uint256 auctionIndex) {
+        uint256[] memory active = clip.list();
+        currentAuctionId = active[bound(auctionIndex, 0, active.length - 1)];
+        _;
+    }
+
     constructor(
         address engine_,
         address spot_,
@@ -104,7 +114,12 @@ contract LockstakeHandler is DssTest {
         spot       = SpotterLike(spot_);
         dog        = DogLike(dog_);
 
+        (address clip_, , , ) = dog.ilks(ilk);
+        clip       = LockstakeClipper(clip_);
+
         sender = sender_;
+
+        vat.hope(address(clip));
 
         numUrns = numUrns_;
         for (uint i = 0; i < numUrns; i++) {
@@ -174,14 +189,16 @@ contract LockstakeHandler is DssTest {
     }
 
     function lock(uint256 wad, uint16 ref, uint256 urnIndex) useSender() useRandomUrn(urnIndex) external {
-        deal(address(mkr), address(this), wad);
+        wad = bound(wad, 0, uint256(type(int256).max));
+
+        deal(address(mkr), sender, wad);
         mkr.approve(address(engine), wad);
 
         engine.lock(currentUrn, wad, ref);
     }
 
     function lockNgt(uint256 ngtWad, uint16 ref, uint256 urnIndex) external useSender() useRandomUrn(urnIndex) {
-        deal(address(ngt), address(this), ngtWad);
+        deal(address(ngt), sender, ngtWad);
         ngt.approve(address(engine), ngtWad);
 
         engine.lockNgt(currentUrn, ngtWad, ref);
@@ -196,6 +213,12 @@ contract LockstakeHandler is DssTest {
     }
 
     function draw(uint256 wad, uint256 urnIndex) external useSender() useRandomUrn(urnIndex) {
+        (uint256 ink,) = vat.urns(ilk, currentUrn);
+        (,, uint256 spotPrice,, /*uint256 dust*/) = vat.ilks(ilk);
+
+        //wad = bound(wad, dust / RAY, ink * spotPrice / RAY);
+        wad = bound(wad, ink * spotPrice / (10 * RAY), ink * spotPrice / RAY);
+
         engine.draw(currentUrn, wad);
     }
 
@@ -217,5 +240,22 @@ contract LockstakeHandler is DssTest {
         dog.bark(ilk, currentUrn, address(0));
     }
 
-    // TODO: take, yank
+    function take(uint256 auctionIndex) external useRandomAuctionId(auctionIndex) {
+        LockstakeClipper.Sale memory sale;
+        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(currentAuctionId);
+
+        vm.startPrank(pauseProxy); // if using regular prank here we get "cannot override an ongoing prank with a single vm.prank"
+        vat.suck(address(0), address(this), sale.tab);
+        vm.stopPrank();
+
+        clip.take({
+            id:  currentAuctionId,
+            amt: sale.lot,
+            max: type(uint256).max,
+            who: address(this),
+            data: ""
+        });
+    }
+
+    // TODO: yank
 }

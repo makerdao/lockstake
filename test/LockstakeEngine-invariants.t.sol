@@ -4,6 +4,7 @@ pragma solidity ^0.8.16;
 
 import "dss-test/DssTest.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
+//import { LockstakeEngine } from "src/LockstakeEngineMutated.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
 import { PipMock } from "test/mocks/PipMock.sol";
 import { DelegateFactoryMock, DelegateMock } from "test/mocks/DelegateMock.sol";
@@ -26,6 +27,7 @@ interface VatLike {
     function urns(bytes32, address) external view returns (uint256, uint256);
     function rely(address) external;
     function file(bytes32, bytes32, uint256) external;
+    function file(bytes32, uint256) external;
     function init(bytes32) external;
     function hope(address) external;
     function suck(address, address, uint256) external;
@@ -52,6 +54,7 @@ interface DogLike {
 
 interface CalcFabLike {
     function newLinearDecrease(address) external returns (address);
+    function newStairstepExponentialDecrease(address) external returns (address);
 }
 
 interface CalcLike {
@@ -140,8 +143,10 @@ contract LockstakeEngineIntegrationTest is DssTest {
         SpotterLike(spot).file(ilk, "mat", 3 * 10**27); // 300% coll ratio
         pip.setPrice(1000 * 10**18); // 1 MKR = 1000 USD
         SpotterLike(spot).poke(ilk);
-        vat.file(ilk, "dust", rad(5000 ether)); // $5000 dust
-        vat.file(ilk, "line", 1_000_000 * 10**45);
+        vat.file(ilk, "dust", rad(20 ether)); // $20 dust
+
+        vat.file(ilk, "line", type(uint256).max);
+        vat.file("Line", type(uint256).max);
 
         // dog and clip setup
 
@@ -157,6 +162,17 @@ contract LockstakeEngineIntegrationTest is DssTest {
         dog.rely(address(clip));
         vat.rely(address(clip));
         engine.rely(address(clip));
+
+        // setup for taking
+
+        address calc = CalcFabLike(ChainlogLike(LOG).getAddress("CALC_FAB")).newStairstepExponentialDecrease(pauseProxy);
+        CalcLike(calc).file("cut",  RAY - ray(0.01 ether));  // 1% decrease
+        CalcLike(calc).file("step", 1);                      // Decrease every 1 second
+
+        clip.file("buf",  ray(1.25 ether));   // 25% Initial price buffer
+        clip.file("calc", address(calc));     // File price contract
+        clip.file("cusp", ray(0.3 ether));    // 70% drop before reset
+        clip.file("tail", 3600);              // 1 hour before reset
 
         vm.stopPrank();
 
@@ -188,20 +204,20 @@ contract LockstakeEngineIntegrationTest is DssTest {
         );
 
         // uncomment and fill to can only call specific functions
-        /*
-        bytes4[] memory selectors = new bytes4[](5);
+/*
+        bytes4[] memory selectors = new bytes4[](6);
         selectors[0] = LockstakeHandler.open.selector;
         selectors[1] = LockstakeHandler.selectDelegate.selector;
         selectors[2] = LockstakeHandler.lock.selector;
         selectors[3] = LockstakeHandler.draw.selector;
         selectors[4] = LockstakeHandler.dropPriceAndBark.selector;
+        selectors[5] = LockstakeHandler.take.selector;
 
         targetSelector(FuzzSelector({
             addr: address(handler),
             selectors: selectors
         }));
-        */
-
+*/
         targetContract(address(handler));
         targetSender(address(this));
         excludeArtifact("LockstakeUrn"); // excluding since it seems to also be fuzzed

@@ -5,9 +5,20 @@ import "dss-test/DssTest.sol";
 
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { GemMock }         from "test/mocks/GemMock.sol";
+import { PipMock } from "test/mocks/PipMock.sol";
 
 interface VatLike {
     function urns(bytes32, address) external view returns (uint256, uint256);
+    function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
+}
+
+interface SpotterLike {
+    function ilks(bytes32) external view returns (address, uint256);
+    function poke(bytes32) external;
+}
+
+interface DogLike {
+    function bark(bytes32, address, address) external returns (uint256);
 }
 
 contract LockstakeHandler is DssTest {
@@ -17,6 +28,8 @@ contract LockstakeHandler is DssTest {
     GemMock         public ngt;
     bytes32         public ilk;
     VatLike         public vat;
+    SpotterLike     public spot;
+    DogLike         public dog;
 
     address  public  pauseProxy;
 
@@ -71,6 +84,8 @@ contract LockstakeHandler is DssTest {
 
     constructor(
         address engine_,
+        address spot_,
+        address dog_,
         address mkr_,
         address ngt_,
         address pauseProxy_,
@@ -86,6 +101,8 @@ contract LockstakeHandler is DssTest {
         pauseProxy = pauseProxy_;
         ilk        = engine.ilk();
         vat        = VatLike(address(engine.vat()));
+        spot       = SpotterLike(spot_);
+        dog        = DogLike(dog_);
 
         sender = sender_;
 
@@ -186,5 +203,19 @@ contract LockstakeHandler is DssTest {
         engine.wipe(currentUrn, wad);
     }
 
-    // TODO: liquidations
+    function dropPriceAndBark(uint256 urnIndex) external useRandomUrn(urnIndex) {
+        (uint256 ink, uint256 art) = vat.urns(ilk, currentUrn);
+        (address pip, uint256 mat) = SpotterLike(spot).ilks(ilk);
+        (, uint256 rate,,,) = vat.ilks(ilk);
+
+        uint256 minCollateralizedPrice = ((art * rate / RAY) * mat / ink) / 10**9;
+        console.log("price", minCollateralizedPrice);
+
+        PipMock(pip).setPrice(minCollateralizedPrice - 1);
+        SpotterLike(spot).poke(ilk);
+
+        dog.bark(ilk, currentUrn, address(0));
+    }
+
+    // TODO: take, yank
 }

@@ -32,6 +32,7 @@ interface VatLike {
 }
 
 interface SpotterLike {
+    function ilks(bytes32) external view returns (address, uint256);
     function file(bytes32, bytes32, address) external;
     function file(bytes32, bytes32, uint256) external;
     function poke(bytes32) external;
@@ -64,7 +65,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
     address             public pauseProxy;
     VatLike             public vat;
     address             public spot;
-    address             public dog;
+    DogLike             public dog;
     GemMock             public mkr;
     address             public jug;
     LockstakeEngine     public engine;
@@ -95,13 +96,21 @@ contract LockstakeEngineIntegrationTest is DssTest {
     }
     }
 
+    function ray(uint256 wad) internal pure returns (uint256) {
+        return wad * 10 ** 9;
+    }
+
+    function rad(uint256 wad) internal pure returns (uint256) {
+        return wad * 10 ** 27;
+    }
+
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
         pauseProxy = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
         vat = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
         spot = ChainlogLike(LOG).getAddress("MCD_SPOT");
-        dog = ChainlogLike(LOG).getAddress("MCD_DOG");
+        dog = DogLike(ChainlogLike(LOG).getAddress("MCD_DOG"));
         mkr = new GemMock(0);
         jug = ChainlogLike(LOG).getAddress("MCD_JUG");
         nst = new NstMock();
@@ -129,9 +138,26 @@ contract LockstakeEngineIntegrationTest is DssTest {
         JugLike(jug).file(ilk, "duty", 1001 * 10**27 / 1000);
         SpotterLike(spot).file(ilk, "pip", address(pip));
         SpotterLike(spot).file(ilk, "mat", 3 * 10**27); // 300% coll ratio
-        pip.setPrice(1500 * 10**18); // 1 MKR = 1500 USD
+        pip.setPrice(1000 * 10**18); // 1 MKR = 1000 USD
         SpotterLike(spot).poke(ilk);
+        vat.file(ilk, "dust", rad(5000 ether)); // $5000 dust
         vat.file(ilk, "line", 1_000_000 * 10**45);
+
+        // dog and clip setup
+
+        dog.file(ilk, "chop", 1.1 ether); // 10% chop
+        dog.file(ilk, "hole", rad(1_000_000 ether));
+
+        // dust and chop filed previously so clip.chost will be set correctly
+        clip = new LockstakeClipper(address(vat), spot, address(dog), address(engine));
+        clip.upchost();
+        clip.rely(address(dog));
+
+        dog.file(ilk, "clip", address(clip));
+        dog.rely(address(clip));
+        vat.rely(address(clip));
+        engine.rely(address(clip));
+
         vm.stopPrank();
 
         deal(address(mkr), address(this), 100_000 * 10**18, true);
@@ -139,7 +165,6 @@ contract LockstakeEngineIntegrationTest is DssTest {
 
         // Add some existing DAI assigned to nstJoin to avoid a particular error
         stdstore.target(address(vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(100_000 * RAD);
-
 
         address[] memory delegates = new address[](2);
         delegates[0] = voterDelegate0;
@@ -151,6 +176,8 @@ contract LockstakeEngineIntegrationTest is DssTest {
 
         handler = new LockstakeHandler(
             address(engine),
+            address(spot),
+            address(dog),
             address(mkr),
             address(ngt),
             pauseProxy,
@@ -160,19 +187,20 @@ contract LockstakeEngineIntegrationTest is DssTest {
             farms
         );
 
-
-        // enable to can only call specific functions
-/*
-        bytes4[] memory selectors = new bytes4[](3);
+        // uncomment and fill to can only call specific functions
+        /*
+        bytes4[] memory selectors = new bytes4[](5);
         selectors[0] = LockstakeHandler.open.selector;
         selectors[1] = LockstakeHandler.selectDelegate.selector;
         selectors[2] = LockstakeHandler.lock.selector;
+        selectors[3] = LockstakeHandler.draw.selector;
+        selectors[4] = LockstakeHandler.dropPriceAndBark.selector;
 
         targetSelector(FuzzSelector({
             addr: address(handler),
             selectors: selectors
         }));
-*/
+        */
 
         targetContract(address(handler));
         targetSender(address(this));

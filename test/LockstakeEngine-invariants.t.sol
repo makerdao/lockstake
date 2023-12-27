@@ -75,12 +75,15 @@ contract LockstakeEngineIntegrationTest is DssTest {
     NstJoinMock         public nstJoin;
     GemMock             public stkMkr;
     GemMock             public rTok;
-    StakingRewardsMock  public farm;
+    StakingRewardsMock  public farm0;
+    StakingRewardsMock  public farm1;
     MkrNgtMock          public mkrNgt;
     GemMock             public ngt;
     bytes32             public ilk = "LSE";
-    address             public voter;
-    address             public voterDelegate;
+    address             public voter0;
+    address             public voter1;
+    address             public voterDelegate0;
+    address             public voterDelegate1;
 
     LockstakeHandler    public handler;
 
@@ -105,14 +108,17 @@ contract LockstakeEngineIntegrationTest is DssTest {
         nstJoin = new NstJoinMock(address(vat), address(nst));
         stkMkr = new GemMock(0);
         rTok = new GemMock(0);
-        farm = new StakingRewardsMock(address(rTok), address(stkMkr));
+        farm0 = new StakingRewardsMock(address(rTok), address(stkMkr));
+        farm1 = new StakingRewardsMock(address(rTok), address(stkMkr));
         ngt = new GemMock(0);
         mkrNgt = new MkrNgtMock(address(mkr), address(ngt), 25_000);
 
         pip = new PipMock();
         delFactory = new DelegateFactoryMock(address(mkr));
-        voter = address(123);
-        vm.prank(voter); voterDelegate = delFactory.create();
+        voter0 = address(123);
+        voter1 = address(456);
+        vm.prank(voter0); voterDelegate0 = delFactory.create();
+        vm.prank(voter1); voterDelegate1 = delFactory.create();
 
         vm.startPrank(pauseProxy);
         engine = new LockstakeEngine(address(delFactory), address(nstJoin), ilk, address(stkMkr), 15 * WAD / 100, address(mkrNgt));
@@ -135,11 +141,13 @@ contract LockstakeEngineIntegrationTest is DssTest {
         stdstore.target(address(vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(100_000 * RAD);
 
 
-        address[] memory delegates = new address[](1);
-        delegates[0] = voterDelegate;
+        address[] memory delegates = new address[](2);
+        delegates[0] = voterDelegate0;
+        delegates[1] = voterDelegate1;
 
-        address[] memory farms = new address[](1);
-        farms[0] = address(farm);
+        address[] memory farms = new address[](2);
+        farms[0] = address(farm0);
+        farms[1] = address(farm1);
 
         handler = new LockstakeHandler(
             address(engine),
@@ -152,25 +160,76 @@ contract LockstakeEngineIntegrationTest is DssTest {
             farms
         );
 
+
+        // enable to can only call specific functions
+/*
+        bytes4[] memory selectors = new bytes4[](3);
+        selectors[0] = LockstakeHandler.open.selector;
+        selectors[1] = LockstakeHandler.selectDelegate.selector;
+        selectors[2] = LockstakeHandler.lock.selector;
+
+        targetSelector(FuzzSelector({
+            addr: address(handler),
+            selectors: selectors
+        }));
+*/
+
         targetContract(address(handler));
         targetSender(address(this));
+        excludeArtifact("LockstakeUrn"); // excluding since it seems to also be fuzzed
     }
 
     // Note: would only catch the violation when running with runs: 100_000, depth: 5
-    function invariant_sum_of_ink() public {
+    function invariant_system_mkr_equals_sum_of_ink() public {
         assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)), handler.sumInk());
     }
 
-    function invariant_stkMkr_can_not_leak() public {
+    function invariant_system_mkr_equals_stkMkr_total_supply() public {
         assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)), stkMkr.totalSupply());
     }
 
-    function invariant_delegation_unique() public {
+    // Note: relies on having only one urn (i.e. 1 passed to handler ctr)
+    function invariant_delegation_exclusiveness() public {
+        assert(handler.numUrns() == 1);
+
         assertLe(handler.numDelegated(), 1);
     }
 
-    // TODO:
-    // - stake unique
-    // - only urnDelegates(urn) can have MKR
-    // - only urnFarms(urn) can have staked MKR
+    // Note: relies on having only one urn (i.e. 1 passed to handler ctr)
+    function invariant_delegation_all_or_nothing() public {
+        assert(handler.numUrns() == 1);
+
+        address urn = handler.urns(0);
+        address urnDelegate = engine.urnDelegates(urn);
+        (uint256 ink,) = vat.urns(ilk, urn);
+
+        if (urnDelegate == address(0)) {
+            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)), ink);
+        } else {
+            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)), 0);
+            assertEq(mkr.balanceOf(urnDelegate), ink);
+        }
+    }
+
+    function invariant_staking_exclusiveness() public {
+        for (uint256 i = 0; i < handler.numUrns(); i++) {
+            assertLe(handler.numStakedForUrn(handler.urns(i)), 1);
+        }
+    }
+
+    function invariant_staking_all_or_nothing() public {
+        for (uint256 i = 0; i < handler.numUrns(); i++) {
+            address urn = handler.urns(i);
+            address urnFarm = engine.urnFarms(urn);
+            (uint256 ink,) = vat.urns(ilk, urn);
+
+            if (urnFarm == address(0)) {
+                assertEq(stkMkr.balanceOf(urn), ink);
+            } else {
+                assertEq(stkMkr.balanceOf(urn), 0);
+                assertEq(GemMock(urnFarm).balanceOf(urn), ink);
+            }
+        }
+    }
 }
+

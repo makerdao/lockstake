@@ -249,12 +249,18 @@ contract LockstakeEngine is Multicall {
                 DelegateLike(prevDelegate).free(wad);
             }
             if (delegate != address(0)) {
-                mkr.approve(address(delegate), wad);
+                mkr.approve(address(delegate), wad); // TODO: can remove the address()
                 DelegateLike(delegate).lock(wad);
 
-                //mkr.approve(address(delegate), wad/2);  // TODO: remove
-                //DelegateLike(delegate).lock(wad/2);
-                //mkr.transfer(address(0), wad/2);
+/*
+                if (prevDelegate != address(0)) { // TODO: enable for failure instead of the above
+                    mkr.approve(prevDelegate, wad / 2);
+                    DelegateLike(prevDelegate).lock(wad / 2);
+
+                    mkr.approve(delegate, wad / 2);
+                    DelegateLike(delegate).lock(wad / 2);
+                }
+*/
             }
         }
         urnDelegates[urn] = delegate;
@@ -279,6 +285,12 @@ contract LockstakeEngine is Multicall {
             uint256 balance = stkMkr.balanceOf(urn);
             if (balance > 0) {
                 LockstakeUrn(urn).stake(farm, balance, ref);
+
+                //if (urnFarm != address(0)) { // TODO: enable for failure instead of the above
+                //    LockstakeUrn(urn).stake(farm, balance / 2, ref);
+                //    LockstakeUrn(urn).stake(urnFarm, balance / 2, ref);
+                //}
+
             }
         }
         urnFarms[urn] = farm;

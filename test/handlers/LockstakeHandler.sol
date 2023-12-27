@@ -107,13 +107,27 @@ contract LockstakeHandler is DssTest {
 
     function sumDelegated() external view returns (uint256 sum) {
         for (uint256 i = 0; i < delegates.length; i++) {
+            if (delegates[i] == address(0)) continue;
             sum += mkr.balanceOf(delegates[i]);
         }
     }
 
+    // note: There is no way to get the amount delegated per urn from the actual unmodified delegate contract,
+    //       so we currently just return the total num of delegates that anyone delegated to.
+    //       In practice it means that invariant_delegation_unique can only work when there is one urn.
     function numDelegated() external view returns (uint256 num) {
         for (uint256 i = 0; i < delegates.length; i++) {
+            if (delegates[i] == address(0)) continue;
             if (mkr.balanceOf(delegates[i]) > 0) num++;
+        }
+    }
+
+    function numStakedForUrn(address urn) external view returns (uint256 num) {
+        for (uint256 i = 0; i < farms.length; i++) {
+            address farm = farms[i];
+
+            if (farm == address(0)) continue;
+            if (GemMock(farms[i]).balanceOf(urn) > 0) num++;
         }
     }
 

@@ -258,16 +258,17 @@ contract LockstakeEngine is Multicall {
 
     function selectFarm(address urn, address farm, uint16 ref) external urnAuth(urn) {
         require(farm == address(0) || farms[farm] == 1, "LockstakeEngine/non-existing-farm");
-        _selectFarm(urn, farm, ref);
+        address prevFarm = urnFarms[urn];
+        require(prevFarm != farm, "LockstakeEngine/same-farm");
+        _selectFarm(urn, prevFarm, farm, ref);
         emit SelectFarm(urn, farm, ref);
     }
 
-    function _selectFarm(address urn, address farm, uint16 ref) internal {
-        address urnFarm = urnFarms[urn];
-        if (urnFarm != address(0)) {
-            uint256 balance = GemLike(urnFarm).balanceOf(address(urn));
+    function _selectFarm(address urn, address prevFarm, address farm, uint16 ref) internal {
+        if (prevFarm != address(0)) {
+            uint256 balance = GemLike(prevFarm).balanceOf(address(urn));
             if (balance > 0) {
-                LockstakeUrn(urn).withdraw(urnFarm, balance);
+                LockstakeUrn(urn).withdraw(prevFarm, balance);
             }
         }
         if (farm != address(0)) {
@@ -375,7 +376,7 @@ contract LockstakeEngine is Multicall {
     function onKick(address urn, uint256 wad) external auth {
         (uint256 ink,) = vat.urns(ilk, urn);
         _selectDelegate(urn, ink + wad, urnDelegates[urn], address(0));
-        _selectFarm(urn, address(0), 0);
+        _selectFarm(urn, urnFarms[urn], address(0), 0);
         stkMkr.burn(urn, wad); // Burn the liquidated amount of staking token
         // Urn confiscation happens in Dog contract where ilk vat.gem is sent to the LockstakeClipper
         emit OnKick(urn, wad);
@@ -401,7 +402,7 @@ contract LockstakeEngine is Multicall {
             vat.frob(ilk, urn, urn, address(0), int256(left), 0);
             stkMkr.mint(urn, left);
             _selectDelegate(urn, ink, urnDelegates[urn], address(0));
-            _selectFarm(urn, address(0), 0);
+            _selectFarm(urn, urnFarms[urn], address(0), 0);
         }
         emit OnTakeLeftovers(urn, tot, left, burn);
     }

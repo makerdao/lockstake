@@ -30,6 +30,7 @@ contract LockstakeHandler is DssTest {
     LockstakeEngine public engine;
     GemMock          public mkr;
     GemMock          public ngt;
+    GemMock          public nst;
     bytes32          public ilk;
     VatLike          public vat;
     SpotterLike      public spot;
@@ -53,6 +54,8 @@ contract LockstakeHandler is DssTest {
     address   public  currentFarm;
 
     uint256   public  currentAuctionId;
+
+    mapping(bytes32 => uint256) public numCalls;
 
     modifier useSender() {
         vm.startPrank(sender);
@@ -96,8 +99,6 @@ contract LockstakeHandler is DssTest {
         address engine_,
         address spot_,
         address dog_,
-        address mkr_,
-        address ngt_,
         address pauseProxy_,
         address sender_,
         uint256 numUrns_,
@@ -106,8 +107,9 @@ contract LockstakeHandler is DssTest {
     ) {
 
         engine     = LockstakeEngine(engine_);
-        mkr        = GemMock(mkr_);
-        ngt        = GemMock(ngt_);
+        mkr        = GemMock(address(engine.mkr()));
+        ngt        = GemMock(address(engine.ngt()));
+        nst        = GemMock(address(engine.nst()));
         pauseProxy = pauseProxy_;
         ilk        = engine.ilk();
         vat        = VatLike(address(engine.vat()));
@@ -171,24 +173,29 @@ contract LockstakeHandler is DssTest {
     }
 
     function addFarm(uint256 farmIndex) usePauseProxy() useRandomFarm(farmIndex) external {
+        numCalls["addFarm"]++;
         engine.addFarm(currentFarm);
     }
 
     function open(uint256 index) external useSender() useRandomIndex(index) returns (address) {
+        numCalls["open"]++;
         return engine.open(currentIndex);
     }
 
     // TODO: hope + nope
 
     function selectFarm(uint16 ref, uint256 urnIndex, uint256 farmIndex) useSender() useRandomUrn(urnIndex) useRandomFarm(farmIndex) external {
+        numCalls["selectFarm"]++;
         engine.selectFarm(currentUrn, currentFarm, ref);
     }
 
     function selectDelegate(uint256 urnIndex, uint256 delegateIndex) useSender() useRandomUrn(urnIndex) useRandomDelegate(delegateIndex) external {
+        numCalls["selectDelegate"]++;
         engine.selectDelegate(currentUrn, currentDelegate);
     }
 
     function lock(uint256 wad, uint16 ref, uint256 urnIndex) useSender() useRandomUrn(urnIndex) external {
+        numCalls["lock"]++;
         wad = bound(wad, 0, uint256(type(int256).max));
 
         deal(address(mkr), sender, wad);
@@ -198,6 +205,7 @@ contract LockstakeHandler is DssTest {
     }
 
     function lockNgt(uint256 ngtWad, uint16 ref, uint256 urnIndex) external useSender() useRandomUrn(urnIndex) {
+        numCalls["lockNgt"]++;
         deal(address(ngt), sender, ngtWad);
         ngt.approve(address(engine), ngtWad);
 
@@ -205,28 +213,35 @@ contract LockstakeHandler is DssTest {
     }
 
     function free(address to, uint256 wad, uint256 urnIndex) external useSender() useRandomUrn(urnIndex) {
+        numCalls["free"]++;
         engine.free(currentUrn, to, wad);
     }
 
     function freeNgt(address to, uint256 ngtWad, uint256 urnIndex) external useSender() useRandomUrn(urnIndex) {
+        numCalls["freeNgt"]++;
         engine.freeNgt(currentUrn, to, ngtWad);
     }
 
     function draw(uint256 wad, uint256 urnIndex) external useSender() useRandomUrn(urnIndex) {
+        numCalls["draw"]++;
         (uint256 ink,) = vat.urns(ilk, currentUrn);
-        (,, uint256 spotPrice,, /*uint256 dust*/) = vat.ilks(ilk);
+        (,, uint256 spotPrice,, uint256 dust) = vat.ilks(ilk);
 
-        //wad = bound(wad, dust / RAY, ink * spotPrice / RAY);
-        wad = bound(wad, ink * spotPrice / (10 * RAY), ink * spotPrice / RAY);
+        wad = bound(wad, dust / RAY, ink * spotPrice / RAY);
 
         engine.draw(currentUrn, wad);
     }
 
     function wipe(uint256 wad, uint256 urnIndex) external useSender() useRandomUrn(urnIndex) {
+        numCalls["wipe"]++;
+        deal(address(nst), sender, wad);
+        nst.approve(address(engine), wad);
+
         engine.wipe(currentUrn, wad);
     }
 
     function dropPriceAndBark(uint256 urnIndex) external useRandomUrn(urnIndex) {
+        numCalls["dropPriceAndBark"]++;
         (uint256 ink, uint256 art) = vat.urns(ilk, currentUrn);
         (address pip, uint256 mat) = SpotterLike(spot).ilks(ilk);
         (, uint256 rate,,,) = vat.ilks(ilk);
@@ -241,6 +256,7 @@ contract LockstakeHandler is DssTest {
     }
 
     function take(uint256 auctionIndex) external useRandomAuctionId(auctionIndex) {
+        numCalls["take"]++;
         LockstakeClipper.Sale memory sale;
         (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(currentAuctionId);
 

@@ -194,8 +194,6 @@ contract LockstakeEngineIntegrationTest is DssTest {
             address(engine),
             address(spot),
             address(dog),
-            address(mkr),
-            address(ngt),
             pauseProxy,
             address(this),
             1,
@@ -205,19 +203,22 @@ contract LockstakeEngineIntegrationTest is DssTest {
 
         // uncomment and fill to can only call specific functions
 /*
-        bytes4[] memory selectors = new bytes4[](6);
+        bytes4[] memory selectors = new bytes4[](4);
         selectors[0] = LockstakeHandler.open.selector;
-        selectors[1] = LockstakeHandler.selectDelegate.selector;
-        selectors[2] = LockstakeHandler.lock.selector;
-        selectors[3] = LockstakeHandler.draw.selector;
-        selectors[4] = LockstakeHandler.dropPriceAndBark.selector;
-        selectors[5] = LockstakeHandler.take.selector;
+//        selectors[1] = LockstakeHandler.selectDelegate.selector;
+        selectors[1] = LockstakeHandler.lock.selector;
+        selectors[2] = LockstakeHandler.draw.selector;
+        selectors[3] = LockstakeHandler.wipe.selector;
+//        selectors[4] = LockstakeHandler.dropPriceAndBark.selector;
+//        selectors[5] = LockstakeHandler.take.selector;
 
         targetSelector(FuzzSelector({
             addr: address(handler),
             selectors: selectors
         }));
 */
+
+
         targetContract(address(handler));
         targetSender(address(this));
         excludeArtifact("LockstakeUrn"); // excluding since it seems to also be fuzzed
@@ -275,5 +276,25 @@ contract LockstakeEngineIntegrationTest is DssTest {
             }
         }
     }
+
+
+    function invariant_call_summary() external view {
+        console.log("------------------");
+
+        console.log("\nCall Summary\n");
+        console.log("addFarm", handler.numCalls("addFarm"));
+        console.log("open", handler.numCalls("open"));
+        console.log("selectFarm", handler.numCalls("selectFarm"));
+        console.log("selectDelegate", handler.numCalls("selectDelegate"));
+        console.log("lock", handler.numCalls("lock"));
+        console.log("lockNgt", handler.numCalls("lockNgt"));
+        console.log("free", handler.numCalls("free"));
+        console.log("freeNgt", handler.numCalls("freeNgt"));
+        console.log("draw", handler.numCalls("draw"));
+        console.log("wipe", handler.numCalls("wipe"));
+        console.log("dropPriceAndBark", handler.numCalls("dropPriceAndBark"));
+        console.log("take", handler.numCalls("take"));
+    }
+
 }
 

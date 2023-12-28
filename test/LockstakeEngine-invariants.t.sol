@@ -4,7 +4,6 @@ pragma solidity ^0.8.16;
 
 import "dss-test/DssTest.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
-//import { LockstakeEngine } from "src/LockstakeEngineMutated.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
 import { PipMock } from "test/mocks/PipMock.sol";
 import { DelegateFactoryMock, DelegateMock } from "test/mocks/DelegateMock.sol";
@@ -13,7 +12,6 @@ import { NstMock } from "test/mocks/NstMock.sol";
 import { NstJoinMock } from "test/mocks/NstJoinMock.sol";
 import { StakingRewardsMock } from "test/mocks/StakingRewardsMock.sol";
 import { MkrNgtMock } from "test/mocks/MkrNgtMock.sol";
-
 import { LockstakeHandler } from "test/handlers/LockstakeHandler.sol";
 
 interface ChainlogLike {
@@ -149,7 +147,6 @@ contract LockstakeEngineIntegrationTest is DssTest {
         vat.file("Line", type(uint256).max);
 
         // dog and clip setup
-
         dog.file(ilk, "chop", 1.1 ether); // 10% chop
         dog.file(ilk, "hole", rad(1_000_000 ether));
 
@@ -163,8 +160,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
         vat.rely(address(clip));
         engine.rely(address(clip));
 
-        // setup for taking
-
+        // setup for take
         address calc = CalcFabLike(ChainlogLike(LOG).getAddress("CALC_FAB")).newStairstepExponentialDecrease(pauseProxy);
         CalcLike(calc).file("cut",  RAY - ray(0.01 ether));  // 1% decrease
         CalcLike(calc).file("step", 1);                      // Decrease every 1 second
@@ -173,7 +169,6 @@ contract LockstakeEngineIntegrationTest is DssTest {
         clip.file("calc", address(calc));     // File price contract
         clip.file("cusp", ray(0.3 ether));    // 70% drop before reset
         clip.file("tail", 3600);              // 1 hour before reset
-
         vm.stopPrank();
 
         deal(address(mkr), address(this), 100_000 * 10**18, true);
@@ -215,14 +210,11 @@ contract LockstakeEngineIntegrationTest is DssTest {
 //            selectors: selectors
 //        }));
 
-
-
-        targetContract(address(handler));
-        targetSender(address(this));
-        excludeArtifact("LockstakeUrn"); // excluding since it seems to also be fuzzed
+        targetContract(address(handler)); // invariant tests should fuzz only handler functions
+        excludeArtifact("LockstakeUrn");  // excluding since it seems to also be fuzzed
+        // targetSender(address(this));   // not needed anymore since we have `useSender` in the handler
     }
 
-    // Note: would only catch the violation when running with runs: 100_000, depth: 5
     function invariant_system_mkr_equals_sum_of_ink() public {
         assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)), handler.sumInk());
     }
@@ -275,7 +267,6 @@ contract LockstakeEngineIntegrationTest is DssTest {
         }
     }
 
-
     function invariant_call_summary() external view {
         console.log("------------------");
 
@@ -294,6 +285,5 @@ contract LockstakeEngineIntegrationTest is DssTest {
         console.log("take", handler.numCalls("take"));
         console.log("yank", handler.numCalls("yank"));
     }
-
 }
 

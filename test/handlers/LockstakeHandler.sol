@@ -117,8 +117,7 @@ contract LockstakeHandler is DssTest {
         dog        = DogLike(dog_);
 
         (address clip_, , , ) = dog.ilks(ilk);
-        clip       = LockstakeClipper(clip_);
-
+        clip   = LockstakeClipper(clip_);
         sender = sender_;
 
         vat.hope(address(clip));
@@ -182,7 +181,7 @@ contract LockstakeHandler is DssTest {
         return engine.open(currentIndex);
     }
 
-    // TODO: hope + nope
+    // TODO: support hope + nope once we support more than one sender
 
     function selectFarm(uint16 ref, uint256 urnIndex, uint256 farmIndex) useSender() useRandomUrn(urnIndex) useRandomFarm(farmIndex) external {
         numCalls["selectFarm"]++;
@@ -239,6 +238,8 @@ contract LockstakeHandler is DssTest {
 
         engine.wipe(currentUrn, wad);
     }
+
+    // TODO: support getReward
 
     function dropPriceAndBark(uint256 urnIndex) external useRandomUrn(urnIndex) {
         numCalls["dropPriceAndBark"]++;

@@ -98,7 +98,6 @@ The following functions are called from the LockstakeClipper (see below) through
 * `onTakeLeftovers(address urn, uint256 tot, uint256 left)` - Burn a proportional amount of the MKR which was bought in the auction and return the rest to the `urn`. This again undelegates and unstakes the entire `urn`'s MKR amount (in case any of it was restaked or redelegated during the auction).
 * `onYank(address urn, uint256 wad)` - Burn the auction's MKR (in case of an auction cancellation).
 
-
 **Configurable Parameters:**
 
 * `farms` - Whitelisted set of farms to choose from.
@@ -115,6 +114,26 @@ A modified version of the Liquidations 2.0 Clipper contract, which uses specific
 Specifically, the LockstakeEngine is called upon a beginning of an auction (`onKick`), a sell of collateral (`onTake`), when the auction is concluded and collateral leftover should be returned to the vault owner (`onTakeLeftovers`), and upon auction cancellation (`onYank`).
 
 The SLE liquidation process differs from the usual liquidations by the fact that it sends the taker callee the collateral (MKR) in the form of ERC20 tokens and not `vat.gem`.
+
+**Exit Fee on Liquidation**
+
+For a liquidated position the relative exit fee is burned from the MKR (collateral) leftovers upon completion of the auction. To ensure enough MKR is left, and also prevent incentives for self-liquidation, the ilk's liquidation ratio (`mat`) must be set high enough. We calculate below the minimal `mat` (while ignoring parameters resolution for simplicity):
+
+To be able to liquidate we need the vault to be under-collateralized. The point where that happens is:
+`① ink * price / mat = debt`
+
+The debt to be auctioned is enlarged (by the penalty) to `debt * chop` (where typically `chop` is 113%). If we assume the auction selling is at market price and that the market price didn't move since the auction trigger, then the amount of collateral sold is:
+`debt * chop / price`
+
+Since we need to make sure that only up to `(1-fee)` of the total collateral is sold (where `fee` will typically be 15%), we require:
+`② debt * chop / price < (1-fee) * ink`
+
+From ① and ② we get the requirement on `mat`:
+`mat > chop / (1 - fee)`
+
+For the mentioned examples of `chop` and `fee` we get:
+`mat > 1.13 / 0.85 ~= 133%`
+
 
 **Configurable Parameters (similar to a regular Clipper):**
 

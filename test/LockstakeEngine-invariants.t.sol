@@ -201,22 +201,20 @@ contract LockstakeEngineIntegrationTest is DssTest {
             farms
         );
 
-        // uncomment and fill to can only call specific functions
-/*
-        bytes4[] memory selectors = new bytes4[](4);
-        selectors[0] = LockstakeHandler.open.selector;
-//        selectors[1] = LockstakeHandler.selectDelegate.selector;
-        selectors[1] = LockstakeHandler.lock.selector;
-        selectors[2] = LockstakeHandler.draw.selector;
-        selectors[3] = LockstakeHandler.wipe.selector;
+        // uncomment and fill to only call specific functions
+//        bytes4[] memory selectors = new bytes4[](6);
+//        selectors[0] = LockstakeHandler.open.selector;
+//        selectors[1] = LockstakeHandler.lock.selector;
+//        selectors[2] = LockstakeHandler.draw.selector;
+//        selectors[3] = LockstakeHandler.selectDelegate.selector;
 //        selectors[4] = LockstakeHandler.dropPriceAndBark.selector;
-//        selectors[5] = LockstakeHandler.take.selector;
+//        selectors[5] = LockstakeHandler.yank.selector;
+//
+//        targetSelector(FuzzSelector({
+//            addr: address(handler),
+//            selectors: selectors
+//        }));
 
-        targetSelector(FuzzSelector({
-            addr: address(handler),
-            selectors: selectors
-        }));
-*/
 
 
         targetContract(address(handler));
@@ -294,6 +292,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
         console.log("wipe", handler.numCalls("wipe"));
         console.log("dropPriceAndBark", handler.numCalls("dropPriceAndBark"));
         console.log("take", handler.numCalls("take"));
+        console.log("yank", handler.numCalls("yank"));
     }
 
 }

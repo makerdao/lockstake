@@ -260,7 +260,7 @@ contract LockstakeHandler is DssTest {
         LockstakeClipper.Sale memory sale;
         (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(currentAuctionId);
 
-        vm.startPrank(pauseProxy); // if using regular prank here we get "cannot override an ongoing prank with a single vm.prank"
+        vm.startPrank(pauseProxy); // we use startPrank as cannot override an ongoing prank with a single vm.prank
         vat.suck(address(0), address(this), sale.tab);
         vm.stopPrank();
 
@@ -273,5 +273,8 @@ contract LockstakeHandler is DssTest {
         });
     }
 
-    // TODO: yank
+    function yank(uint256 auctionIndex) external useRandomAuctionId(auctionIndex) {
+        numCalls["yank"]++;
+        vm.prank(pauseProxy); clip.yank(currentAuctionId);
+    }
 }

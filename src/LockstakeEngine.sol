@@ -44,7 +44,6 @@ interface NstJoinLike {
 }
 
 interface GemLike {
-    function balanceOf(address) external view returns (uint256);
     function approve(address, uint256) external;
     function transfer(address, uint256) external;
     function transferFrom(address, address, uint256) external;
@@ -260,21 +259,18 @@ contract LockstakeEngine is Multicall {
         require(farm == address(0) || farms[farm] == 1, "LockstakeEngine/non-existing-farm");
         address prevFarm = urnFarms[urn];
         require(prevFarm != farm, "LockstakeEngine/same-farm");
-        _selectFarm(urn, prevFarm, farm, ref);
+        (uint256 ink,) = vat.urns(ilk, urn);
+        _selectFarm(urn, ink, prevFarm, farm, ref);
         emit SelectFarm(urn, farm, ref);
     }
 
-    function _selectFarm(address urn, address prevFarm, address farm, uint16 ref) internal {
-        if (prevFarm != address(0)) {
-            uint256 balance = GemLike(prevFarm).balanceOf(address(urn));
-            if (balance > 0) {
-                LockstakeUrn(urn).withdraw(prevFarm, balance);
+    function _selectFarm(address urn, uint256 wad, address prevFarm, address farm, uint16 ref) internal {
+        if (wad > 0) {
+            if (prevFarm != address(0)) {
+                LockstakeUrn(urn).withdraw(prevFarm, wad);
             }
-        }
-        if (farm != address(0)) {
-            uint256 balance = stkMkr.balanceOf(urn);
-            if (balance > 0) {
-                LockstakeUrn(urn).stake(farm, balance, ref);
+            if (farm != address(0)) {
+                LockstakeUrn(urn).stake(farm, wad, ref);
             }
         }
         urnFarms[urn] = farm;
@@ -376,7 +372,7 @@ contract LockstakeEngine is Multicall {
     function onKick(address urn, uint256 wad) external auth {
         (uint256 ink,) = vat.urns(ilk, urn);
         _selectDelegate(urn, ink + wad, urnDelegates[urn], address(0));
-        _selectFarm(urn, urnFarms[urn], address(0), 0);
+        _selectFarm(urn, ink + wad, urnFarms[urn], address(0), 0);
         stkMkr.burn(urn, wad); // Burn the liquidated amount of staking token
         // Urn confiscation happens in Dog contract where ilk vat.gem is sent to the LockstakeClipper
         emit OnKick(urn, wad);
@@ -402,7 +398,7 @@ contract LockstakeEngine is Multicall {
             vat.frob(ilk, urn, urn, address(0), int256(left), 0);
             stkMkr.mint(urn, left);
             _selectDelegate(urn, ink, urnDelegates[urn], address(0));
-            _selectFarm(urn, urnFarms[urn], address(0), 0);
+            _selectFarm(urn, ink, urnFarms[urn], address(0), 0);
         }
         emit OnTakeLeftovers(urn, tot, left, burn);
     }

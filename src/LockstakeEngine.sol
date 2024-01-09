@@ -44,7 +44,6 @@ interface NstJoinLike {
 }
 
 interface GemLike {
-    function balanceOf(address) external view returns (uint256);
     function approve(address, uint256) external;
     function transfer(address, uint256) external;
     function transferFrom(address, address, uint256) external;
@@ -105,14 +104,14 @@ contract LockstakeEngine is Multicall {
     event Open(address indexed owner, address urn);
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
-    event Delegate(address indexed urn, address indexed delegate);
-    event Lock(address indexed urn, uint256 wad);
-    event LockNgt(address indexed urn, uint256 ngtWad);
+    event SelectDelegate(address indexed urn, address indexed delegate);
+    event SelectFarm(address indexed urn, address farm, uint16 ref);
+    event Lock(address indexed urn, uint256 wad, uint16 ref);
+    event LockNgt(address indexed urn, uint256 ngtWad, uint16 ref);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
     event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
     event Draw(address indexed urn, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
-    event SelectFarm(address indexed urn, address farm);
     event Stake(address indexed urn, address indexed farm, uint256 wad, uint16 ref);
     event Withdraw(address indexed urn, address indexed farm, uint256 wad);
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
@@ -224,7 +223,8 @@ contract LockstakeEngine is Multicall {
     function isUrnAuth(address urn, address usr) external view returns (bool ok) {
         ok = _urnAuth(urn, usr);
     }
-    // --- urn/delegation functions ---
+
+    // --- urn management functions ---
 
     function open(uint256 index) external returns (address urn) {
         require(index == usrAmts[msg.sender]++, "LockstakeEngine/wrong-urn-index");
@@ -246,31 +246,81 @@ contract LockstakeEngine is Multicall {
         emit Nope(urn, usr);
     }
 
-    function lock(address urn, uint256 wad) external urnAuth(urn) {
-        mkr.transferFrom(msg.sender, address(this), wad);
-        _lock(urn, wad);
-        emit Lock(urn, wad);
+    // --- delegation/staking functions ---
+
+    function selectDelegate(address urn, address delegate) external urnAuth(urn) {
+        require(delegate == address(0) || delegateFactory.isDelegate(delegate) == 1, "LockstakeEngine/not-valid-delegate");
+        address prevDelegate = urnDelegates[urn];
+        require(prevDelegate != delegate, "LockstakeEngine/same-delegate");
+        (uint256 ink,) = vat.urns(ilk, urn);
+        _selectDelegate(urn, ink, prevDelegate, delegate);
+        emit SelectDelegate(urn, delegate);
     }
 
-    function lockNgt(address urn, uint256 ngtWad) external urnAuth(urn) {
+    function _selectDelegate(address urn, uint256 wad, address prevDelegate, address delegate) internal {
+        if (wad > 0) {
+            if (prevDelegate != address(0)) {
+                DelegateLike(prevDelegate).free(wad);
+            }
+            if (delegate != address(0)) {
+                mkr.approve(address(delegate), wad);
+                DelegateLike(delegate).lock(wad);
+            }
+        }
+        urnDelegates[urn] = delegate;
+    }
+
+    function selectFarm(address urn, address farm, uint16 ref) external urnAuth(urn) {
+        require(farm == address(0) || farms[farm] == 1, "LockstakeEngine/non-existing-farm");
+        address prevFarm = urnFarms[urn];
+        require(prevFarm != farm, "LockstakeEngine/same-farm");
+        (uint256 ink,) = vat.urns(ilk, urn);
+        _selectFarm(urn, ink, prevFarm, farm, ref);
+        emit SelectFarm(urn, farm, ref);
+    }
+
+    function _selectFarm(address urn, uint256 wad, address prevFarm, address farm, uint16 ref) internal {
+        if (wad > 0) {
+            if (prevFarm != address(0)) {
+                LockstakeUrn(urn).withdraw(prevFarm, wad);
+            }
+            if (farm != address(0)) {
+                LockstakeUrn(urn).stake(farm, wad, ref);
+            }
+        }
+        urnFarms[urn] = farm;
+    }
+
+    function lock(address urn, uint256 wad, uint16 ref) external urnAuth(urn) {
+        mkr.transferFrom(msg.sender, address(this), wad);
+        _lock(urn, wad, ref);
+        emit Lock(urn, wad, ref);
+    }
+
+    function lockNgt(address urn, uint256 ngtWad, uint16 ref) external urnAuth(urn) {
         ngt.transferFrom(msg.sender, address(this), ngtWad);
         mkrNgt.ngtToMkr(address(this), ngtWad);
-        _lock(urn, ngtWad / mkrNgtRate);
-        emit LockNgt(urn, ngtWad);
+        _lock(urn, ngtWad / mkrNgtRate, ref);
+        emit LockNgt(urn, ngtWad, ref);
     }
 
-    function _lock(address urn, uint256 wad) internal {
+    function _lock(address urn, uint256 wad, uint16 ref) internal {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
-        address delegate_ = urnDelegates[urn];
-        if (delegate_ != address(0)) {
-            mkr.approve(address(delegate_), wad);
-            DelegateLike(delegate_).lock(wad);
+        address delegate = urnDelegates[urn];
+        if (delegate != address(0)) {
+            mkr.approve(address(delegate), wad);
+            DelegateLike(delegate).lock(wad);
         }
         // TODO: define if we want an internal registry to register how much is locked per user,
         // the vat.slip and stkMkr balance act already as a registry so probably not needed an extra one
         vat.slip(ilk, urn, int256(wad));
         vat.frob(ilk, urn, urn, address(0), int256(wad), 0);
         stkMkr.mint(urn, wad);
+        address urnFarm = urnFarms[urn];
+        if (urnFarm != address(0)) {
+            require(farms[urnFarm] == 1, "Lockstake/farm-not-whitelisted-anymore");
+            LockstakeUrn(urn).stake(urnFarm, wad, ref);
+        }
     }
 
     function free(address urn, address to, uint256 wad) external urnAuth(urn) {
@@ -288,34 +338,20 @@ contract LockstakeEngine is Multicall {
 
     function _free(address urn, uint256 wad) internal returns (uint256 freed) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
+        address urnFarm = urnFarms[urn];
+        if (urnFarm != address(0)) {
+            LockstakeUrn(urn).withdraw(urnFarm, wad);
+        }
         stkMkr.burn(urn, wad);
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
-        address delegate_ = urnDelegates[urn];
-        if (delegate_ != address(0)) {
-            DelegateLike(delegate_).free(wad);
+        address delegate = urnDelegates[urn];
+        if (delegate != address(0)) {
+            DelegateLike(delegate).free(wad);
         }
         uint256 burn = wad * fee / WAD;
         mkr.burn(address(this), burn);
         freed = wad - burn;
-    }
-
-    function delegate(address urn, address delegate_) external urnAuth(urn) {
-        require(delegate_ == address(0) || delegateFactory.isDelegate(delegate_) == 1, "LockstakeEngine/not-valid-delegate");
-        address prevDelegate = urnDelegates[urn];
-        require(prevDelegate != delegate_, "LockstakeEngine/same-delegate");
-        (uint256 wad,) = vat.urns(ilk, urn);
-        if (wad > 0) {
-            if (prevDelegate != address(0)) {
-                DelegateLike(prevDelegate).free(wad);
-            }
-            if (delegate_ != address(0)) {
-                mkr.approve(address(delegate_), wad);
-                DelegateLike(delegate_).lock(wad);
-            }
-        }
-        urnDelegates[urn] = delegate_;
-        emit Delegate(urn, delegate_);
     }
 
     // --- loan functions ---
@@ -339,30 +375,7 @@ contract LockstakeEngine is Multicall {
         emit Wipe(urn, wad);
     }
 
-    // --- staking functions ---
-
-    function selectFarm(address urn, address farm) external urnAuth(urn) {
-        require(farms[farm] == 1, "LockstakeEngine/non-existing-farm");
-        address urnFarm = urnFarms[urn];
-        require(urnFarm == address(0) || GemLike(urnFarm).balanceOf(address(urn)) == 0, "LockstakeEngine/withdraw-first");
-        urnFarms[urn] = farm;
-        emit SelectFarm(urn, farm);
-    }
-
-    function stake(address urn, uint256 wad, uint16 ref) external urnAuth(urn) {
-        address urnFarm = urnFarms[urn];
-        require(urnFarm != address(0), "LockstakeEngine/missing-selected-farm");
-        require(farms[urnFarm] == 1, "LockstakeEngine/selected-farm-not-available-anymore");
-        LockstakeUrn(urn).stake(urnFarm, wad, ref);
-        emit Stake(urn, urnFarm, wad, ref);
-    }
-
-    function withdraw(address urn, uint256 wad) external urnAuth(urn) {
-        address urnFarm = urnFarms[urn];
-        require(urnFarm != address(0), "LockstakeEngine/missing-selected-farm");
-        LockstakeUrn(urn).withdraw(urnFarm, wad);
-        emit Withdraw(urn, urnFarm, wad);
-    }
+    // --- staking rewards function ---
 
     function getReward(address urn, address farm, address to) external urnAuth(urn) {
         uint256 amt = LockstakeUrn(urn).getReward(farm, to);
@@ -372,18 +385,11 @@ contract LockstakeEngine is Multicall {
     // --- liquidation callback functions ---
 
     function onKick(address urn, uint256 wad) external auth {
-        address urnFarm = urnFarms[urn];
-        if (urnFarm != address(0)){
-            uint256 freed = GemLike(stkMkr).balanceOf(address(urn));
-            if (wad > freed) {
-                LockstakeUrn(urn).withdraw(urnFarm, wad - freed);
-            }
-        }
-        stkMkr.burn(urn, wad); // Burn the whole liquidated amount of staking token
-        address delegate_ = urnDelegates[urn];
-        if (delegate_ != address(0)) {
-            DelegateLike(delegate_).free(wad); // Undelegate liquidated amount and retain the MKR tokens
-        }
+        (uint256 ink,) = vat.urns(ilk, urn);
+        uint256 inkBeforeKick = ink + wad;
+        _selectDelegate(urn, inkBeforeKick, urnDelegates[urn], address(0));
+        _selectFarm(urn, inkBeforeKick, urnFarms[urn], address(0), 0);
+        stkMkr.burn(urn, wad); // Burn the liquidated amount of staking token
         // Urn confiscation happens in Dog contract where ilk vat.gem is sent to the LockstakeClipper
         emit OnKick(urn, wad);
     }
@@ -403,14 +409,12 @@ contract LockstakeEngine is Multicall {
         }
         mkr.burn(address(this), burn); // Burn MKR
         if (left > 0) {
-            address delegate_ = urnDelegates[urn];
-            if (delegate_ != address(0)) {
-                mkr.approve(address(delegate_), left);
-                DelegateLike(delegate_).lock(left);
-            }
+            (uint256 ink,) = vat.urns(ilk, urn); // Get the ink value before adding the left to correctly undelegate and unstake
             vat.slip(ilk, urn, int256(left));
             vat.frob(ilk, urn, urn, address(0), int256(left), 0);
             stkMkr.mint(urn, left);
+            _selectDelegate(urn, ink, urnDelegates[urn], address(0));
+            _selectFarm(urn, ink, urnFarms[urn], address(0), 0);
         }
         emit OnTakeLeftovers(urn, tot, left, burn);
     }

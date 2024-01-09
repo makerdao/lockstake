@@ -92,7 +92,7 @@ contract LockstakeEngineTest is DssTest {
     event LockNgt(address indexed urn, uint256 ngtWad, uint16 ref);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
     event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
-    event Draw(address indexed urn, uint256 wad);
+    event Draw(address indexed urn, address indexed to, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
@@ -271,7 +271,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_ink(ilk, urn), 100_000 * 10**18);
         engine.selectDelegate(urn, voterDelegate);
         assertEq(engine.urnDelegates(urn), voterDelegate);
-        engine.draw(urn, 1);
+        engine.draw(urn, address(urnAuthed), 1);
         nst.approve(address(engine), 1);
         engine.wipe(urn, 1);
         engine.selectFarm(urn, address(farm), 0);
@@ -519,15 +519,15 @@ contract LockstakeEngineTest is DssTest {
         engine.lock(urn, 100_000 * 10**18, 5);
         assertEq(_art(ilk, urn), 0);
         vm.expectEmit(true, true, true, true);
-        emit Draw(urn, 50 * 10**18);
-        engine.draw(urn, 50 * 10**18);
+        emit Draw(urn, address(this), 50 * 10**18);
+        engine.draw(urn, address(this), 50 * 10**18);
         assertEq(_art(ilk, urn), 50 * 10**18);
         assertEq(_rate(ilk), 10**27);
         assertEq(nst.balanceOf(address(this)), 50 * 10**18);
         vm.warp(block.timestamp + 1);
         vm.expectEmit(true, true, true, true);
-        emit Draw(urn, 50 * 10**18);
-        engine.draw(urn, 50 * 10**18);
+        emit Draw(urn, address(this), 50 * 10**18);
+        engine.draw(urn, address(this), 50 * 10**18);
         uint256 art = _art(ilk, urn);
         uint256 expectedArt = 50 * 10**18 + _divup(50 * 10**18 * 1000, 1001);
         assertEq(art, expectedArt);
@@ -548,6 +548,10 @@ contract LockstakeEngineTest is DssTest {
         engine.wipe(urn, 100.05 * 10**18);
         assertEq(nst.balanceOf(address(this)), 0.01 * 10**18);
         assertEq(_art(ilk, urn), 1); // Dust which is impossible to wipe
+        assertEq(nst.balanceOf(address(123)), 0);
+        emit Draw(urn, address(123), 50 * 10**18);
+        engine.draw(urn, address(123), 50 * 10**18);
+        assertEq(nst.balanceOf(address(123)), 50 * 10**18);
     }
 
     function testOpenLockStakeMulticall() public {
@@ -602,7 +606,7 @@ contract LockstakeEngineTest is DssTest {
         }
         mkr.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18, 5);
-        engine.draw(urn, 2_000 * 10**18);
+        engine.draw(urn, address(this), 2_000 * 10**18);
         assertEq(_ink(ilk, urn), 100_000 * 10**18);
         assertEq(_art(ilk, urn), 2_000 * 10**18);
     }

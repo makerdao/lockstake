@@ -110,7 +110,7 @@ contract LockstakeEngine is Multicall {
     event LockNgt(address indexed urn, uint256 ngtWad, uint16 ref);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
     event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
-    event Draw(address indexed urn, uint256 wad);
+    event Draw(address indexed urn, address indexed to, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
@@ -354,13 +354,13 @@ contract LockstakeEngine is Multicall {
 
     // --- loan functions ---
 
-    function draw(address urn, uint256 wad) external urnAuth(urn) {
+    function draw(address urn, address to, uint256 wad) external urnAuth(urn) {
         uint256 rate = jug.drip(ilk);
         uint256 dart = _divup(wad * RAY, rate);
         require(dart <= uint256(type(int256).max), "LockstakeEngine/overflow");
         vat.frob(ilk, urn, address(0), address(this), 0, int256(dart));
-        nstJoin.exit(msg.sender, wad);
-        emit Draw(urn, wad);
+        nstJoin.exit(to, wad);
+        emit Draw(urn, to, wad);
     }
 
     function wipe(address urn, uint256 wad) external urnAuth(urn) {

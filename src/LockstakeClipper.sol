@@ -394,10 +394,10 @@ contract LockstakeClipper {
             engine.onTake(usr, who, slice);
 
             // Do external call (if data is defined) but to be
-            // extremely careful we don't allow to do it to the two
+            // extremely careful we don't allow to do it to the three
             // contracts which the LockstakeClipper needs to be authorized
             DogLike dog_ = dog;
-            if (data.length > 0 && who != address(vat) && who != address(dog_)) {
+            if (data.length > 0 && who != address(vat) && who != address(dog_) && who != address(engine)) {
                 ClipperCallee(who).clipperCall(msg.sender, owe, slice, data);
             }
 

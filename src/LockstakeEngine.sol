@@ -261,7 +261,7 @@ contract LockstakeEngine is Multicall {
                 DelegateLike(prevDelegate).free(wad);
             }
             if (delegate != address(0)) {
-                mkr.approve(address(delegate), wad);
+                mkr.approve(delegate, wad);
                 DelegateLike(delegate).lock(wad);
             }
         }
@@ -306,7 +306,7 @@ contract LockstakeEngine is Multicall {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         address delegate = urnDelegates[urn];
         if (delegate != address(0)) {
-            mkr.approve(address(delegate), wad);
+            mkr.approve(delegate, wad);
             DelegateLike(delegate).lock(wad);
         }
         // TODO: define if we want an internal registry to register how much is locked per user,

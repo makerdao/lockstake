@@ -311,6 +311,8 @@ contract LockstakeEngineTest is DssTest {
         emit SelectFarm(urn, address(farm), 5);
         engine.selectFarm(urn, address(farm), 5);
         assertEq(engine.urnFarms(urn), address(farm));
+        vm.expectRevert("LockstakeEngine/same-farm");
+        engine.selectFarm(urn, address(farm), 5);
         vm.prank(pauseProxy); engine.addFarm(address(farm2));
         engine.selectFarm(urn, address(farm2), 5);
         assertEq(engine.urnFarms(urn), address(farm2));

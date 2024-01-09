@@ -85,7 +85,7 @@ contract LockstakeEngineTest is DssTest {
 
     event AddFarm(address farm);
     event DelFarm(address farm);
-    event Open(address indexed owner, address urn);
+    event Open(address indexed owner, uint256 indexed index, address urn);
     event SelectDelegate(address indexed urn, address indexed delegate_);
     event SelectFarm(address indexed urn, address farm, uint16 ref);
     event Lock(address indexed urn, uint256 wad, uint16 ref);
@@ -220,7 +220,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(VatLike(vat).can(urn, address(engine)), 0);
         assertEq(stkMkr.allowance(urn, address(engine)), 0);
         vm.expectEmit(true, true, true, true);
-        emit Open(address(this), urn);
+        emit Open(address(this), 0, urn);
         assertEq(engine.open(0), urn);
         assertEq(engine.usrAmts(address(this)), 1);
         assertEq(VatLike(vat).can(urn, address(engine)), 1);
@@ -234,8 +234,10 @@ contract LockstakeEngineTest is DssTest {
         vm.expectRevert("LockstakeEngine/wrong-urn-index");
         engine.open(2);
 
+        emit Open(address(this), 1, engine.getUrn(address(this), 1));
         assertEq(engine.getUrn(address(this), 1), engine.open(1));
         assertEq(engine.usrAmts(address(this)), 2);
+        emit Open(address(this), 1, engine.getUrn(address(this), 2));
         assertEq(engine.getUrn(address(this), 2), engine.open(2));
         assertEq(engine.usrAmts(address(this)), 3);
     }

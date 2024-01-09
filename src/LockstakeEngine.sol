@@ -101,7 +101,7 @@ contract LockstakeEngine is Multicall {
     event File(bytes32 indexed what, address data);
     event AddFarm(address farm);
     event DelFarm(address farm);
-    event Open(address indexed owner, address urn);
+    event Open(address indexed owner, uint256 indexed index, address urn);
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
     event SelectDelegate(address indexed urn, address indexed delegate);
@@ -231,7 +231,7 @@ contract LockstakeEngine is Multicall {
         assembly { urn := create2(0, add(initCode, 0x20), 0x37, salt) }
         LockstakeUrn(urn).init(); // would revert if create2 had failed
         urnOwners[urn] = msg.sender;
-        emit Open(msg.sender, urn);
+        emit Open(msg.sender, index, urn);
     }
 
     function hope(address urn, address usr) external urnAuth(urn) {

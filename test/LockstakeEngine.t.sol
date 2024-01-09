@@ -19,7 +19,7 @@ interface ChainlogLike {
 }
 
 interface VatLike {
-    function can(address, address) external view returns (bool);
+    function can(address, address) external view returns (uint256);
     function dai(address) external view returns (uint256);
     function gem(bytes32, address) external view returns (uint256);
     function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
@@ -217,13 +217,13 @@ contract LockstakeEngineTest is DssTest {
         vm.expectRevert("LockstakeEngine/wrong-urn-index");
         engine.open(1);
 
-        assertEq(VatLike(vat).can(urn, address(engine)), false);
+        assertEq(VatLike(vat).can(urn, address(engine)), 0);
         assertEq(stkMkr.allowance(urn, address(engine)), 0);
         vm.expectEmit(true, true, true, true);
         emit Open(address(this), urn);
         assertEq(engine.open(0), urn);
         assertEq(engine.usrAmts(address(this)), 1);
-        assertEq(VatLike(vat).can(urn, address(engine)), true);
+        assertEq(VatLike(vat).can(urn, address(engine)), 1);
         assertEq(stkMkr.allowance(urn, address(engine)), type(uint256).max);
         assertEq(LockstakeUrn(urn).engine(), address(engine));
         assertEq(address(LockstakeUrn(urn).stkMkr()), address(stkMkr));

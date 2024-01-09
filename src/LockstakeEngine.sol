@@ -92,6 +92,7 @@ contract LockstakeEngine is Multicall {
     MkrNgtLike          immutable public mkrNgt;
     GemLike             immutable public ngt;
     uint256             immutable public mkrNgtRate;
+    address             immutable public urnImplementation;
 
     // --- events ---   
 
@@ -149,6 +150,7 @@ contract LockstakeEngine is Multicall {
         ngt.approve(address(mkrNgt), type(uint256).max);
         mkr.approve(address(mkrNgt), type(uint256).max);
         mkrNgtRate = mkrNgt.rate();
+        urnImplementation = address(new LockstakeUrn(address(vat), stkMkr_));
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -164,6 +166,17 @@ contract LockstakeEngine is Multicall {
 
     function _urnAuth(address urn, address usr) internal view returns (bool ok) {
         ok = urnOwners[urn] == usr || urnCan[urn][usr] == 1;
+    }
+
+    // See the reference implementation in https://eips.ethereum.org/EIPS/eip-1167
+    function _initCode() internal view returns (bytes memory code) {
+        code = new bytes(0x37);
+        bytes20 impl = bytes20(urnImplementation);
+        assembly {
+            mstore(add(code,     0x20),        0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
+            mstore(add(code, add(0x20, 0x14)), impl)
+            mstore(add(code, add(0x20, 0x28)), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
+        }
     }
 
     // --- administration ---
@@ -199,7 +212,7 @@ contract LockstakeEngine is Multicall {
 
     function getUrn(address owner, uint256 index) external view returns (address urn) {
         uint256 salt = uint256(keccak256(abi.encode(owner, index)));
-        bytes32 codeHash = keccak256(abi.encodePacked(type(LockstakeUrn).creationCode, abi.encode(vat, stkMkr)));
+        bytes32 codeHash = keccak256(abi.encodePacked(_initCode()));
         urn = address(uint160(uint256(
             keccak256(
                 abi.encodePacked(bytes1(0xff), address(this), salt, codeHash)
@@ -215,8 +228,10 @@ contract LockstakeEngine is Multicall {
 
     function open(uint256 index) external returns (address urn) {
         require(index == usrAmts[msg.sender]++, "LockstakeEngine/wrong-urn-index");
-        bytes32 salt = keccak256(abi.encode(msg.sender, index));
-        urn = address(new LockstakeUrn{salt: salt}(address(vat), address(stkMkr)));
+        uint256 salt = uint256(keccak256(abi.encode(msg.sender, index)));
+        bytes memory initCode = _initCode();
+        assembly { urn := create2(0, add(initCode, 0x20), 0x37, salt) }
+        LockstakeUrn(urn).init(); // would revert if create2 had failed
         urnOwners[urn] = msg.sender;
         emit Open(msg.sender, urn);
     }

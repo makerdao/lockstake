@@ -160,6 +160,26 @@ contract LockstakeEngineTest is DssTest {
         (, rate,,,) = VatLike(vat).ilks(ilk_);
     }
 
+    function testConstructor() public {
+        vm.expectRevert("LockstakeEngine/fee-over-wad");
+        new LockstakeEngine(address(delFactory), address(nstJoin), "aaa", address(stkMkr), WAD + 1, address(mkrNgt));
+        vm.expectEmit(true, true, true, true);
+        emit Rely(address(this));
+        LockstakeEngine e = new LockstakeEngine(address(delFactory), address(nstJoin), "aaa", address(stkMkr), 100, address(mkrNgt));
+        assertEq(address(e.delegateFactory()), address(delFactory));
+        assertEq(address(e.nstJoin()), address(nstJoin));
+        assertEq(e.ilk(), "aaa");
+        assertEq(address(e.mkr()), address(mkr));
+        assertEq(address(e.stkMkr()), address(stkMkr));
+        assertEq(e.fee(), 100);
+        assertEq(address(e.mkrNgt()), address(mkrNgt));
+        assertEq(address(e.ngt()), address(ngt));
+        assertEq(ngt.allowance(address(e), address(mkrNgt)), type(uint256).max);
+        assertEq(mkr.allowance(address(e), address(mkrNgt)), type(uint256).max);
+        assertEq(e.mkrNgtRate(), 25_000);
+        assertEq(e.wards(address(this)), 1);
+    }
+
     function testAuth() public {
         checkAuth(address(engine), "LockstakeEngine");
     }

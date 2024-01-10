@@ -133,6 +133,7 @@ contract LockstakeEngine is Multicall {
     // --- constructor ---
 
     constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address stkMkr_, uint256 fee_, address mkrNgt_) {
+        require(fee_ <= WAD, "LockstakeEngine/fee-over-wad");
         delegateFactory = DelegateFactoryLike(delegateFactory_);
         nstJoin = NstJoinLike(nstJoin_);
         vat = nstJoin.vat();
@@ -349,7 +350,7 @@ contract LockstakeEngine is Multicall {
         }
         uint256 burn = wad * fee / WAD;
         mkr.burn(address(this), burn);
-        freed = wad - burn;
+        unchecked { freed = wad - burn; } // burn <= wad always
     }
 
     // --- loan functions ---

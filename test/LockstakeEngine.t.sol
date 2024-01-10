@@ -234,10 +234,12 @@ contract LockstakeEngineTest is DssTest {
         vm.expectRevert("LockstakeEngine/wrong-urn-index");
         engine.open(2);
 
+        vm.expectEmit(true, true, true, true);
         emit Open(address(this), 1, engine.getUrn(address(this), 1));
         assertEq(engine.getUrn(address(this), 1), engine.open(1));
         assertEq(engine.usrAmts(address(this)), 2);
-        emit Open(address(this), 1, engine.getUrn(address(this), 2));
+        vm.expectEmit(true, true, true, true);
+        emit Open(address(this), 2, engine.getUrn(address(this), 2));
         assertEq(engine.getUrn(address(this), 2), engine.open(2));
         assertEq(engine.usrAmts(address(this)), 3);
     }

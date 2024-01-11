@@ -443,6 +443,11 @@ contract LockstakeClipperTest is DssTest {
         clip.kick(1 ether, 0, address(1), address(this));
     }
 
+    function testRevertsKickLotOverMaxInt() public {
+        vm.expectRevert("LockstakeClipper/over-maxint-lot");
+        clip.kick(1 ether, uint256(type(int256).max) + 1, address(1), address(this));
+    }
+
     function testRevertsKickZeroUsr() public {
         vm.expectRevert("LockstakeClipper/zero-usr");
         clip.kick(1 ether, 2 ether, address(0), address(this));

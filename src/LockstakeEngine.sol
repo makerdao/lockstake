@@ -399,6 +399,7 @@ contract LockstakeEngine is Multicall {
     }
 
     function onTakeLeftovers(address urn, uint256 tot, uint256 left) external auth {
+        require(left <= uint256(type(int256).max), "LockstakeEngine/left-over-maxint"); // This is ensured by the dog and clip but we still prefer to be explicit
         uint256 burn = (tot - left) * fee / WAD;
         if (burn > left) {
             burn = left;

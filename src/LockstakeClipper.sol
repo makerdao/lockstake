@@ -234,11 +234,12 @@ contract LockstakeClipper {
         address kpr   // Address that will receive incentives
     ) external auth lock isStopped(1) returns (uint256 id) {
         // Input validation
-        require(tab  >          0, "LockstakeClipper/zero-tab");
-        require(lot  >          0, "LockstakeClipper/zero-lot");
-        require(usr != address(0), "LockstakeClipper/zero-usr");
+        require(tab  >                         0, "LockstakeClipper/zero-tab");
+        require(lot  >                         0, "LockstakeClipper/zero-lot");
+        require(lot <= uint256(type(int256).max), "LockstakeClipper/over-maxint-lot"); // This is ensured by the dog but we still prefer to be explicit
+        require(usr !=                address(0), "LockstakeClipper/zero-usr");
         id = ++kicks;
-        require(id   >          0, "LockstakeClipper/overflow");
+        require(id   >                         0, "LockstakeClipper/overflow");
 
         active.push(id);
 

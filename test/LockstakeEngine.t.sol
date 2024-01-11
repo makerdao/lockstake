@@ -1070,6 +1070,11 @@ contract LockstakeEngineTest is DssTest {
         _testOnTakeNoBurn(true);
     }
 
+    function testOnTakeLeftoversOverflow() public {
+        vm.expectRevert("LockstakeEngine/left-over-maxint");
+        vm.prank(address(pauseProxy)); engine.onTakeLeftovers(address(1), 0, uint256(type(int256).max) + 1);
+    }
+
     function _testOnYank(bool withDelegate) internal {
         address urn = _clipperSetUp(withDelegate);
 

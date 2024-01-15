@@ -310,8 +310,6 @@ contract LockstakeEngine is Multicall {
             mkr.approve(delegate, wad);
             DelegateLike(delegate).lock(wad);
         }
-        // TODO: define if we want an internal registry to register how much is locked per user,
-        // the vat.slip and stkMkr balance act already as a registry so probably not needed an extra one
         vat.slip(ilk, urn, int256(wad));
         vat.frob(ilk, urn, urn, address(0), int256(wad), 0);
         stkMkr.mint(urn, wad);
@@ -407,7 +405,7 @@ contract LockstakeEngine is Multicall {
         } else {
             unchecked { left = left - burn; }
         }
-        mkr.burn(address(this), burn); // Burn MKR
+        mkr.burn(address(this), burn);
         if (left > 0) {
             (uint256 ink,) = vat.urns(ilk, urn); // Get the ink value before adding the left to correctly undelegate and unstake
             vat.slip(ilk, urn, int256(left));

@@ -414,7 +414,7 @@ contract LockstakeClipper {
         } else if (tab == 0) {
             uint256 tot = sales[id].tot;
             vat.slip(ilk, address(this), -int256(lot));
-            engine.onTakeLeftovers(usr, tot, lot);
+            engine.onTakeLeftovers(usr, tot - lot, lot);
             _remove(id);
         } else {
             sales[id].tab = tab;

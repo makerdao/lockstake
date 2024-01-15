@@ -115,7 +115,7 @@ contract LockstakeEngine is Multicall {
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
-    event OnTakeLeftovers(address indexed urn, uint256 tot, uint256 left, uint256 burn);
+    event OnTakeLeftovers(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
     event OnYank(address indexed urn, uint256 wad);
 
     // --- modifiers ---
@@ -396,25 +396,26 @@ contract LockstakeEngine is Multicall {
         emit OnTake(urn, who, wad);
     }
 
-    function onTakeLeftovers(address urn, uint256 tot, uint256 left) external auth {
-        require(left <= uint256(type(int256).max), "LockstakeEngine/left-over-maxint"); // This is ensured by the dog and clip but we still prefer to be explicit
-        uint256 burn = (tot - left) * fee / WAD;
+    function onTakeLeftovers(address urn, uint256 sold, uint256 left) external auth {
+        uint256 burn = sold * fee / WAD;
+        uint256 refund;
         if (burn > left) {
             burn = left;
-            left = 0;
+            refund = 0;
         } else {
-            unchecked { left = left - burn; }
+            unchecked { refund = left - burn; }
         }
         mkr.burn(address(this), burn);
-        if (left > 0) {
-            (uint256 ink,) = vat.urns(ilk, urn); // Get the ink value before adding the left to correctly undelegate and unstake
-            vat.slip(ilk, urn, int256(left));
-            vat.frob(ilk, urn, urn, address(0), int256(left), 0);
-            stkMkr.mint(urn, left);
+        if (refund > 0) {
+            require(refund <= uint256(type(int256).max), "LockstakeEngine/refund-over-maxint"); // This is ensured by the dog and clip but we still prefer to be explicit
+            (uint256 ink,) = vat.urns(ilk, urn); // Get the ink value before adding the refund to correctly undelegate and unstake
+            vat.slip(ilk, urn, int256(refund));
+            vat.frob(ilk, urn, urn, address(0), int256(refund), 0);
+            stkMkr.mint(urn, refund);
             _selectDelegate(urn, ink, urnDelegates[urn], address(0));
             _selectFarm(urn, ink, urnFarms[urn], address(0), 0);
         }
-        emit OnTakeLeftovers(urn, tot, left, burn);
+        emit OnTakeLeftovers(urn, sold, burn, refund);
     }
 
     function onYank(address urn, uint256 wad) external auth {

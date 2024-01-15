@@ -97,7 +97,7 @@ contract LockstakeEngineTest is DssTest {
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
-    event OnTakeLeftovers(address indexed urn, uint256 tot, uint256 left, uint256 burn);
+    event OnTakeLeftovers(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
         unchecked {
@@ -1071,7 +1071,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testOnTakeLeftoversOverflow() public {
-        vm.expectRevert("LockstakeEngine/left-over-maxint");
+        vm.expectRevert("LockstakeEngine/refund-over-maxint");
         vm.prank(address(pauseProxy)); engine.onTakeLeftovers(address(1), 0, uint256(type(int256).max) + 1);
     }
 

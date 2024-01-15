@@ -374,8 +374,8 @@ contract LockstakeEngine is Multicall {
 
     // --- staking rewards function ---
 
-    function getReward(address urn, address farm, address to) external urnAuth(urn) {
-        uint256 amt = LockstakeUrn(urn).getReward(farm, to);
+    function getReward(address urn, address farm, address to) external urnAuth(urn) returns (uint256 amt) {
+        amt = LockstakeUrn(urn).getReward(farm, to);
         emit GetReward(urn, farm, to, amt);
     }
 

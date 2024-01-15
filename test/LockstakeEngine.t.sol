@@ -596,7 +596,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(this)), 0);
         vm.expectEmit(true, true, true, true);
         emit GetReward(urn, address(farm), address(123), 20_000);
-        engine.getReward(urn, address(farm), address(123));
+        assertEq(engine.getReward(urn, address(farm), address(123)), 20_000);
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 20_000);
     }
 

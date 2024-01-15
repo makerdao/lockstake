@@ -382,12 +382,12 @@ contract LockstakeEngine is Multicall {
     // --- liquidation callback functions ---
 
     function onKick(address urn, uint256 wad) external auth {
+        // Urn confiscation happens in Dog contract where ilk vat.gem is sent to the LockstakeClipper
         (uint256 ink,) = vat.urns(ilk, urn);
         uint256 inkBeforeKick = ink + wad;
         _selectDelegate(urn, inkBeforeKick, urnDelegates[urn], address(0));
         _selectFarm(urn, inkBeforeKick, urnFarms[urn], address(0), 0);
         stkMkr.burn(urn, wad); // Burn the liquidated amount of staking token
-        // Urn confiscation happens in Dog contract where ilk vat.gem is sent to the LockstakeClipper
         emit OnKick(urn, wad);
     }
 

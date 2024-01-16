@@ -142,14 +142,14 @@ contract LockstakeEngine is Multicall {
         mkr = delegateFactory.gov();
         stkMkr = GemLike(stkMkr_);
         fee = fee_;
-        nst.approve(nstJoin_, type(uint256).max);
-        vat.hope(nstJoin_);
         mkrNgt = MkrNgtLike(mkrNgt_);
         ngt = GemLike(mkrNgt.ngt());
-        ngt.approve(address(mkrNgt), type(uint256).max);
-        mkr.approve(address(mkrNgt), type(uint256).max);
         mkrNgtRate = mkrNgt.rate();
         urnImplementation = address(new LockstakeUrn(address(vat), stkMkr_));
+        vat.hope(nstJoin_);
+        nst.approve(nstJoin_, type(uint256).max);
+        ngt.approve(address(mkrNgt), type(uint256).max);
+        mkr.approve(address(mkrNgt), type(uint256).max);
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);

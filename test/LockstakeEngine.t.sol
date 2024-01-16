@@ -172,15 +172,20 @@ contract LockstakeEngineTest is DssTest {
         LockstakeEngine e = new LockstakeEngine(address(delFactory), address(nstJoin), "aaa", address(stkMkr), 100, address(mkrNgt));
         assertEq(address(e.delegateFactory()), address(delFactory));
         assertEq(address(e.nstJoin()), address(nstJoin));
+        assertEq(address(e.vat()), vat);
+        assertEq(address(e.nst()), address(nst));
         assertEq(e.ilk(), "aaa");
         assertEq(address(e.mkr()), address(mkr));
         assertEq(address(e.stkMkr()), address(stkMkr));
         assertEq(e.fee(), 100);
         assertEq(address(e.mkrNgt()), address(mkrNgt));
         assertEq(address(e.ngt()), address(ngt));
-        assertEq(ngt.allowance(address(e), address(mkrNgt)), type(uint256).max);
-        assertEq(mkr.allowance(address(e), address(mkrNgt)), type(uint256).max);
         assertEq(e.mkrNgtRate(), 25_000);
+        // TODO: Add something to verify urnImplementation
+        assertEq(VatLike(vat).can(address(e), address(nstJoin)), 1);
+        assertEq(nst.allowance(address(e), address(nstJoin)), type(uint256).max);
+        assertEq(ngt.allowance(address(e), address(mkrNgt)),  type(uint256).max);
+        assertEq(mkr.allowance(address(e), address(mkrNgt)),  type(uint256).max);
         assertEq(e.wards(address(this)), 1);
     }
 

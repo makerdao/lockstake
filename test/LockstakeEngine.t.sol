@@ -43,6 +43,7 @@ interface JugLike {
 }
 
 interface DogLike {
+    function ilks(bytes32) external view returns (address, uint256, uint256, uint256);
     function rely(address) external;
     function file(bytes32, bytes32, address) external;
     function file(bytes32, bytes32, uint256) external;
@@ -86,6 +87,8 @@ contract LockstakeEngineTest is DssTest {
     event AddFarm(address farm);
     event DelFarm(address farm);
     event Open(address indexed owner, uint256 indexed index, address urn);
+    event Hope(address indexed urn, address indexed usr);
+    event Nope(address indexed urn, address indexed usr);
     event SelectDelegate(address indexed urn, address indexed delegate_);
     event SelectFarm(address indexed urn, address farm, uint16 ref);
     event Lock(address indexed urn, uint256 wad, uint16 ref);
@@ -98,6 +101,7 @@ contract LockstakeEngineTest is DssTest {
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
     event OnTakeLeftovers(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
+    event OnYank(address indexed urn, uint256 wad);
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
         unchecked {
@@ -275,11 +279,15 @@ contract LockstakeEngineTest is DssTest {
         assertTrue(engine.isUrnAuth(urn, urnOwner));
         assertTrue(!engine.isUrnAuth(urn, urnAuthed));
         assertEq(engine.urnCan(urn, urnAuthed), 0);
+        vm.expectEmit(true, true, true, true);
+        emit Hope(urn, urnAuthed);
         engine.hope(urn, urnAuthed);
         assertEq(engine.urnCan(urn, urnAuthed), 1);
         assertTrue(engine.isUrnAuth(urn, urnAuthed));
         vm.stopPrank();
         vm.startPrank(urnAuthed);
+        vm.expectEmit(true, true, true, true);
+        emit Hope(urn, address(789));
         engine.hope(urn, address(789));
         mkr.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18, 0);
@@ -298,6 +306,8 @@ contract LockstakeEngineTest is DssTest {
         engine.wipe(urn, 1);
         engine.selectFarm(urn, address(farm), 0);
         engine.getReward(urn, address(farm), address(0));
+        vm.expectEmit(true, true, true, true);
+        emit Nope(urn, urnAuthed);
         engine.nope(urn, urnAuthed);
         assertEq(engine.urnCan(urn, urnAuthed), 0);
         assertTrue(!engine.isUrnAuth(urn, urnAuthed));
@@ -654,6 +664,10 @@ contract LockstakeEngineTest is DssTest {
         pip.setPrice(0.05 * 10**18); // Force liquidation
         SpotterLike(spot).poke(ilk);
         assertEq(clip.kicks(), 0);
+        (,, uint256 hole,) = DogLike(dog).ilks(ilk);
+        uint256 kicked = hole < 2_000 * 10**45 ? 100_000 * 10**18 * hole / (2_000 * 10**45) : 100_000 * 10**18;
+        vm.expectEmit(true, true, true, true);
+        emit OnKick(urn, kicked);
         id = DogLike(dog).bark(ilk, address(urn), address(this));
         assertEq(clip.kicks(), 1);
     }
@@ -826,6 +840,8 @@ contract LockstakeEngineTest is DssTest {
         vm.prank(pauseProxy); VatLike(vat).suck(address(0), buyer, 2_000 * 10**45);
         vm.prank(buyer); VatLike(vat).hope(address(clip));
         assertEq(mkr.balanceOf(buyer), 0);
+        vm.expectEmit(true, true, true, true);
+        emit OnTake(urn, buyer, 20_000 * 10**18);
         vm.prank(buyer); clip.take(id, 20_000 * 10**18, type(uint256).max, buyer, "");
         assertEq(mkr.balanceOf(buyer), 20_000 * 10**18);
 
@@ -853,6 +869,10 @@ contract LockstakeEngineTest is DssTest {
         }
         assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 100_000 * 10**18);
 
+        vm.expectEmit(true, true, true, true);
+        emit OnTake(urn, buyer, 12_000 * 10**18);
+        vm.expectEmit(true, true, true, true);
+        emit OnTakeLeftovers(urn, 32_000 * 10**18, 32_000 * 10**18 * engine.fee() / WAD, 100_000 * 10**18 - 32_000 * 10**18 - 32_000 * 10**18 * engine.fee() / WAD);
         vm.prank(buyer); clip.take(id, 12_000 * 10**18, type(uint256).max, buyer, "");
         assertEq(mkr.balanceOf(buyer), 32_000 * 10**18);
 
@@ -937,6 +957,10 @@ contract LockstakeEngineTest is DssTest {
         vm.prank(pauseProxy); VatLike(vat).suck(address(0), buyer, 2_000 * 10**45);
         vm.prank(buyer); VatLike(vat).hope(address(clip));
         assertEq(mkr.balanceOf(buyer), 0);
+        vm.expectEmit(true, true, true, true);
+        emit OnTake(urn, buyer, 91428571428571428571428);
+        vm.expectEmit(true, true, true, true);
+        emit OnTakeLeftovers(urn, 91428571428571428571428, 100_000 * 10**18 - 91428571428571428571428, 0);
         vm.prank(buyer); clip.take(id, 100_000 * 10**18, type(uint256).max, buyer, "");
         assertEq(mkr.balanceOf(buyer), 91428571428571428571428);
 
@@ -1015,6 +1039,8 @@ contract LockstakeEngineTest is DssTest {
         vm.prank(pauseProxy); VatLike(vat).suck(address(0), buyer, 2_000 * 10**45);
         vm.prank(buyer); VatLike(vat).hope(address(clip));
         assertEq(mkr.balanceOf(buyer), 0);
+        vm.expectEmit(true, true, true, true);
+        emit OnTake(urn, buyer, 100_000 * 10**18);
         vm.prank(buyer); clip.take(id, 100_000 * 10**18, type(uint256).max, buyer, "");
         assertEq(mkr.balanceOf(buyer), 100_000 * 10**18);
 
@@ -1074,6 +1100,8 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.tic, block.timestamp);
         assertEq(sale.top, pip.read() * (1.25 * 10**9));
 
+        vm.expectEmit(true, true, true, true);
+        emit OnYank(urn, 100_000 * 10**18);
         vm.prank(pauseProxy); clip.yank(id);
 
         (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);

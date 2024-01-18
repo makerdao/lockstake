@@ -387,7 +387,7 @@ contract LockstakeEngine is Multicall {
         uint256 inkBeforeKick = ink + wad;
         _selectDelegate(urn, inkBeforeKick, urnDelegates[urn], address(0));
         _selectFarm(urn, inkBeforeKick, urnFarms[urn], address(0), 0);
-        stkMkr.burn(urn, wad); // Burn the liquidated amount of staking token
+        stkMkr.burn(urn, wad);
         emit OnKick(urn, wad);
     }
 

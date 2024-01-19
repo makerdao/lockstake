@@ -683,9 +683,11 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_art(ilk, urn), 2_000 * 10**18);
 
         if (withDelegate) {
+            assertEq(engine.urnDelegates(urn), address(voterDelegate));
             assertEq(mkr.balanceOf(address(voterDelegate)), 100_000 * 10**18);
             assertEq(mkr.balanceOf(address(engine)), 0);
         } else {
+            assertEq(engine.urnDelegates(urn), address(0));
             assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
         }
         if (withStaking) {
@@ -711,24 +713,7 @@ contract LockstakeEngineTest is DssTest {
 
     function _testOnKickFull(bool withDelegate, bool withStaking) internal {
         address urn = _clipperSetUp(withDelegate, withStaking);
-
-        if (withDelegate) {
-            assertEq(engine.urnDelegates(urn), address(voterDelegate));
-            assertEq(mkr.balanceOf(address(voterDelegate)), 100_000 * 10**18);
-            assertEq(mkr.balanceOf(address(engine)), 0);
-        } else {
-            assertEq(engine.urnDelegates(urn), address(0));
-            assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
-        }
-        if (withStaking) {
-            assertEq(stkMkr.balanceOf(address(urn)), 0);
-            assertEq(stkMkr.balanceOf(address(farm)), 100_000 * 10**18);
-            assertEq(farm.balanceOf(address(urn)), 100_000 * 10**18);
-        } else {
-            assertEq(stkMkr.balanceOf(address(urn)), 100_000 * 10**18);
-        }
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
-
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
@@ -745,8 +730,10 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_art(ilk, urn), 0);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 100_000 * 10**18);
 
-        assertEq(engine.urnDelegates(urn), address(0)); // Always undelegates everything
-        assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+        if (withDelegate) {
+            assertEq(engine.urnDelegates(urn), address(0));
+            assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+        }
         assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
         if (withStaking) {
             assertEq(stkMkr.balanceOf(address(farm)), 0);
@@ -756,44 +743,26 @@ contract LockstakeEngineTest is DssTest {
         assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 100_000 * 10**18);
     }
 
-    function testOnKickFullNoStakedNoDelegate() public {
+    function testOnKickFullNoStakingNoDelegate() public {
         _testOnKickFull(false, false);
     }
 
-    function testOnKickFullNoStakedWithDelegate() public {
+    function testOnKickFullNoStakingWithDelegate() public {
         _testOnKickFull(true, false);
     }
 
-    function testOnKickFullStakedNoDelegate() public {
+    function testOnKickFullWithStakingNoDelegate() public {
         _testOnKickFull(false, true);
     }
 
-    function testOnKickFullStakedWithDelegate() public {
+    function testOnKickFullWithStakingWithDelegate() public {
         _testOnKickFull(true, true);
     }
 
     function _testOnKickPartial(bool withDelegate, bool withStaking) internal {
         address urn = _clipperSetUp(withDelegate, withStaking);
-
-        if (withDelegate) {
-            assertEq(engine.urnDelegates(urn), address(voterDelegate));
-            assertEq(mkr.balanceOf(address(voterDelegate)), 100_000 * 10**18);
-            assertEq(mkr.balanceOf(address(engine)), 0);
-        } else {
-            assertEq(engine.urnDelegates(urn), address(0));
-            assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
-        }
-        if (withStaking) {
-            assertEq(stkMkr.balanceOf(address(urn)), 0);
-            assertEq(stkMkr.balanceOf(address(farm)), 100_000 * 10**18);
-            assertEq(farm.balanceOf(address(urn)), 100_000 * 10**18);
-        } else {
-            assertEq(stkMkr.balanceOf(address(urn)), 100_000 * 10**18);
-        }
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
-
         vm.prank(pauseProxy); DogLike(dog).file(ilk, "hole", 500 * 10**45);
-
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
@@ -810,41 +779,41 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_art(ilk, urn), 1_500 * 10**18);
         assertEq(VatLike(vat).gem(ilk, address(clip)), 25_000 * 10**18);
 
-        assertEq(engine.urnDelegates(urn), address(0)); // Always undelegates everything
-        assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+        if (withDelegate) {
+            assertEq(engine.urnDelegates(urn), address(0));
+            assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+        }
         assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
-        assertEq(stkMkr.balanceOf(address(urn)), 75_000 * 10**18);
         if (withStaking) {
             assertEq(stkMkr.balanceOf(address(farm)), 0);
             assertEq(farm.balanceOf(address(urn)), 0);
         }
+        assertEq(stkMkr.balanceOf(address(urn)), 75_000 * 10**18);
         assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 25_000 * 10**18);
     }
 
-    function testOnKickPartialNoStakedNoDelegate() public {
+    function testOnKickPartialNoStakingNoDelegate() public {
         _testOnKickPartial(false, false);
     }
 
-    function testOnKickPartialNoStakedWithDelegate() public {
+    function testOnKickPartialNoStakingWithDelegate() public {
         _testOnKickPartial(true, false);
     }
 
-    function testOnKickPartialStakedNoDelegate() public {
+    function testOnKickPartialWithStakingNoDelegate() public {
         _testOnKickPartial(false, true);
     }
 
-    function testOnKickPartialStakedWithDelegate() public {
+    function testOnKickPartialWithStakingWithDelegate() public {
         _testOnKickPartial(true, true);
     }
 
     function _testOnTake(bool withDelegate, bool withStaking) internal {
         address urn = _clipperSetUp(withDelegate, withStaking);
-
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
         address vow = address(ChainlogLike(LOG).getAddress("MCD_VOW"));
         uint256 vowInitialBalance = VatLike(vat).dai(vow);
-
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
@@ -864,13 +833,12 @@ contract LockstakeEngineTest is DssTest {
         if (withDelegate) {
             assertEq(mkr.balanceOf(address(voterDelegate)), 0);
         }
-        assertEq(mkr.balanceOf(address(voterDelegate)), 0);
         assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
-        assertEq(stkMkr.balanceOf(address(urn)), 0);
         if (withStaking) {
             assertEq(stkMkr.balanceOf(address(farm)), 0);
             assertEq(farm.balanceOf(address(urn)), 0);
         }
+        assertEq(stkMkr.balanceOf(address(urn)), 0);
         assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 100_000 * 10**18);
 
         address buyer = address(888);
@@ -899,11 +867,11 @@ contract LockstakeEngineTest is DssTest {
             assertEq(mkr.balanceOf(address(voterDelegate)), 0);
         }
         assertEq(mkr.balanceOf(address(engine)), 80_000 * 10**18);
-        assertEq(stkMkr.balanceOf(address(urn)), 0);
         if (withStaking) {
             assertEq(stkMkr.balanceOf(address(farm)), 0);
             assertEq(farm.balanceOf(address(urn)), 0);
         }
+        assertEq(stkMkr.balanceOf(address(urn)), 0);
         assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 100_000 * 10**18);
 
         vm.expectEmit(true, true, true, true);
@@ -928,39 +896,73 @@ contract LockstakeEngineTest is DssTest {
 
         assertEq(mkr.balanceOf(address(engine)), (100_000 - 32_000 * 1.15) * 10**18);
         assertEq(mkr.totalSupply(), mkrInitialSupply - 32_000 * 0.15 * 10**18);
-        assertEq(stkMkr.balanceOf(address(urn)), (100_000 - 32_000 * 1.15) * 10**18);
         if (withStaking) {
             assertEq(stkMkr.balanceOf(address(farm)), 0);
             assertEq(farm.balanceOf(address(urn)), 0);
         }
+        assertEq(stkMkr.balanceOf(address(urn)), (100_000 - 32_000 * 1.15) * 10**18);
         assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 32_000 * 1.15 * 10**18);
         assertEq(VatLike(vat).dai(vow), vowInitialBalance + 2_000 * 10**45);
     }
 
-    function testOnTakeNoStakedNoDelegate() public {
+    function testOnTakeNoWithStakingNoDelegate() public {
         _testOnTake(false, false);
     }
 
-    function testOnTakeNoStakedWithDelegate() public {
+    function testOnTakeNoWithStakingWithDelegate() public {
         _testOnTake(true, false);
     }
 
-    function testOnTakeStakedNoDelegate() public {
+    function testOnTakeWithStakingNoDelegate() public {
         _testOnTake(false, true);
     }
 
-    function testOnTakeStakedWithDelegate() public {
+    function testOnTakeWithStakingWithDelegate() public {
         _testOnTake(true, true);
+    }
+
+    function testOnTakeResetsAgainDelegateAndFarm() public {
+        address urn = _clipperSetUp(true, true);
+
+        assertEq(engine.urnDelegates(urn), voterDelegate);
+        assertEq(engine.urnFarms(urn), address(farm));
+        assertEq(farm.balanceOf(urn), 100_000 * 10**18);
+        assertEq(mkr.balanceOf(voterDelegate), 100_000 * 10**18);
+
+        vm.prank(pauseProxy); DogLike(dog).file(ilk, "hole", 500 * 10**45);
+        uint256 id = _forceLiquidation(urn);
+
+        assertEq(engine.urnDelegates(urn), address(0));
+        assertEq(engine.urnFarms(urn), address(0));
+        assertEq(farm.balanceOf(urn), 0);
+        assertEq(mkr.balanceOf(voterDelegate), 0);
+
+        // User locks again MKR on Delegate and Farm
+        engine.selectDelegate(urn, voterDelegate);
+        engine.selectFarm(urn, address(farm), 0);
+
+        assertEq(engine.urnDelegates(urn), voterDelegate);
+        assertEq(engine.urnFarms(urn), address(farm));
+        assertEq(farm.balanceOf(urn), 75_000 * 10**18);
+        assertEq(mkr.balanceOf(voterDelegate), 75_000 * 10**18);
+
+        address buyer = address(888);
+        vm.prank(pauseProxy); VatLike(vat).suck(address(0), buyer, 2_000 * 10**45);
+        vm.prank(buyer); VatLike(vat).hope(address(clip));
+        vm.prank(buyer); clip.take(id, 100_000 * 10**18, type(uint256).max, buyer, "");
+
+        assertEq(engine.urnDelegates(urn), address(0));
+        assertEq(engine.urnFarms(urn), address(0));
+        assertEq(farm.balanceOf(urn), 0);
+        assertEq(mkr.balanceOf(voterDelegate), 0);
     }
 
     function _testOnTakePartialBurn(bool withDelegate, bool withStaking) internal {
         address urn = _clipperSetUp(withDelegate, withStaking);
-
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
         address vow = address(ChainlogLike(LOG).getAddress("MCD_VOW"));
         uint256 vowInitialBalance = VatLike(vat).dai(vow);
-
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
@@ -981,11 +983,11 @@ contract LockstakeEngineTest is DssTest {
             assertEq(mkr.balanceOf(address(voterDelegate)), 0);
         }
         assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
-        assertEq(stkMkr.balanceOf(address(urn)), 0);
         if (withStaking) {
             assertEq(stkMkr.balanceOf(address(farm)), 0);
             assertEq(farm.balanceOf(address(urn)), 0);
         }
+        assertEq(stkMkr.balanceOf(address(urn)), 0);
         assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 100_000 * 10**18);
 
         vm.warp(block.timestamp + 65); // Time passes to let the auction price to crash
@@ -1010,39 +1012,37 @@ contract LockstakeEngineTest is DssTest {
         }
         assertEq(mkr.balanceOf(address(engine)), 0);
         assertEq(mkr.totalSupply(), mkrInitialSupply - (100_000 * 10**18 - 91428571428571428571428)); // Can't burn 15% of 91428571428571428571428
-        assertEq(stkMkr.balanceOf(address(urn)), 0);
         if (withStaking) {
             assertEq(stkMkr.balanceOf(address(farm)), 0);
             assertEq(farm.balanceOf(address(urn)), 0);
         }
+        assertEq(stkMkr.balanceOf(address(urn)), 0);
         assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 100_000 * 10**18);
         assertEq(VatLike(vat).dai(vow), vowInitialBalance + 2_000 * 10**45);
     }
 
-    function testOnTakePartialBurnNoStakedNoDelegate() public {
+    function testOnTakePartialBurnNoStakingNoDelegate() public {
         _testOnTakePartialBurn(false, false);
     }
 
-    function testOnTakePartialBurnNoStakedWithDelegate() public {
+    function testOnTakePartialBurnNoStakingWithDelegate() public {
         _testOnTakePartialBurn(true, false);
     }
 
-    function testOnTakePartialBurnStakedNoDelegate() public {
+    function testOnTakePartialBurnWithStakingNoDelegate() public {
         _testOnTakePartialBurn(false, true);
     }
 
-    function testOnTakePartialBurnStakedWithDelegate() public {
+    function testOnTakePartialBurnWithStakingWithDelegate() public {
         _testOnTakePartialBurn(true, true);
     }
 
     function _testOnTakeNoBurn(bool withDelegate, bool withStaking) internal {
         address urn = _clipperSetUp(withDelegate, withStaking);
-
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
         address vow = address(ChainlogLike(LOG).getAddress("MCD_VOW"));
         uint256 vowInitialBalance = VatLike(vat).dai(vow);
-
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
@@ -1063,11 +1063,11 @@ contract LockstakeEngineTest is DssTest {
             assertEq(mkr.balanceOf(address(voterDelegate)), 0);
         }
         assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
-        assertEq(stkMkr.balanceOf(address(urn)), 0);
         if (withStaking) {
             assertEq(stkMkr.balanceOf(address(farm)), 0);
             assertEq(farm.balanceOf(address(urn)), 0);
         }
+        assertEq(stkMkr.balanceOf(address(urn)), 0);
         assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 100_000 * 10**18);
 
         vm.warp(block.timestamp + 80); // Time passes to let the auction price to crash
@@ -1090,28 +1090,28 @@ contract LockstakeEngineTest is DssTest {
         }
         assertEq(mkr.balanceOf(address(engine)), 0);
         assertEq(mkr.totalSupply(), mkrInitialSupply); // Can't burn anything
-        assertEq(stkMkr.balanceOf(address(urn)), 0);
         if (withStaking) {
             assertEq(stkMkr.balanceOf(address(farm)), 0);
             assertEq(farm.balanceOf(address(urn)), 0);
         }
+        assertEq(stkMkr.balanceOf(address(urn)), 0);
         assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 100_000 * 10**18);
         assertLt(VatLike(vat).dai(vow), vowInitialBalance + 2_000 * 10**45); // Doesn't recover full debt
     }
 
-    function testOnTakeNoBurnNoStakedNoDelegate() public {
+    function testOnTakeNoBurnNoStakingNoDelegate() public {
         _testOnTakeNoBurn(false, false);
     }
 
-    function testOnTakeNoBurnNoStakedWithDelegate() public {
+    function testOnTakeNoBurnNoStakingWithDelegate() public {
         _testOnTakeNoBurn(true, false);
     }
 
-    function testOnTakeNoBurnStakedNoDelegate() public {
+    function testOnTakeNoBurnWithStakingNoDelegate() public {
         _testOnTakeNoBurn(false, true);
     }
 
-    function testOnTakeNoBurnStakedWithDelegate() public {
+    function testOnTakeNoBurnWithStakingWithDelegate() public {
         _testOnTakeNoBurn(true, true);
     }
 
@@ -1122,9 +1122,7 @@ contract LockstakeEngineTest is DssTest {
 
     function _testOnYank(bool withDelegate, bool withStaking) internal {
         address urn = _clipperSetUp(withDelegate, withStaking);
-
         uint256 mkrInitialSupply = mkr.totalSupply();
-
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
@@ -1153,19 +1151,19 @@ contract LockstakeEngineTest is DssTest {
         assertEq(mkr.totalSupply(), mkrInitialSupply - 100_000 * 10**18);
     }
 
-    function testOnYankNoStakedNoDelegate() public {
+    function testOnYankNoStakingNoDelegate() public {
         _testOnYank(false, false);
     }
 
-    function testOnYankNoStakedWithDelegate() public {
+    function testOnYankNoStakingWithDelegate() public {
         _testOnYank(true, false);
     }
 
-    function testOnYankStakedNoDelegate() public {
+    function testOnYankWithStakingNoDelegate() public {
         _testOnYank(false, true);
     }
 
-    function testOnYankStakedWithDelegate() public {
+    function testOnYankWithStakingWithDelegate() public {
         _testOnYank(true, true);
     }
 }

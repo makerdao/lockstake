@@ -34,7 +34,7 @@ There is also support for locking and freeing NGT instead of MKR.
 * `freeNgt(address urn, address to, uint256 ngtWad)` - Withdraw `ngtWad` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed.
 * `selectDelegate(address urn, address delegate)` - Choose which delegate contract to delegate the `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
 * `selectFarm(address urn, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
-* `draw(address urn, uint256 wad)` - Generate `wad` amount of NST using the `urn`’s MKR as collateral
+* `draw(address urn, address to, uint256 wad)` - Generate `wad` amount of NST using the `urn`’s MKR as collateral and send it to the `to` address.
 * `wipe(address urn, uint256 wad)` - Repay `wad` amount of NST backed by the `urn`’s MKR.
 * `getReward(address urn, address farm, address to)` - Claim the reward generated from the `urn`'s selected farm and send it to the specified `to` address.
 * `multicall(bytes[] calldata data)` - Batch multiple methods in a single call to the contract.
@@ -69,7 +69,7 @@ sequenceDiagram
     urn0-->>farm0: stake(10, `ref`);
     
        
-    user->>engine: draw(`urn0`, 1000)
+    user->>engine: draw(`urn0`, `user`, 1000)
     engine-->>vat: vat.frob(ilk, `urn0`, address(0), address(this), 0, 1000) // borrow
 ```
 
@@ -95,7 +95,7 @@ The following functions are called from the LockstakeClipper (see below) through
 
 * `onKick(address urn, uint256 wad)` - Undelegate and unstake the entire `urn`'s MKR amount. Also burn the liquidated amount of staking token (`stkMkr`).
 * `onTake(address urn, address who, uint256 wad)` - Transfer MKR to the liquidation auction buyer.
-* `onTakeLeftovers(address urn, uint256 tot, uint256 left)` - Burn a proportional amount of the MKR which was bought in the auction and return the rest to the `urn`. This again undelegates and unstakes the entire `urn`'s MKR amount (in case any of it was restaked or redelegated during the auction).
+* `onTakeLeftovers(address urn, uint256 sold, uint256 left)` - Burn a proportional amount of the MKR which was bought in the auction and return the rest to the `urn`. This again undelegates and unstakes the entire `urn`'s MKR amount (in case any of it was restaked or redelegated during the auction).
 * `onYank(address urn, uint256 wad)` - Burn the auction's MKR (in case of an auction cancellation).
 
 **Configurable Parameters:**
@@ -104,8 +104,9 @@ The following functions are called from the LockstakeClipper (see below) through
 * `jug` - The Dai lending rate calculation module.
 
 **TODO**: is exit fee configurable?
+**TODO**: migration path
 
-Up to date implementation: https://github.com/makerdao/lockstake/commit/e5209ff6fed4d870025829cb8b94d2b47355019a
+Up to date implementation: https://github.com/makerdao/lockstake/commit/64a14dc2a4332c2a80510e9bc8574272cb86dfdc
 
 ## 2. LockstakeClipper
 
@@ -153,7 +154,9 @@ Up to date implementation: https://github.com/makerdao/lockstake/commit/e5209ff6
 ## 3. Vote Delegation
 ### 3.a. VoteDelegate
 
-The SLE integrates with the current [VoteDelegate](https://github.com/makerdao/vote-delegate/blob/c2345b78376d5b0bb24749a97f82fe9171b53394/src/VoteDelegate.sol) contracts almost as is. However, in order to support long-term locking the delegates expiration functionality needs to be removed.
+The SLE integrates with the current [VoteDelegate](https://github.com/makerdao/vote-delegate/blob/c2345b78376d5b0bb24749a97f82fe9171b53394/src/VoteDelegate.sol) contracts almost as is. However, there are two changes done:
+* In order to support long-term locking the delegate's expiration functionality needs to be removed.
+* In order to protect against an attack vector of delaying liquidations or freeing of MKR, an on-demand window where locking MKR is blocked is introduced. The need for this stems from the Chief's flash loan protection, which doesn't allow to free MKR from a delegate in case MKR locking was already done in the same block.
 
 ### 3.b. VoteDelegateFactory
 
@@ -179,13 +182,14 @@ To accomplish this, it exposes a `kick` operation to be triggered periodically. 
 
 When sending DAI to the farm, the splitter also calls `farm.notifyRewardAmount` to update the farm contract on the new rewards distribution. This resets the farming distribution period to the governance configured duration and sets the rewards rate according to the sent reward amount and rewards leftovers from the previous distribution (in case there are any).
 
-The Splitter relies on the SBE for rate-limiting, so each distribution will only succeed if the call to `flapper.kick` does not revert. In other words, the `splitter.kick` cadence is determined by `flapper.hop`.
+The Splitter implements rate-limiting using a `hop` parameter.
 
 **Configurable Parameters:**
 * `flapper` - The underlying burner strategy (e.g. the address of `FlapperUniV2SwapOnly`).
 * `burn` - The percentage of the `vow.bump` to be moved to the underlying `flapper`. For example, a value of 0.70 \* `WAD` corresponds to a funneling 70% of the DAI to the burn engine.
+* `hop` - Minimal time between kicks.
 
-Up to date implementation: https://github.com/makerdao/dss-flappers/commit/6f73645f020ed9bf82733b1de595537c137d719b
+Up to date implementation: https://github.com/makerdao/dss-flappers/commit/ce7978eaba86c8110d9cf5c04aa50f8f7af83197
 
 ## 6. StakingRewards
 
@@ -214,22 +218,20 @@ Note that as opposed to the first version of FlapperUniV2, the SLE aligned versi
 The calculations of how much DAI to sell out of `lot` so that the exact proportion of deposit amount remains afterwards can be seen in the code [comments](https://github.com/makerdao/dss-flappers/blob/78f2ec664ba5ad6de45195ff6fdd68771145a56a/src/FlapperUniV2.sol#L150).
 
 **Configurable Parameters:**
-* `hop` - Minimum seconds interval between kicks.
 * `pip` - A reference price oracle, used for bounding the exchange rate of the swap.
 * `want` - Relative multiplier of the reference price to insist on in the swap. For example, a value of 0.98 * `WAD` allows for a 2% worse price than the reference.
 
-Up to date implementation: https://github.com/makerdao/dss-flappers/commit/78f2ec664ba5ad6de45195ff6fdd68771145a56a
+Up to date implementation: https://github.com/makerdao/dss-flappers/commit/ce7978eaba86c8110d9cf5c04aa50f8f7af83197
 
 ### 7.b. FlapperUniV2SwapOnly
 
 Exposes a `kick` operation to be triggered periodically. Its logic withdraws DAI from the `vow` and buys `gem` tokens on Uniswap v2. The acquired tokens are sent to a predefined `receiver` address.
 
 **Configurable Parameters:**
-* `hop` - Minimum seconds interval between kicks.
 * `pip` - A reference price oracle, used for bounding the exchange rate of the swap.
 * `want` - Relative multiplier of the reference price to insist on in the swap. For example, a value of 0.98 * `WAD` allows for a 2% worse price than the reference.
 
-Up to date implementation: https://github.com/makerdao/dss-flappers/commit/78f2ec664ba5ad6de45195ff6fdd68771145a56a
+Up to date implementation: https://github.com/makerdao/dss-flappers/commit/ce7978eaba86c8110d9cf5c04aa50f8f7af83197
 
 ## 8. Sticky Oracle
 ### 8.a. StickyOracle 

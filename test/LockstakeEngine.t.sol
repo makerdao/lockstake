@@ -921,7 +921,7 @@ contract LockstakeEngineTest is DssTest {
         _testOnTake(true, true);
     }
 
-    function testOnTakeResetsAgainDelegateAndFarm() public {
+    function testCannotSelectDuringAuction() public {
         address urn = _clipperSetUp(true, true);
 
         assertEq(engine.urnDelegates(urn), voterDelegate);
@@ -930,31 +930,20 @@ contract LockstakeEngineTest is DssTest {
         assertEq(mkr.balanceOf(voterDelegate), 100_000 * 10**18);
 
         vm.prank(pauseProxy); DogLike(dog).file(ilk, "hole", 500 * 10**45);
-        uint256 id = _forceLiquidation(urn);
+        _forceLiquidation(urn);
 
         assertEq(engine.urnDelegates(urn), address(0));
         assertEq(engine.urnFarms(urn), address(0));
         assertEq(farm.balanceOf(urn), 0);
         assertEq(mkr.balanceOf(voterDelegate), 0);
 
-        // User locks again MKR on Delegate and Farm
+        // User tries to lock again MKR on Delegate or Farm
+        vm.expectRevert("LockstakeEngine/urn-in-auction");
         engine.selectDelegate(urn, voterDelegate);
+        vm.expectRevert("LockstakeEngine/urn-in-auction");
         engine.selectFarm(urn, address(farm), 0);
 
-        assertEq(engine.urnDelegates(urn), voterDelegate);
-        assertEq(engine.urnFarms(urn), address(farm));
-        assertEq(farm.balanceOf(urn), 75_000 * 10**18);
-        assertEq(mkr.balanceOf(voterDelegate), 75_000 * 10**18);
-
-        address buyer = address(888);
-        vm.prank(pauseProxy); VatLike(vat).suck(address(0), buyer, 2_000 * 10**45);
-        vm.prank(buyer); VatLike(vat).hope(address(clip));
-        vm.prank(buyer); clip.take(id, 100_000 * 10**18, type(uint256).max, buyer, "");
-
-        assertEq(engine.urnDelegates(urn), address(0));
-        assertEq(engine.urnFarms(urn), address(0));
-        assertEq(farm.balanceOf(urn), 0);
-        assertEq(mkr.balanceOf(voterDelegate), 0);
+        // TODO: show we can lock again afterwards, maybe show several auctions
     }
 
     function _testOnTakePartialBurn(bool withDelegate, bool withStaking) internal {

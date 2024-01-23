@@ -410,6 +410,8 @@ contract LockstakeClipper {
         }
 
         if (lot == 0) {
+            uint256 tot = sales[id].tot;
+            engine.onTakeLeftovers(usr, tot, 0);
             _remove(id);
         } else if (tab == 0) {
             uint256 tot = sales[id].tot;

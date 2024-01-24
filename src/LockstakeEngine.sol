@@ -72,6 +72,7 @@ contract LockstakeEngine is Multicall {
     mapping(address => mapping(address => uint256)) public urnCan;       // urn => usr => allowed (1 = yes, 0 = no)
     mapping(address => address)                     public urnDelegates; // urn => current associated delegate
     mapping(address => address)                     public urnFarms;     // urn => current selected farm
+    mapping(address => uint256)                     public urnAuctions;  // urn => amount of ongoing liquidations
     JugLike                                         public jug;
 
     // --- constants ---
@@ -115,7 +116,7 @@ contract LockstakeEngine is Multicall {
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
-    event OnTakeLeftovers(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
+    event OnRemove(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
     event OnYank(address indexed urn, uint256 wad);
 
     // --- modifiers ---
@@ -156,6 +157,10 @@ contract LockstakeEngine is Multicall {
     }
 
     // --- internals ---
+
+    function _min(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x <= y ? x : y;
+    }
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
         unchecked {
@@ -248,6 +253,7 @@ contract LockstakeEngine is Multicall {
     // --- delegation/staking functions ---
 
     function selectDelegate(address urn, address delegate) external urnAuth(urn) {
+        require(urnAuctions[urn] == 0, "LockstakeEngine/urn-in-auction");
         require(delegate == address(0) || delegateFactory.isDelegate(delegate) == 1, "LockstakeEngine/not-valid-delegate");
         address prevDelegate = urnDelegates[urn];
         require(prevDelegate != delegate, "LockstakeEngine/same-delegate");
@@ -270,6 +276,7 @@ contract LockstakeEngine is Multicall {
     }
 
     function selectFarm(address urn, address farm, uint16 ref) external urnAuth(urn) {
+        require(urnAuctions[urn] == 0, "LockstakeEngine/urn-in-auction");
         require(farm == address(0) || farms[farm] == 1, "LockstakeEngine/non-existing-farm");
         address prevFarm = urnFarms[urn];
         require(prevFarm != farm, "LockstakeEngine/same-farm");
@@ -388,6 +395,7 @@ contract LockstakeEngine is Multicall {
         _selectDelegate(urn, inkBeforeKick, urnDelegates[urn], address(0));
         _selectFarm(urn, inkBeforeKick, urnFarms[urn], address(0), 0);
         stkMkr.burn(urn, wad);
+        urnAuctions[urn]++;
         emit OnKick(urn, wad);
     }
 
@@ -396,30 +404,28 @@ contract LockstakeEngine is Multicall {
         emit OnTake(urn, who, wad);
     }
 
-    function onTakeLeftovers(address urn, uint256 sold, uint256 left) external auth {
-        uint256 burn = sold * fee / WAD;
+    function onRemove(address urn, uint256 sold, uint256 left) external auth {
+        uint256 burn;
         uint256 refund;
-        if (burn > left) {
-            burn = left;
-            refund = 0;
-        } else {
+        if (left > 0) {
+            burn = _min(sold * fee / WAD, left);
+            mkr.burn(address(this), burn);
             unchecked { refund = left - burn; }
+            if (refund > 0) {
+                // The following is ensured by the dog and clip but we still prefer to be explicit
+                require(refund <= uint256(type(int256).max), "LockstakeEngine/refund-over-maxint");
+                vat.slip(ilk, urn, int256(refund));
+                vat.frob(ilk, urn, urn, address(0), int256(refund), 0);
+                stkMkr.mint(urn, refund);
+            }
         }
-        mkr.burn(address(this), burn);
-        if (refund > 0) {
-            require(refund <= uint256(type(int256).max), "LockstakeEngine/refund-over-maxint"); // This is ensured by the dog and clip but we still prefer to be explicit
-            (uint256 ink,) = vat.urns(ilk, urn); // Get the ink value before adding the refund to correctly undelegate and unstake
-            vat.slip(ilk, urn, int256(refund));
-            vat.frob(ilk, urn, urn, address(0), int256(refund), 0);
-            stkMkr.mint(urn, refund);
-            _selectDelegate(urn, ink, urnDelegates[urn], address(0));
-            _selectFarm(urn, ink, urnFarms[urn], address(0), 0);
-        }
-        emit OnTakeLeftovers(urn, sold, burn, refund);
+        urnAuctions[urn]--;
+        emit OnRemove(urn, sold, burn, refund);
     }
 
     function onYank(address urn, uint256 wad) external auth {
         mkr.burn(address(this), wad);
+        urnAuctions[urn]--;
         emit OnYank(urn, wad);
     }
 }

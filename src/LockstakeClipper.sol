@@ -50,7 +50,7 @@ interface LockstakeEngineLike {
     function ilk() external view returns (bytes32);
     function onKick(address, uint256) external;
     function onTake(address, address, uint256) external;
-    function onTakeLeftovers(address, uint256, uint256) external;
+    function onRemove(address, uint256, uint256) external;
     function onYank(address, uint256) external;
 }
 
@@ -234,11 +234,12 @@ contract LockstakeClipper {
         address kpr   // Address that will receive incentives
     ) external auth lock isStopped(1) returns (uint256 id) {
         // Input validation
-        require(tab  >          0, "LockstakeClipper/zero-tab");
-        require(lot  >          0, "LockstakeClipper/zero-lot");
-        require(usr != address(0), "LockstakeClipper/zero-usr");
+        require(tab  >                         0, "LockstakeClipper/zero-tab");
+        require(lot  >                         0, "LockstakeClipper/zero-lot");
+        require(lot <= uint256(type(int256).max), "LockstakeClipper/over-maxint-lot"); // This is ensured by the dog but we still prefer to be explicit
+        require(usr !=                address(0), "LockstakeClipper/zero-usr");
         id = ++kicks;
-        require(id   >          0, "LockstakeClipper/overflow");
+        require(id   >                         0, "LockstakeClipper/overflow");
 
         active.push(id);
 
@@ -394,10 +395,10 @@ contract LockstakeClipper {
             engine.onTake(usr, who, slice);
 
             // Do external call (if data is defined) but to be
-            // extremely careful we don't allow to do it to the two
+            // extremely careful we don't allow to do it to the three
             // contracts which the LockstakeClipper needs to be authorized
             DogLike dog_ = dog;
-            if (data.length > 0 && who != address(vat) && who != address(dog_)) {
+            if (data.length > 0 && who != address(vat) && who != address(dog_) && who != address(engine)) {
                 ClipperCallee(who).clipperCall(msg.sender, owe, slice, data);
             }
 
@@ -409,11 +410,13 @@ contract LockstakeClipper {
         }
 
         if (lot == 0) {
+            uint256 tot = sales[id].tot;
+            engine.onRemove(usr, tot, 0);
             _remove(id);
         } else if (tab == 0) {
             uint256 tot = sales[id].tot;
             vat.slip(ilk, address(this), -int256(lot));
-            engine.onTakeLeftovers(usr, tot, lot);
+            engine.onRemove(usr, tot - lot, lot);
             _remove(id);
         } else {
             sales[id].tab = tab;

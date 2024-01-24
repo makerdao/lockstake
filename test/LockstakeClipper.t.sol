@@ -180,6 +180,7 @@ contract LockstakeClipperTest is DssTest {
     PipMock     pip;
     GemLike     dai;
 
+    LockstakeEngineMock engine;
     LockstakeClipper clip;
 
     // Exchange exchange;
@@ -280,7 +281,7 @@ contract LockstakeClipperTest is DssTest {
         vm.prank(pauseProxy); dog.file(ilk, "hole", rad(1000 ether));
         // vm.prank(pauseProxy); dog.file("Hole", rad(1000 ether));
 
-        LockstakeEngineMock engine = new LockstakeEngineMock(address(vat), ilk);
+        engine = new LockstakeEngineMock(address(vat), ilk);
         vm.prank(pauseProxy); vat.rely(address(engine));
 
         // dust and chop filed previously so clip.chost will be set correctly
@@ -440,6 +441,11 @@ contract LockstakeClipperTest is DssTest {
     function testRevertsKickZeroLot() public {
         vm.expectRevert("LockstakeClipper/zero-lot");
         clip.kick(1 ether, 0, address(1), address(this));
+    }
+
+    function testRevertsKickLotOverMaxInt() public {
+        vm.expectRevert("LockstakeClipper/over-maxint-lot");
+        clip.kick(1 ether, uint256(type(int256).max) + 1, address(1), address(this));
     }
 
     function testRevertsKickZeroUsr() public {
@@ -623,9 +629,9 @@ contract LockstakeClipperTest is DssTest {
         assertEq(dirt, tab);
 
         bytes32 ilk2 = "LSE2";
-        LockstakeEngineMock engine = new LockstakeEngineMock(address(vat), ilk2);
-        vm.prank(pauseProxy); vat.rely(address(engine));
-        LockstakeClipper clip2 = new LockstakeClipper(address(vat), address(spot), address(dog), address(engine));
+        LockstakeEngineMock engine2 = new LockstakeEngineMock(address(vat), ilk2);
+        vm.prank(pauseProxy); vat.rely(address(engine2));
+        LockstakeClipper clip2 = new LockstakeClipper(address(vat), address(spot), address(dog), address(engine2));
         clip2.upchost();
         clip2.rely(address(dog));
 
@@ -784,6 +790,51 @@ contract LockstakeClipperTest is DssTest {
         assertEq(dog.Dirt(), 0);
         (,,, uint256 dirt) = dog.ilks(ilk);
         assertEq(dirt, 0);
+    }
+
+    function testTakeEmptyDataOrForbiddenWho() public takeSetup {
+        vm.expectRevert(); // Reverts as who is a random address that do not implement clipperCall
+        vm.prank(ali); clip.take({
+            id:  1,
+            amt: 11 ether,
+            max: ray(5 ether),
+            who: address(123),
+            data: "aaa"
+        });
+        uint256 snapshotId = vm.snapshot();
+        // This one won't revert as has empty data
+        vm.prank(ali); clip.take({
+            id:  1,
+            amt: 11 ether,
+            max: ray(5 ether),
+            who: address(123),
+            data: ""
+        });
+        vm.revertTo(snapshotId);
+        // The following ones won't revert as are the forbidden addresses and the clipperCall will be ignored
+        vm.prank(ali); clip.take({
+            id:  1,
+            amt: 11 ether,
+            max: ray(5 ether),
+            who: address(dog),
+            data: "aaa"
+        });
+        vm.revertTo(snapshotId);
+        vm.prank(ali); clip.take({
+            id:  1,
+            amt: 11 ether,
+            max: ray(5 ether),
+            who: address(vat),
+            data: "aaa"
+        });
+        vm.revertTo(snapshotId);
+        vm.prank(ali); clip.take({
+            id:  1,
+            amt: 11 ether,
+            max: ray(5 ether),
+            who: address(engine),
+            data: "aaa"
+        });
     }
 
     function testTakeUnderTab() public takeSetup {
@@ -1342,8 +1393,8 @@ contract LockstakeClipperTest is DssTest {
     }
 
     function testRemoveId() public {
-        LockstakeEngineMock engine = new LockstakeEngineMock(address(vat), "random");
-        PublicClip pclip = new PublicClip(address(vat), address(spot), address(dog), address(engine));
+        LockstakeEngineMock engine2 = new LockstakeEngineMock(address(vat), "random");
+        PublicClip pclip = new PublicClip(address(vat), address(spot), address(dog), address(engine2));
         uint256 pos;
 
         pclip.add();

@@ -1150,9 +1150,8 @@ contract LockstakeEngineTest is DssTest {
         vm.prank(pauseProxy); engine.onRemove(address(1), 0, uint256(type(int256).max) + 1);
     }
 
-    function _testOnYank(bool withDelegate, bool withStaking) internal {
+    function _testOnYankAndExit(bool withDelegate, bool withStaking) internal {
         address urn = _clipperSetUp(withDelegate, withStaking);
-        uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
@@ -1164,6 +1163,8 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.usr, address(urn));
         assertEq(sale.tic, block.timestamp);
         assertEq(sale.top, pip.read() * (1.25 * 10**9));
+
+        assertEq(VatLike(vat).gem(ilk, address(pauseProxy)), 0);
 
         vm.expectEmit(true, true, true, true);
         emit OnYank(urn, 100_000 * 10**18);
@@ -1179,22 +1180,36 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.top, 0);
         assertEq(engine.urnAuctions(urn), 0);
 
-        assertEq(mkr.totalSupply(), mkrInitialSupply - 100_000 * 10**18);
+        address receiver1 = address(123);
+        address receiver2 = address(456);
+
+        assertEq(VatLike(vat).gem(ilk, address(pauseProxy)), 100_000 * 10**18);
+        assertEq(mkr.balanceOf(receiver1), 0);
+        assertEq(mkr.balanceOf(receiver2), 0);
+        assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
+
+        vm.prank(pauseProxy); engine.exit(receiver1, 40_000 * 10**18);
+        vm.prank(pauseProxy); engine.exit(receiver2, 60_000 * 10**18);
+
+        assertEq(VatLike(vat).gem(ilk, address(pauseProxy)), 0);
+        assertEq(mkr.balanceOf(receiver1), 40_000 * 10**18);
+        assertEq(mkr.balanceOf(receiver2), 60_000 * 10**18);
+        assertEq(mkr.balanceOf(address(engine)), 0);
     }
 
-    function testOnYankNoStakingNoDelegate() public {
-        _testOnYank(false, false);
+    function testOnYankAndExitNoStakingNoDelegate() public {
+        _testOnYankAndExit(false, false);
     }
 
-    function testOnYankNoStakingWithDelegate() public {
-        _testOnYank(true, false);
+    function testOnYankAndExitNoStakingWithDelegate() public {
+        _testOnYankAndExit(true, false);
     }
 
-    function testOnYankWithStakingNoDelegate() public {
-        _testOnYank(false, true);
+    function testOnYankAndExitWithStakingNoDelegate() public {
+        _testOnYankAndExit(false, true);
     }
 
-    function testOnYankWithStakingWithDelegate() public {
-        _testOnYank(true, true);
+    function testOnYankAndExitWithStakingWithDelegate() public {
+        _testOnYankAndExit(true, true);
     }
 }

@@ -424,8 +424,15 @@ contract LockstakeEngine is Multicall {
     }
 
     function onYank(address urn, uint256 wad) external auth {
-        mkr.burn(address(this), wad);
         urnAuctions[urn]--;
         emit OnYank(urn, wad);
+    }
+
+    // --- function to exit MKR after yanking an auction ---
+
+    function exit(address to, uint256 wad) external {
+        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-over-maxint");
+        vat.slip(ilk, msg.sender, -int256(wad));
+        mkr.transfer(to, wad);
     }
 }

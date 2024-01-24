@@ -478,7 +478,7 @@ contract LockstakeClipper {
         require(sales[id].usr != address(0), "LockstakeClipper/not-running-auction");
         dog.digs(ilk, sales[id].tab);
         uint256 lot = sales[id].lot;
-        vat.slip(ilk, address(this), -int256(lot));
+        vat.flux(ilk, address(this), msg.sender, lot);
         engine.onYank(sales[id].usr, lot);
         _remove(id);
         emit Yank(id);

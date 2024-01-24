@@ -928,22 +928,98 @@ contract LockstakeEngineTest is DssTest {
         assertEq(engine.urnFarms(urn), address(farm));
         assertEq(farm.balanceOf(urn), 100_000 * 10**18);
         assertEq(mkr.balanceOf(voterDelegate), 100_000 * 10**18);
+        assertEq(engine.urnAuctions(urn), 0);
 
         vm.prank(pauseProxy); DogLike(dog).file(ilk, "hole", 500 * 10**45);
-        _forceLiquidation(urn);
+        uint256 id1 =_forceLiquidation(urn);
 
         assertEq(engine.urnDelegates(urn), address(0));
         assertEq(engine.urnFarms(urn), address(0));
         assertEq(farm.balanceOf(urn), 0);
         assertEq(mkr.balanceOf(voterDelegate), 0);
+        assertEq(engine.urnAuctions(urn), 1);
 
-        // User tries to lock again MKR on Delegate or Farm
+        LockstakeClipper.Sale memory sale;
+        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id1);
+        assertEq(sale.pos, 0);
+        assertEq(sale.tab, 500 * 10**45);
+        assertEq(sale.lot, 25_000 * 10**18);
+        assertEq(sale.tot, 25_000 * 10**18);
+        assertEq(sale.usr, address(urn));
+        assertEq(sale.tic, block.timestamp);
+        assertEq(sale.top, pip.read() * (1.25 * 10**9));
+
+        assertEq(_ink(ilk, urn), 75_000 * 10**18);
+        assertEq(_art(ilk, urn), 1500 * 10**18);
+        assertEq(VatLike(vat).gem(ilk, address(clip)), 25_000 * 10**18);
+
         vm.expectRevert("LockstakeEngine/urn-in-auction");
         engine.selectDelegate(urn, voterDelegate);
         vm.expectRevert("LockstakeEngine/urn-in-auction");
         engine.selectFarm(urn, address(farm), 0);
 
-        // TODO: show we can lock again afterwards, maybe show several auctions
+        vm.prank(pauseProxy); DogLike(dog).file(ilk, "hole", 1000 * 10**45);
+        uint256 id2 = DogLike(dog).bark(ilk, urn, address(this));
+
+        assertEq(engine.urnDelegates(urn), address(0));
+        assertEq(engine.urnFarms(urn), address(0));
+        assertEq(farm.balanceOf(urn), 0);
+        assertEq(mkr.balanceOf(voterDelegate), 0);
+        assertEq(engine.urnAuctions(urn), 2);
+
+        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id2);
+        assertEq(sale.pos, 1);
+        assertEq(sale.tab, 500 * 10**45);
+        assertEq(sale.lot, 25_000 * 10**18);
+        assertEq(sale.tot, 25_000 * 10**18);
+        assertEq(sale.usr, address(urn));
+        assertEq(sale.tic, block.timestamp);
+        assertEq(sale.top, pip.read() * (1.25 * 10**9));
+
+        assertEq(_ink(ilk, urn), 50_000 * 10**18);
+        assertEq(_art(ilk, urn), 1000 * 10**18);
+        assertEq(VatLike(vat).gem(ilk, address(clip)), 50_000 * 10**18);
+
+        vm.expectRevert("LockstakeEngine/urn-in-auction");
+        engine.selectDelegate(urn, voterDelegate);
+        vm.expectRevert("LockstakeEngine/urn-in-auction");
+        engine.selectFarm(urn, address(farm), 0);
+
+        // Take with left > 0
+        address buyer = address(888);
+        vm.prank(pauseProxy); VatLike(vat).suck(address(0), buyer, 2_000 * 10**45);
+        vm.prank(buyer); VatLike(vat).hope(address(clip));
+        assertEq(mkr.balanceOf(buyer), 0);
+        vm.expectEmit(true, true, true, true);
+        emit OnTake(urn, buyer, 8000 * 10**18); // 500 / (0.05 * 1.25 )
+        vm.expectEmit(true, true, true, true);
+        emit OnRemove(urn, 8000 * 10**18, 8000 * 10**18 * engine.fee() / WAD, 25_000 * 10**18 - 8000 * 10**18 - 8000 * 10**18 * engine.fee() / WAD);
+        vm.prank(buyer); clip.take(id1, 25_000 * 10**18, type(uint256).max, buyer, "");
+        assertEq(mkr.balanceOf(buyer), 8000 * 10**18);
+        assertEq(engine.urnAuctions(urn), 1);
+
+        vm.expectRevert("LockstakeEngine/urn-in-auction");
+        engine.selectDelegate(urn, voterDelegate);
+        vm.expectRevert("LockstakeEngine/urn-in-auction");
+        engine.selectFarm(urn, address(farm), 0);
+
+        vm.warp(block.timestamp + 80); // Time passes to let the auction price to crash
+
+        // Take with left == 0
+        vm.prank(pauseProxy); VatLike(vat).suck(address(0), buyer, 2_000 * 10**45);
+        vm.prank(buyer); VatLike(vat).hope(address(clip));
+        assertEq(mkr.balanceOf(buyer), 8000 * 10**18);
+        vm.expectEmit(true, true, true, true);
+        emit OnTake(urn, buyer, 25_000 * 10**18);
+        vm.expectEmit(true, true, true, true);
+        emit OnRemove(urn, 25_000 * 10**18, 0, 0);
+        vm.prank(buyer); clip.take(id2, 25_000 * 10**18, type(uint256).max, buyer, "");
+        assertEq(mkr.balanceOf(buyer), 33_000 * 10**18);
+        assertEq(engine.urnAuctions(urn), 0);
+
+        // Can select delegate and farm again
+        engine.selectDelegate(urn, voterDelegate);
+        engine.selectFarm(urn, address(farm), 0);
     }
 
     function _testOnTakePartialBurn(bool withDelegate, bool withStaking) internal {
@@ -1067,6 +1143,8 @@ contract LockstakeEngineTest is DssTest {
         assertEq(mkr.balanceOf(buyer), 0);
         vm.expectEmit(true, true, true, true);
         emit OnTake(urn, buyer, 100_000 * 10**18);
+        vm.expectEmit(true, true, true, true);
+        emit OnRemove(urn, 100_000 * 10**18, 0, 0);
         vm.prank(buyer); clip.take(id, 100_000 * 10**18, type(uint256).max, buyer, "");
         assertEq(mkr.balanceOf(buyer), 100_000 * 10**18);
 
@@ -1123,6 +1201,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.usr, address(urn));
         assertEq(sale.tic, block.timestamp);
         assertEq(sale.top, pip.read() * (1.25 * 10**9));
+        assertEq(engine.urnAuctions(urn), 1);
 
         vm.expectEmit(true, true, true, true);
         emit OnYank(urn, 100_000 * 10**18);
@@ -1136,6 +1215,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.usr, address(0));
         assertEq(sale.tic, 0);
         assertEq(sale.top, 0);
+        assertEq(engine.urnAuctions(urn), 0);
 
         assertEq(mkr.totalSupply(), mkrInitialSupply - 100_000 * 10**18);
     }

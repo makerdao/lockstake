@@ -267,6 +267,17 @@ contract LockstakeEngineIntegrationTest is DssTest {
         }
     }
 
+    function invariant_no_delegation_or_staking_during_auction() public {
+        for (uint256 i = 0; i < handler.numUrns(); i++) {
+            assert(
+                engine.urnAuctions(handler.urns(i)) == 0 ||
+                engine.urnDelegates(handler.urns(i)) == address(0) && engine.urnFarms(handler.urns(i)) == address(0)
+            );
+        }
+    }
+
+    // TODO: invariant that no delegation and no stake during an auction
+
     function invariant_call_summary() external view {
         console.log("------------------");
 

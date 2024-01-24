@@ -228,7 +228,7 @@ contract LockstakeHandler is DssTest {
 
         wad = bound(wad, dust / RAY, ink * spotPrice / RAY);
 
-        engine.draw(currentUrn, wad);
+        engine.draw(currentUrn, address(this), wad);
     }
 
     function wipe(uint256 wad, uint256 urnIndex) external useSender() useRandomUrn(urnIndex) {

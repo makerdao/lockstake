@@ -149,7 +149,7 @@ contract LockstakeEngineTest is DssTest {
         deal(address(ngt), address(this), 100_000 * 24_000 * 10**18, true);
 
         // Add some existing DAI assigned to nstJoin to avoid a particular error
-        stdstore.target(address(vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(100_000 * RAD);
+        stdstore.target(vat).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(100_000 * RAD);
     }
 
     function _ink(bytes32 ilk_, address urn) internal view returns (uint256 ink) {
@@ -225,6 +225,7 @@ contract LockstakeEngineTest is DssTest {
         urnOwnersMethods[9]  = engine.wipe.selector;
         urnOwnersMethods[10] = engine.getReward.selector;
 
+        // this checks the case where sender is a ward, hoping is checked separately on testHopeNope
         vm.startPrank(address(0xBEEF));
         checkModifier(address(engine), "LockstakeEngine/urn-not-authorized", urnOwnersMethods);
         vm.stopPrank();
@@ -422,7 +423,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(mkr.balanceOf(address(this)), 0);
         if (withDelegate) {
             assertEq(mkr.balanceOf(address(engine)), 0);
-            assertEq(mkr.balanceOf(address(voterDelegate)), 100_000 * 10**18); // Remains in delegate as it is a mock (otherwise it would be in the Chief)
+            assertEq(mkr.balanceOf(voterDelegate), 100_000 * 10**18); // Remains in delegate as it is a mock (otherwise it would be in the Chief)
         } else {
             assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
         }
@@ -451,7 +452,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(mkr.balanceOf(address(123)), 10_000 * 10**18 - 10_000 * 10**18 * 15 / 100);
         if (withDelegate) {
             assertEq(mkr.balanceOf(address(engine)), 0);
-            assertEq(mkr.balanceOf(address(voterDelegate)), 50_000 * 10**18);
+            assertEq(mkr.balanceOf(voterDelegate), 50_000 * 10**18);
         } else {
             assertEq(mkr.balanceOf(address(engine)), 50_000 * 10**18);
         }
@@ -483,7 +484,7 @@ contract LockstakeEngineTest is DssTest {
     function _testLockFreeNgt(bool withDelegate, bool withStaking) internal {
         uint256 initialNgtSupply = ngt.totalSupply();
         address urn = engine.open(0);
-        // Note: wad-overflow cannot be reached for lockNgt and freeNgt as we these functions and the value of rate (>=3) the MKR amount will be always lower
+        // Note: wad-overflow cannot be reached for lockNgt and freeNgt as with these functions and the value of rate (>=3) the MKR amount will be always lower
         if (withDelegate) {
             engine.selectDelegate(urn, voterDelegate);
         }
@@ -507,7 +508,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(ngt.balanceOf(address(this)), 0);
         if (withDelegate) {
             assertEq(mkr.balanceOf(address(engine)), 0);
-            assertEq(mkr.balanceOf(address(voterDelegate)), 100_000 * 10**18); // Remains in delegate as it is a mock (otherwise it would be in the Chief)
+            assertEq(mkr.balanceOf(voterDelegate), 100_000 * 10**18); // Remains in delegate as it is a mock (otherwise it would be in the Chief)
         } else {
             assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
         }
@@ -536,7 +537,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(ngt.balanceOf(address(123)), 10_000 * 24_000 * 10**18 - 10_000 * 24_000 * 10**18 * 15 / 100);
         if (withDelegate) {
             assertEq(mkr.balanceOf(address(engine)), 0);
-            assertEq(mkr.balanceOf(address(voterDelegate)), 50_000 * 10**18);
+            assertEq(mkr.balanceOf(voterDelegate), 50_000 * 10**18);
         } else {
             assertEq(mkr.balanceOf(address(engine)), 50_000 * 10**18);
         }
@@ -655,11 +656,11 @@ contract LockstakeEngineTest is DssTest {
         engine.rely(address(clip));
         clip.upchost();
         DogLike(dog).file(ilk, "clip", address(clip));
-        clip.rely(address(dog));
+        clip.rely(dog);
         DogLike(dog).rely(address(clip));
         VatLike(vat).rely(address(clip));
 
-        CalcLike calc = CalcLike(CalcFabLike(ChainlogLike(LOG).getAddress("CALC_FAB")).newLinearDecrease(address(pauseProxy)));
+        CalcLike calc = CalcLike(CalcFabLike(ChainlogLike(LOG).getAddress("CALC_FAB")).newLinearDecrease(pauseProxy));
         calc.file("tau", 100);
         clip.file("buf",  1.25 * 10**27);     // 25% Initial price buffer
         clip.file("calc", address(calc));     // File price contract
@@ -683,8 +684,8 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_art(ilk, urn), 2_000 * 10**18);
 
         if (withDelegate) {
-            assertEq(engine.urnDelegates(urn), address(voterDelegate));
-            assertEq(mkr.balanceOf(address(voterDelegate)), 100_000 * 10**18);
+            assertEq(engine.urnDelegates(urn), voterDelegate);
+            assertEq(mkr.balanceOf(voterDelegate), 100_000 * 10**18);
             assertEq(mkr.balanceOf(address(engine)), 0);
         } else {
             assertEq(engine.urnDelegates(urn), address(0));
@@ -734,7 +735,7 @@ contract LockstakeEngineTest is DssTest {
 
         if (withDelegate) {
             assertEq(engine.urnDelegates(urn), address(0));
-            assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+            assertEq(mkr.balanceOf(voterDelegate), 0);
         }
         assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
         if (withStaking) {
@@ -783,7 +784,7 @@ contract LockstakeEngineTest is DssTest {
 
         if (withDelegate) {
             assertEq(engine.urnDelegates(urn), address(0));
-            assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+            assertEq(mkr.balanceOf(voterDelegate), 0);
         }
         assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
         if (withStaking) {
@@ -833,7 +834,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(VatLike(vat).gem(ilk, address(clip)), 100_000 * 10**18);
 
         if (withDelegate) {
-            assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+            assertEq(mkr.balanceOf(voterDelegate), 0);
         }
         assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
         if (withStaking) {
@@ -866,7 +867,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(VatLike(vat).gem(ilk, address(clip)), 80_000 * 10**18);
 
         if (withDelegate) {
-            assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+            assertEq(mkr.balanceOf(voterDelegate), 0);
         }
         assertEq(mkr.balanceOf(address(engine)), 80_000 * 10**18);
         if (withStaking) {
@@ -947,7 +948,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(VatLike(vat).gem(ilk, address(clip)), 100_000 * 10**18);
 
         if (withDelegate) {
-            assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+            assertEq(mkr.balanceOf(voterDelegate), 0);
         }
         assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
         if (withStaking) {
@@ -976,7 +977,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(VatLike(vat).gem(ilk, address(clip)), 0);
 
         if (withDelegate) {
-            assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+            assertEq(mkr.balanceOf(voterDelegate), 0);
         }
         assertEq(mkr.balanceOf(address(engine)), 0);
         assertEq(mkr.totalSupply(), mkrInitialSupply - (100_000 * 10**18 - 91428571428571428571428)); // Can't burn 15% of 91428571428571428571428
@@ -1028,7 +1029,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(VatLike(vat).gem(ilk, address(clip)), 100_000 * 10**18);
 
         if (withDelegate) {
-            assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+            assertEq(mkr.balanceOf(voterDelegate), 0);
         }
         assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
         if (withStaking) {
@@ -1057,7 +1058,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(VatLike(vat).gem(ilk, address(clip)), 0);
 
         if (withDelegate) {
-            assertEq(mkr.balanceOf(address(voterDelegate)), 0);
+            assertEq(mkr.balanceOf(voterDelegate), 0);
         }
         assertEq(mkr.balanceOf(address(engine)), 0);
         assertEq(mkr.totalSupply(), mkrInitialSupply); // Can't burn anything
@@ -1146,7 +1147,7 @@ contract LockstakeEngineTest is DssTest {
 
     function testOnRemoveOverflow() public {
         vm.expectRevert("LockstakeEngine/refund-over-maxint");
-        vm.prank(address(pauseProxy)); engine.onRemove(address(1), 0, uint256(type(int256).max) + 1);
+        vm.prank(pauseProxy); engine.onRemove(address(1), 0, uint256(type(int256).max) + 1);
     }
 
     function _testOnYank(bool withDelegate, bool withStaking) internal {

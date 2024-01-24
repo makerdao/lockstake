@@ -50,7 +50,7 @@ interface LockstakeEngineLike {
     function ilk() external view returns (bytes32);
     function onKick(address, uint256) external;
     function onTake(address, address, uint256) external;
-    function onTakeLeftovers(address, uint256, uint256) external;
+    function onRemove(address, uint256, uint256) external;
     function onYank(address, uint256) external;
 }
 
@@ -411,12 +411,12 @@ contract LockstakeClipper {
 
         if (lot == 0) {
             uint256 tot = sales[id].tot;
-            engine.onTakeLeftovers(usr, tot, 0);
+            engine.onRemove(usr, tot, 0);
             _remove(id);
         } else if (tab == 0) {
             uint256 tot = sales[id].tot;
             vat.slip(ilk, address(this), -int256(lot));
-            engine.onTakeLeftovers(usr, tot - lot, lot);
+            engine.onRemove(usr, tot - lot, lot);
             _remove(id);
         } else {
             sales[id].tab = tab;

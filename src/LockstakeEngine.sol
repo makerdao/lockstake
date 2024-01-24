@@ -116,7 +116,7 @@ contract LockstakeEngine is Multicall {
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
-    event OnTakeLeftovers(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
+    event OnRemove(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
     event OnYank(address indexed urn, uint256 wad);
 
     // --- modifiers ---
@@ -157,6 +157,10 @@ contract LockstakeEngine is Multicall {
     }
 
     // --- internals ---
+
+    function _min(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x <= y ? x : y;
+    }
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
         unchecked {
@@ -400,28 +404,28 @@ contract LockstakeEngine is Multicall {
         emit OnTake(urn, who, wad);
     }
 
-    // TODO: rename to onAuctionRemove
-    function onTakeLeftovers(address urn, uint256 sold, uint256 left) external auth {
+    function onRemove(address urn, uint256 sold, uint256 left) external auth {
         uint256 burn;
         uint256 refund;
         if (left > 0) {
-            burn = sold * fee / WAD;
-            if (burn > left) burn = left;
+            burn = _min(sold * fee / WAD, left);
             mkr.burn(address(this), burn);
             unchecked { refund = left - burn; }
             if (refund > 0) {
-                require(refund <= uint256(type(int256).max), "LockstakeEngine/refund-over-maxint"); // This is ensured by the dog and clip but we still prefer to be explicit
+                // The following is ensured by the dog and clip but we still prefer to be explicit
+                require(refund <= uint256(type(int256).max), "LockstakeEngine/refund-over-maxint");
                 vat.slip(ilk, urn, int256(refund));
                 vat.frob(ilk, urn, urn, address(0), int256(refund), 0);
                 stkMkr.mint(urn, refund);
             }
         }
         urnAuctions[urn]--;
-        emit OnTakeLeftovers(urn, sold, burn, refund);
+        emit OnRemove(urn, sold, burn, refund);
     }
 
     function onYank(address urn, uint256 wad) external auth {
         mkr.burn(address(this), wad);
+        urnAuctions[urn]--;
         emit OnYank(urn, wad);
     }
 }

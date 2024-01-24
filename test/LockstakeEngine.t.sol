@@ -100,7 +100,7 @@ contract LockstakeEngineTest is DssTest {
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
-    event OnTakeLeftovers(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
+    event OnRemove(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
     event OnYank(address indexed urn, uint256 wad);
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
@@ -205,7 +205,7 @@ contract LockstakeEngineTest is DssTest {
         authedMethods[1] = engine.delFarm.selector;
         authedMethods[2] = engine.onKick.selector;
         authedMethods[3] = engine.onTake.selector;
-        authedMethods[4] = engine.onTakeLeftovers.selector;
+        authedMethods[4] = engine.onRemove.selector;
         authedMethods[5] = engine.onYank.selector;
 
         vm.startPrank(address(0xBEEF));
@@ -877,7 +877,7 @@ contract LockstakeEngineTest is DssTest {
         vm.expectEmit(true, true, true, true);
         emit OnTake(urn, buyer, 12_000 * 10**18);
         vm.expectEmit(true, true, true, true);
-        emit OnTakeLeftovers(urn, 32_000 * 10**18, 32_000 * 10**18 * engine.fee() / WAD, 100_000 * 10**18 - 32_000 * 10**18 - 32_000 * 10**18 * engine.fee() / WAD);
+        emit OnRemove(urn, 32_000 * 10**18, 32_000 * 10**18 * engine.fee() / WAD, 100_000 * 10**18 - 32_000 * 10**18 - 32_000 * 10**18 * engine.fee() / WAD);
         vm.prank(buyer); clip.take(id, 12_000 * 10**18, type(uint256).max, buyer, "");
         assertEq(mkr.balanceOf(buyer), 32_000 * 10**18);
 
@@ -988,7 +988,7 @@ contract LockstakeEngineTest is DssTest {
         vm.expectEmit(true, true, true, true);
         emit OnTake(urn, buyer, 91428571428571428571428);
         vm.expectEmit(true, true, true, true);
-        emit OnTakeLeftovers(urn, 91428571428571428571428, 100_000 * 10**18 - 91428571428571428571428, 0);
+        emit OnRemove(urn, 91428571428571428571428, 100_000 * 10**18 - 91428571428571428571428, 0);
         vm.prank(buyer); clip.take(id, 100_000 * 10**18, type(uint256).max, buyer, "");
         assertEq(mkr.balanceOf(buyer), 91428571428571428571428);
 
@@ -1104,9 +1104,9 @@ contract LockstakeEngineTest is DssTest {
         _testOnTakeNoBurn(true, true);
     }
 
-    function testOnTakeLeftoversOverflow() public {
+    function testOnRemoveOverflow() public {
         vm.expectRevert("LockstakeEngine/refund-over-maxint");
-        vm.prank(address(pauseProxy)); engine.onTakeLeftovers(address(1), 0, uint256(type(int256).max) + 1);
+        vm.prank(address(pauseProxy)); engine.onRemove(address(1), 0, uint256(type(int256).max) + 1);
     }
 
     function _testOnYank(bool withDelegate, bool withStaking) internal {

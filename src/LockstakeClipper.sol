@@ -472,7 +472,7 @@ contract LockstakeClipper {
         chost = wmul(_dust, dog.chop(ilk));
     }
 
-    // Cancel an auction during ES or via governance action.
+    // Cancel an auction during End.cage or via other governance action.
     function yank(uint256 id) external auth lock {
         require(sales[id].usr != address(0), "LockstakeClipper/not-running-auction");
         dog.digs(ilk, sales[id].tab);

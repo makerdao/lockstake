@@ -334,8 +334,7 @@ contract LockstakeEngine is Multicall {
         emit FreeNgt(urn, to, ngtWad, wad - freed);
     }
 
-    function freeNoFee(address urn, address to, uint256 wad) external auth {
-        require(urnCan[urn][msg.sender] == 1, "LockstakeEngine/not-hoped");
+    function freeNoFee(address urn, address to, uint256 wad) external auth urnAuth(urn) {
         _free(urn, wad, 0);
         mkr.transfer(to, wad);
         emit FreeNoFee(urn, to, wad);

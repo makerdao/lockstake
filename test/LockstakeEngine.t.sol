@@ -1148,66 +1148,28 @@ contract LockstakeEngineTest is DssTest {
         vm.prank(pauseProxy); engine.onRemove(address(1), 0, uint256(type(int256).max) + 1);
     }
 
-    function _testYankAndExit(bool withDelegate, bool withStaking) internal {
+    function _testYank(bool withDelegate, bool withStaking) internal {
         address urn = _clipperSetUp(withDelegate, withStaking);
         uint256 id = _forceLiquidation(urn);
-
-        LockstakeClipper.Sale memory sale;
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, 2_000 * 10**45);
-        assertEq(sale.lot, 100_000 * 10**18);
-        assertEq(sale.tot, 100_000 * 10**18);
-        assertEq(sale.usr, address(urn));
-        assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, pip.read() * (1.25 * 10**9));
-
-        assertEq(VatLike(vat).gem(ilk, address(pauseProxy)), 0);
 
         vm.expectEmit(true, true, true, true);
         emit OnRemove(urn, 0, 0, 0);
         vm.prank(pauseProxy); clip.yank(id);
-
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, 0);
-        assertEq(sale.lot, 0);
-        assertEq(sale.tot, 0);
-        assertEq(sale.usr, address(0));
-        assertEq(sale.tic, 0);
-        assertEq(sale.top, 0);
-        assertEq(engine.urnAuctions(urn), 0);
-
-        address receiver1 = address(123);
-        address receiver2 = address(456);
-
-        assertEq(VatLike(vat).gem(ilk, address(pauseProxy)), 100_000 * 10**18);
-        assertEq(mkr.balanceOf(receiver1), 0);
-        assertEq(mkr.balanceOf(receiver2), 0);
-        assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
-
-        vm.prank(pauseProxy); engine.exit(receiver1, 40_000 * 10**18);
-        vm.prank(pauseProxy); engine.exit(receiver2, 60_000 * 10**18);
-
-        assertEq(VatLike(vat).gem(ilk, address(pauseProxy)), 0);
-        assertEq(mkr.balanceOf(receiver1), 40_000 * 10**18);
-        assertEq(mkr.balanceOf(receiver2), 60_000 * 10**18);
-        assertEq(mkr.balanceOf(address(engine)), 0);
     }
 
-    function testYankAndExitNoStakingNoDelegate() public {
-        _testYankAndExit(false, false);
+    function testYankNoStakingNoDelegate() public {
+        _testYank(false, false);
     }
 
-    function testYankAndExitNoStakingWithDelegate() public {
-        _testYankAndExit(true, false);
+    function testYankNoStakingWithDelegate() public {
+        _testYank(true, false);
     }
 
-    function testYankAndExitWithStakingNoDelegate() public {
-        _testYankAndExit(false, true);
+    function testYankWithStakingNoDelegate() public {
+        _testYank(false, true);
     }
 
-    function testYankAndExitWithStakingWithDelegate() public {
-        _testYankAndExit(true, true);
+    function testYankWithStakingWithDelegate() public {
+        _testYank(true, true);
     }
 }

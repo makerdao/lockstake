@@ -421,12 +421,4 @@ contract LockstakeEngine is Multicall {
         urnAuctions[urn]--;
         emit OnRemove(urn, sold, burn, refund);
     }
-
-    // --- function to exit MKR after yanking an auction ---
-
-    function exit(address to, uint256 wad) external {
-        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-over-maxint");
-        vat.slip(ilk, msg.sender, -int256(wad));
-        mkr.transfer(to, wad);
-    }
 }

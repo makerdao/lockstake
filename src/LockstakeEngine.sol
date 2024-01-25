@@ -117,7 +117,6 @@ contract LockstakeEngine is Multicall {
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
     event OnRemove(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
-    event OnYank(address indexed urn, uint256 wad);
 
     // --- modifiers ---
 
@@ -421,11 +420,6 @@ contract LockstakeEngine is Multicall {
         }
         urnAuctions[urn]--;
         emit OnRemove(urn, sold, burn, refund);
-    }
-
-    function onYank(address urn, uint256 wad) external auth {
-        urnAuctions[urn]--;
-        emit OnYank(urn, wad);
     }
 
     // --- function to exit MKR after yanking an auction ---

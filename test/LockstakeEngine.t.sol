@@ -101,7 +101,6 @@ contract LockstakeEngineTest is DssTest {
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
     event OnRemove(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
-    event OnYank(address indexed urn, uint256 wad);
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
         unchecked {
@@ -200,13 +199,12 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testModifiers() public {
-        bytes4[] memory authedMethods = new bytes4[](6);
+        bytes4[] memory authedMethods = new bytes4[](5);
         authedMethods[0] = engine.addFarm.selector;
         authedMethods[1] = engine.delFarm.selector;
         authedMethods[2] = engine.onKick.selector;
         authedMethods[3] = engine.onTake.selector;
         authedMethods[4] = engine.onRemove.selector;
-        authedMethods[5] = engine.onYank.selector;
 
         vm.startPrank(address(0xBEEF));
         checkModifier(address(engine), "LockstakeEngine/not-authorized", authedMethods);
@@ -1150,7 +1148,7 @@ contract LockstakeEngineTest is DssTest {
         vm.prank(pauseProxy); engine.onRemove(address(1), 0, uint256(type(int256).max) + 1);
     }
 
-    function _testOnYankAndExit(bool withDelegate, bool withStaking) internal {
+    function _testYankAndExit(bool withDelegate, bool withStaking) internal {
         address urn = _clipperSetUp(withDelegate, withStaking);
         uint256 id = _forceLiquidation(urn);
 
@@ -1167,7 +1165,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(VatLike(vat).gem(ilk, address(pauseProxy)), 0);
 
         vm.expectEmit(true, true, true, true);
-        emit OnYank(urn, 100_000 * 10**18);
+        emit OnRemove(urn, 100_000 * 10**18, 0, 0);
         vm.prank(pauseProxy); clip.yank(id);
 
         (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
@@ -1197,19 +1195,19 @@ contract LockstakeEngineTest is DssTest {
         assertEq(mkr.balanceOf(address(engine)), 0);
     }
 
-    function testOnYankAndExitNoStakingNoDelegate() public {
-        _testOnYankAndExit(false, false);
+    function testYankAndExitNoStakingNoDelegate() public {
+        _testYankAndExit(false, false);
     }
 
-    function testOnYankAndExitNoStakingWithDelegate() public {
-        _testOnYankAndExit(true, false);
+    function testYankAndExitNoStakingWithDelegate() public {
+        _testYankAndExit(true, false);
     }
 
-    function testOnYankAndExitWithStakingNoDelegate() public {
-        _testOnYankAndExit(false, true);
+    function testYankAndExitWithStakingNoDelegate() public {
+        _testYankAndExit(false, true);
     }
 
-    function testOnYankAndExitWithStakingWithDelegate() public {
-        _testOnYankAndExit(true, true);
+    function testYankAndExitWithStakingWithDelegate() public {
+        _testYankAndExit(true, true);
     }
 }

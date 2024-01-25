@@ -51,7 +51,6 @@ interface LockstakeEngineLike {
     function onKick(address, uint256) external;
     function onTake(address, address, uint256) external;
     function onRemove(address, uint256, uint256) external;
-    function onYank(address, uint256) external;
 }
 
 // Clipper for use with the manager / proxy paradigm
@@ -479,7 +478,7 @@ contract LockstakeClipper {
         dog.digs(ilk, sales[id].tab);
         uint256 lot = sales[id].lot;
         vat.flux(ilk, address(this), msg.sender, lot);
-        engine.onYank(sales[id].usr, lot);
+        engine.onRemove(sales[id].usr, lot, 0);
         _remove(id);
         emit Yank(id);
     }

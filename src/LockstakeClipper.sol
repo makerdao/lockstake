@@ -478,7 +478,7 @@ contract LockstakeClipper {
         dog.digs(ilk, sales[id].tab);
         uint256 lot = sales[id].lot;
         vat.flux(ilk, address(this), msg.sender, lot);
-        engine.onRemove(sales[id].usr, lot, 0);
+        engine.onRemove(sales[id].usr, 0, 0);
         _remove(id);
         emit Yank(id);
     }

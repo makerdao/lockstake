@@ -1165,7 +1165,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(VatLike(vat).gem(ilk, address(pauseProxy)), 0);
 
         vm.expectEmit(true, true, true, true);
-        emit OnRemove(urn, 100_000 * 10**18, 0, 0);
+        emit OnRemove(urn, 0, 0, 0);
         vm.prank(pauseProxy); clip.yank(id);
 
         (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);

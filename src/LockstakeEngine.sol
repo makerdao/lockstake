@@ -62,10 +62,6 @@ interface MkrNgtLike {
     function mkrToNgt(address, uint256) external;
 }
 
-interface MigratorLike {
-    function notifyMigration(address, address, address, address, address, uint256) external;
-}
-
 contract LockstakeEngine is Multicall {
     // --- storage variables ---
 
@@ -77,7 +73,6 @@ contract LockstakeEngine is Multicall {
     mapping(address => address)                     public urnDelegates; // urn => current associated delegate
     mapping(address => address)                     public urnFarms;     // urn => current selected farm
     JugLike                                         public jug;
-    address                                         public migrator;
 
     // --- constants ---
 
@@ -115,7 +110,7 @@ contract LockstakeEngine is Multicall {
     event LockNgt(address indexed urn, uint256 ngtWad, uint16 ref);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
     event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
-    event Migrate(address indexed urn, address indexed migrator, address indexed owner, address sender, address delegate, address farm, uint256 ink);
+    event FreeNoFee(address indexed urn, address indexed to, uint256 wad);
     event Draw(address indexed urn, address indexed to, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
@@ -197,9 +192,9 @@ contract LockstakeEngine is Multicall {
     }
 
     function file(bytes32 what, address data) external auth {
-        if      (what == "jug")           jug = JugLike(data);
-        else if (what == "migrator") migrator = data;
-        else revert("LockstakeEngine/file-unrecognized-param");
+        if (what == "jug") {
+            jug = JugLike(data);
+        } else revert("LockstakeEngine/file-unrecognized-param");
         emit File(what, data);
     }
 
@@ -339,17 +334,11 @@ contract LockstakeEngine is Multicall {
         emit FreeNgt(urn, to, ngtWad, wad - freed);
     }
 
-    function migrate(address urn) external urnAuth(urn) {
-        address _migrator = migrator;
-        require(_migrator != address(0), "LockstakeEngine/migrator-not-set");
-        (uint256 ink,) = vat.urns(ilk, urn);
-        _free(urn, ink, 0);
-        mkr.transfer(_migrator, ink);
-        address owner     = urnOwners[urn];
-        address delegate  = urnDelegates[urn];
-        address farm      = urnFarms[urn];
-        MigratorLike(_migrator).notifyMigration(urn, msg.sender, owner, delegate, farm, ink);
-        emit Migrate(urn, _migrator, owner, msg.sender, delegate, farm, ink);
+    function freeNoFee(address urn, address to, uint256 wad) external auth {
+        require(urnCan[urn][msg.sender] == 1, "LockstakeEngine/not-hoped");
+        _free(urn, wad, 0);
+        mkr.transfer(to, wad);
+        emit FreeNoFee(urn, to, wad);
     }
 
     function _free(address urn, uint256 wad, uint256 _fee) internal returns (uint256 freed) {

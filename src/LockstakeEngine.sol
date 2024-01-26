@@ -347,7 +347,7 @@ contract LockstakeEngine is Multicall {
         emit FreeNoFee(urn, to, wad);
     }
 
-    function _free(address urn, uint256 wad, uint256 _fee) internal returns (uint256 freed) {
+    function _free(address urn, uint256 wad, uint256 fee_) internal returns (uint256 freed) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         address urnFarm = urnFarms[urn];
         if (urnFarm != address(0)) {
@@ -360,7 +360,7 @@ contract LockstakeEngine is Multicall {
         if (delegate != address(0)) {
             DelegateLike(delegate).free(wad);
         }
-        uint256 burn = wad * _fee / WAD;
+        uint256 burn = wad * fee_ / WAD;
         if (burn > 0) {
             mkr.burn(address(this), burn);
         }

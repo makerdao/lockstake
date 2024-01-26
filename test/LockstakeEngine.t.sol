@@ -228,7 +228,7 @@ contract LockstakeEngineTest is DssTest {
         urnOwnersMethods[9]  = engine.wipe.selector;
         urnOwnersMethods[10] = engine.getReward.selector;
 
-        // this checks the case when sender is not relied and not hoped, hoped case is checked in testHopeNope and relied case in the specific tests
+        // this checks the case when sender is not the urn owner and not hoped, the hoped case is checked in testHopeNope and the urn owner case in the specific tests
         vm.startPrank(address(0xBEEF));
         checkModifier(address(engine), "LockstakeEngine/urn-not-authorized", urnOwnersMethods);
         vm.stopPrank();
@@ -236,7 +236,7 @@ contract LockstakeEngineTest is DssTest {
         bytes4[] memory authedAndUrnOwnersMethods = new bytes4[](1);
         authedAndUrnOwnersMethods[0] = engine.freeNoFee.selector;
 
-        // this checks the case when sender is relied but is not hoped, hoped case is checked in testHopeNope and relied case in the specific tests
+        // this checks the case when sender is relied but is not the urn owner and is not hoped, the hoped case is checked in testHopeNope and the urn owner case in the specific tests
         vm.prank(pauseProxy); engine.rely(address(0x123));
         vm.startPrank(address(0x123));
         checkModifier(address(engine), "LockstakeEngine/urn-not-authorized", urnOwnersMethods);

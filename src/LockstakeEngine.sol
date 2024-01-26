@@ -111,6 +111,7 @@ contract LockstakeEngine is Multicall {
     event LockNgt(address indexed urn, uint256 ngtWad, uint16 ref);
     event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
     event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
+    event FreeNoFee(address indexed urn, address indexed to, uint256 wad);
     event Draw(address indexed urn, address indexed to, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
@@ -328,19 +329,25 @@ contract LockstakeEngine is Multicall {
     }
 
     function free(address urn, address to, uint256 wad) external urnAuth(urn) {
-        uint256 freed = _free(urn, wad);
+        uint256 freed = _free(urn, wad, fee);
         mkr.transfer(to, freed);
         emit Free(urn, to, wad, wad - freed);
     }
 
     function freeNgt(address urn, address to, uint256 ngtWad) external urnAuth(urn) {
         uint256 wad = ngtWad / mkrNgtRate;
-        uint256 freed = _free(urn, wad);
+        uint256 freed = _free(urn, wad, fee);
         mkrNgt.mkrToNgt(to, freed);
         emit FreeNgt(urn, to, ngtWad, wad - freed);
     }
 
-    function _free(address urn, uint256 wad) internal returns (uint256 freed) {
+    function freeNoFee(address urn, address to, uint256 wad) external auth urnAuth(urn) {
+        _free(urn, wad, 0);
+        mkr.transfer(to, wad);
+        emit FreeNoFee(urn, to, wad);
+    }
+
+    function _free(address urn, uint256 wad, uint256 fee_) internal returns (uint256 freed) {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
         address urnFarm = urnFarms[urn];
         if (urnFarm != address(0)) {
@@ -353,8 +360,10 @@ contract LockstakeEngine is Multicall {
         if (delegate != address(0)) {
             DelegateLike(delegate).free(wad);
         }
-        uint256 burn = wad * fee / WAD;
-        mkr.burn(address(this), burn);
+        uint256 burn = wad * fee_ / WAD;
+        if (burn > 0) {
+            mkr.burn(address(this), burn);
+        }
         unchecked { freed = wad - burn; } // burn <= WAD always
     }
 

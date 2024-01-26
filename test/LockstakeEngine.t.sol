@@ -3,6 +3,8 @@
 pragma solidity ^0.8.16;
 
 import "dss-test/DssTest.sol";
+import { LockstakeDeploy } from "deploy/LockstakeDeploy.sol";
+import { LockstakeInit, LockstakeConfig, LockstakeInstance } from "deploy/LockstakeInit.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
 import { LockstakeUrn } from "src/LockstakeUrn.sol";
@@ -113,6 +115,8 @@ contract LockstakeEngineTest is DssTest {
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
+
         pauseProxy = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
         vat = ChainlogLike(LOG).getAddress("MCD_VAT");
         spot = ChainlogLike(LOG).getAddress("MCD_SPOT");
@@ -132,18 +136,53 @@ contract LockstakeEngineTest is DssTest {
         voter = address(123);
         vm.prank(voter); voterDelegate = delFactory.create();
 
+        LockstakeInstance memory instance = LockstakeDeploy.deployLockstake(
+            address(this),
+            pauseProxy,
+            address(delFactory),
+            address(nstJoin),
+            ilk,
+            address(stkMkr),
+            15 * WAD / 100,
+            address(mkrNgt),
+            bytes4(abi.encodeWithSignature("newLinearDecrease(address)"))
+        );
+
+        engine = LockstakeEngine(instance.engine);
+        clip = LockstakeClipper(instance.clipper);
+        pip = PipMock(instance.pip);
+
+        address[] memory farms = new address[](1);
+        farms[0] = address(farm);
+
+        LockstakeConfig memory cfg = LockstakeConfig({
+            ilk: ilk,
+            nstJoin: address(nstJoin),
+            nst: address(nstJoin.nst()),
+            mkr: address(mkr),
+            stkMkr: address(stkMkr),
+            mkrNgt: address(mkrNgt),
+            ngt: address(ngt),
+            farms: farms,
+            fee: 15 * WAD / 100,
+            line: 1_000_000 * 10**45,
+            duty: 1001 * 10**27 / 1000,
+            mat: 3 * 10**27,
+            buf: 1.25 * 10**27, // 25% Initial price buffer
+            tail: 3600, // 1 hour before reset
+            cusp: 0.2 * 10**27, // 80% drop before reset
+            chip: 0,
+            tip: 0,
+            stopped: 0,
+            chop: 1 ether,
+            hole: 10_000 * 10**45,
+            tau: 100,
+            cut: 0,
+            step: 0
+        });
+
         vm.startPrank(pauseProxy);
-        engine = new LockstakeEngine(address(delFactory), address(nstJoin), ilk, address(stkMkr), 15 * WAD / 100, address(mkrNgt));
-        engine.file("jug", jug);
-        VatLike(vat).rely(address(engine));
-        VatLike(vat).init(ilk);
-        JugLike(jug).init(ilk);
-        JugLike(jug).file(ilk, "duty", 1001 * 10**27 / 1000);
-        SpotterLike(spot).file(ilk, "pip", address(pip));
-        SpotterLike(spot).file(ilk, "mat", 3 * 10**27); // 300% coll ratio
-        pip.setPrice(1500 * 10**18); // 1 MKR = 1500 USD
-        SpotterLike(spot).poke(ilk);
-        VatLike(vat).file(ilk, "line", 1_000_000 * 10**45);
+        LockstakeInit.initLockstake(dss, instance, cfg);
         vm.stopPrank();
 
         deal(address(mkr), address(this), 100_000 * 10**18, true);
@@ -294,7 +333,6 @@ contract LockstakeEngineTest is DssTest {
         address authedAndUrnAuthed = address(789);
         vm.startPrank(pauseProxy);
         engine.rely(authedAndUrnAuthed);
-        engine.addFarm(address(farm));
         vm.stopPrank();
         mkr.transfer(urnAuthed, 100_000 * 10**18);
         ngt.transfer(urnAuthed, 100_000 * 24_000 * 10**18);
@@ -382,17 +420,14 @@ contract LockstakeEngineTest is DssTest {
         address urn = engine.open(0);
         assertEq(engine.urnFarms(urn), address(0));
         vm.expectRevert("LockstakeEngine/non-existing-farm");
-        engine.selectFarm(urn, address(farm), 5);
-        vm.prank(pauseProxy); engine.addFarm(address(farm));
-        vm.expectEmit(true, true, true, true);
-        emit SelectFarm(urn, address(farm), 5);
-        engine.selectFarm(urn, address(farm), 5);
-        assertEq(engine.urnFarms(urn), address(farm));
-        vm.expectRevert("LockstakeEngine/same-farm");
-        engine.selectFarm(urn, address(farm), 5);
+        engine.selectFarm(urn, address(farm2), 5);
         vm.prank(pauseProxy); engine.addFarm(address(farm2));
+        vm.expectEmit(true, true, true, true);
+        emit SelectFarm(urn, address(farm2), 5);
         engine.selectFarm(urn, address(farm2), 5);
         assertEq(engine.urnFarms(urn), address(farm2));
+        vm.expectRevert("LockstakeEngine/same-farm");
+        engine.selectFarm(urn, address(farm2), 5);
         assertEq(stkMkr.balanceOf(address(farm)), 0);
         assertEq(stkMkr.balanceOf(address(farm2)), 0);
         mkr.approve(address(engine), 100_000 * 10**18);
@@ -423,7 +458,6 @@ contract LockstakeEngineTest is DssTest {
             engine.selectDelegate(urn, voterDelegate);
         }
         if (withStaking) {
-            vm.prank(pauseProxy); engine.addFarm(address(farm));
             engine.selectFarm(urn, address(farm), 0);
         }
         assertEq(_ink(ilk, urn), 0);
@@ -514,7 +548,6 @@ contract LockstakeEngineTest is DssTest {
             engine.selectDelegate(urn, voterDelegate);
         }
         if (withStaking) {
-            vm.prank(pauseProxy); engine.addFarm(address(farm));
             engine.selectFarm(urn, address(farm), 0);
         }
         assertEq(_ink(ilk, urn), 0);
@@ -609,7 +642,6 @@ contract LockstakeEngineTest is DssTest {
             engine.selectDelegate(urn, voterDelegate);
         }
         if (withStaking) {
-            vm.prank(pauseProxy); engine.addFarm(address(farm));
             engine.selectFarm(urn, address(farm), 0);
         }
         engine.lock(urn, 100_000 * 10**18, 5);
@@ -724,7 +756,6 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testOpenLockStakeMulticall() public {
-        vm.prank(pauseProxy); engine.addFarm(address(farm));
         mkr.approve(address(engine), 100_000 * 10**18);
 
         address urn = engine.getUrn(address(this), 0);
@@ -753,7 +784,6 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testGetReward() public {
-        vm.prank(pauseProxy); engine.addFarm(address(farm));
         address urn = engine.open(0);
         farm.setReward(address(urn), 20_000);
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 0);
@@ -763,28 +793,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 20_000);
     }
 
-    function _clipperSetUp(bool withDelegate, bool withStaking) internal returns (address urn) {
-        vm.startPrank(pauseProxy);
-        engine.addFarm(address(farm));
-        clip = new LockstakeClipper(vat, spot, dog, address(engine));
-        clip.file("vow", ChainlogLike(LOG).getAddress("MCD_VOW"));
-        engine.rely(address(clip));
-        clip.upchost();
-        DogLike(dog).file(ilk, "clip", address(clip));
-        clip.rely(dog);
-        DogLike(dog).rely(address(clip));
-        VatLike(vat).rely(address(clip));
-
-        CalcLike calc = CalcLike(CalcFabLike(ChainlogLike(LOG).getAddress("CALC_FAB")).newLinearDecrease(pauseProxy));
-        calc.file("tau", 100);
-        clip.file("buf",  1.25 * 10**27);     // 25% Initial price buffer
-        clip.file("calc", address(calc));     // File price contract
-        clip.file("cusp", 0.2 * 10**27);      // 80% drop before reset
-        clip.file("tail", 3600);              // 1 hour before reset
-        DogLike(dog).file(ilk, "chop", 1 ether); // 0% chop
-        DogLike(dog).file(ilk, "hole", 10_000 * 10**45);
-        vm.stopPrank();
-
+    function _urnSetUp(bool withDelegate, bool withStaking) internal returns (address urn) {
         urn = engine.open(0);
         if (withDelegate) {
             engine.selectDelegate(urn, voterDelegate);
@@ -830,7 +839,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function _testOnKickFull(bool withDelegate, bool withStaking) internal {
-        address urn = _clipperSetUp(withDelegate, withStaking);
+        address urn = _urnSetUp(withDelegate, withStaking);
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
         uint256 id = _forceLiquidation(urn);
 
@@ -878,7 +887,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function _testOnKickPartial(bool withDelegate, bool withStaking) internal {
-        address urn = _clipperSetUp(withDelegate, withStaking);
+        address urn = _urnSetUp(withDelegate, withStaking);
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
         vm.prank(pauseProxy); DogLike(dog).file(ilk, "hole", 500 * 10**45);
         uint256 id = _forceLiquidation(urn);
@@ -927,7 +936,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function _testOnTake(bool withDelegate, bool withStaking) internal {
-        address urn = _clipperSetUp(withDelegate, withStaking);
+        address urn = _urnSetUp(withDelegate, withStaking);
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
         address vow = address(ChainlogLike(LOG).getAddress("MCD_VOW"));
@@ -1041,7 +1050,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function _testOnTakePartialBurn(bool withDelegate, bool withStaking) internal {
-        address urn = _clipperSetUp(withDelegate, withStaking);
+        address urn = _urnSetUp(withDelegate, withStaking);
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
         address vow = address(ChainlogLike(LOG).getAddress("MCD_VOW"));
@@ -1122,7 +1131,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function _testOnTakeNoBurn(bool withDelegate, bool withStaking) internal {
-        address urn = _clipperSetUp(withDelegate, withStaking);
+        address urn = _urnSetUp(withDelegate, withStaking);
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
         address vow = address(ChainlogLike(LOG).getAddress("MCD_VOW"));
@@ -1203,7 +1212,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testCannotSelectDuringAuction() public {
-        address urn = _clipperSetUp(true, true);
+        address urn = _urnSetUp(true, true);
 
         assertEq(engine.urnDelegates(urn), voterDelegate);
         assertEq(engine.urnFarms(urn), address(farm));
@@ -1266,7 +1275,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function _testOnYank(bool withDelegate, bool withStaking) internal {
-        address urn = _clipperSetUp(withDelegate, withStaking);
+        address urn = _urnSetUp(withDelegate, withStaking);
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 id = _forceLiquidation(urn);
 

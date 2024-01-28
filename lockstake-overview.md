@@ -22,6 +22,7 @@ There is also support for locking and freeing NGT instead of MKR.
 * At any time the user's entire locked MKR amount is either staked or not, and is either delegated or not.
 * The entire locked MKR amount is also credited as collateral for the user. However, the user itself decides if and how much NST to borrow, and should be aware of liquidation risk.
 * A user can delegate control of an `urn` that it controls to another EOA/contract. This is helpful for supporting manager-type contracts that can be built on top of the engine.
+* Once a vault goes into liquidation, it's MKR is undelegated and unstaked. It and can only be re-delegated or re-staked once there are no more auctions for it.
 
 **User Functions:**
 
@@ -32,6 +33,7 @@ There is also support for locking and freeing NGT instead of MKR.
 * `lockNgt(address urn, uint256 ngtWad)` - Deposit `ngtWad` amount of NGT. The NGT is first converted to MKR, which then gets deposited into the `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
 * `free(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed.
 * `freeNgt(address urn, address to, uint256 ngtWad)` - Withdraw `ngtWad` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed.
+* `freeNoFee(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address without paying any fee. This will undelegate the requested amount of MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed. This function can only be called by an address which was both authorized on the contract by governance and for which the urn owner has called `hope` for. It is useful for implementing a migration contract that will move the funds to another engine contract (if ever needed).
 * `selectDelegate(address urn, address delegate)` - Choose which delegate contract to delegate the `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
 * `selectFarm(address urn, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
 * `draw(address urn, address to, uint256 wad)` - Generate `wad` amount of NST using the `urn`’s MKR as collateral and send it to the `to` address.
@@ -95,24 +97,21 @@ The following functions are called from the LockstakeClipper (see below) through
 
 * `onKick(address urn, uint256 wad)` - Undelegate and unstake the entire `urn`'s MKR amount. Also burn the liquidated amount of staking token (`stkMkr`).
 * `onTake(address urn, address who, uint256 wad)` - Transfer MKR to the liquidation auction buyer.
-* `onTakeLeftovers(address urn, uint256 sold, uint256 left)` - Burn a proportional amount of the MKR which was bought in the auction and return the rest to the `urn`. This again undelegates and unstakes the entire `urn`'s MKR amount (in case any of it was restaked or redelegated during the auction).
-* `onYank(address urn, uint256 wad)` - Burn the auction's MKR (in case of an auction cancellation).
+* `onRemove(address urn, uint256 sold, uint256 left)` - Burn a proportional amount of the MKR which was bought in the auction and return the rest to the `urn`.
 
 **Configurable Parameters:**
 
 * `farms` - Whitelisted set of farms to choose from.
 * `jug` - The Dai lending rate calculation module.
 
-**TODO**: is exit fee configurable?
-**TODO**: migration path
 
-Up to date implementation: https://github.com/makerdao/lockstake/commit/64a14dc2a4332c2a80510e9bc8574272cb86dfdc
+Up to date implementation: https://github.com/makerdao/lockstake/commit/bbe569d6b8a5a6944592109b9a8a94c1092be117
 
 ## 2. LockstakeClipper
 
 A modified version of the Liquidations 2.0 Clipper contract, which uses specific callbacks to the LockstakeEngine on certain events. This follows the same paradigm which was introduced in [proxy-manager-clipper](https://github.com/makerdao/proxy-manager-clipper/blob/67b7b5661c01bb09d771803a2be48f0455cd3bd3/src/ProxyManagerClipper.sol) (used for [dss-crop-join](https://github.com/makerdao/dss-crop-join)).
 
-Specifically, the LockstakeEngine is called upon a beginning of an auction (`onKick`), a sell of collateral (`onTake`), when the auction is concluded and collateral leftover should be returned to the vault owner (`onTakeLeftovers`), and upon auction cancellation (`onYank`).
+Specifically, the LockstakeEngine is called upon a beginning of an auction (`onKick`), a sell of collateral (`onTake`), and when the auction is concluded (`onRemove`).
 
 The SLE liquidation process differs from the usual liquidations by the fact that it sends the taker callee the collateral (MKR) in the form of ERC20 tokens and not `vat.gem`.
 
@@ -149,14 +148,14 @@ For the mentioned examples of `chop` and `fee` we get:
 * `tip` - Flat fee to suck from vow to incentivize keepers.
 * `chost` - Cache the ilk dust times the ilk chop to prevent excessive SLOADs.
 
-Up to date implementation: https://github.com/makerdao/lockstake/commit/e5209ff6fed4d870025829cb8b94d2b47355019a
+Up to date implementation: https://github.com/makerdao/lockstake/commit/bbe569d6b8a5a6944592109b9a8a94c1092be117
 
 ## 3. Vote Delegation
 ### 3.a. VoteDelegate
 
 The SLE integrates with the current [VoteDelegate](https://github.com/makerdao/vote-delegate/blob/c2345b78376d5b0bb24749a97f82fe9171b53394/src/VoteDelegate.sol) contracts almost as is. However, there are two changes done:
 * In order to support long-term locking the delegate's expiration functionality needs to be removed.
-* In order to protect against an attack vector of delaying liquidations or freeing of MKR, an on-demand window where locking MKR is blocked is introduced. The need for this stems from the Chief's flash loan protection, which doesn't allow to free MKR from a delegate in case MKR locking was already done in the same block.
+* In order to protect against an attack vector of delaying liquidations or blocking freeing of MKR, an on-demand window where locking MKR is blocked is intoduced. The need for this stems from the Chief's flash loan protection, which doesn't allow to free MKR from a delegate in case MKR locking was already done in the same block.
 
 ### 3.b. VoteDelegateFactory
 

@@ -1270,6 +1270,7 @@ contract LockstakeEngineTest is DssTest {
         vm.expectEmit(true, true, true, true);
         emit OnRemove(urn, 0, 0, 0);
         vm.prank(pauseProxy); clip.yank(id);
+        assertEq(engine.urnAuctions(urn), 0);
     }
 
     function testYankNoStakingNoDelegate() public {

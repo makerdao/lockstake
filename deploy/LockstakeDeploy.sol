@@ -44,7 +44,7 @@ library LockstakeDeploy {
         (bool ok, bytes memory returnV) = dss.chainlog.getAddress("CALC_FAB").call(abi.encodeWithSelector(calcSig, owner));
         require(ok);
         lockstakeInstance.clipperCalc = abi.decode(returnV, (address));
-        lockstakeInstance.pip = address(new PipMock());
+        lockstakeInstance.pip = address(new PipMock()); // TODO: temporary mock oracle that needs to be replaced by a real one + add all needed authorizations in Init
         PipMock(lockstakeInstance.pip).setPrice(1500 * 10**18);
 
         ScriptTools.switchOwner(lockstakeInstance.engine, deployer, owner);

@@ -51,7 +51,6 @@ interface LockstakeEngineLike {
     function onKick(address, uint256) external;
     function onTake(address, address, uint256) external;
     function onRemove(address, uint256, uint256) external;
-    function onYank(address, uint256) external;
 }
 
 // Clipper for use with the manager / proxy paradigm
@@ -473,13 +472,13 @@ contract LockstakeClipper {
         chost = wmul(_dust, dog.chop(ilk));
     }
 
-    // Cancel an auction during ES or via governance action.
+    // Cancel an auction during End.cage or via other governance action.
     function yank(uint256 id) external auth lock {
         require(sales[id].usr != address(0), "LockstakeClipper/not-running-auction");
         dog.digs(ilk, sales[id].tab);
         uint256 lot = sales[id].lot;
-        vat.slip(ilk, address(this), -int256(lot));
-        engine.onYank(sales[id].usr, lot);
+        vat.flux(ilk, address(this), msg.sender, lot);
+        engine.onRemove(sales[id].usr, 0, 0);
         _remove(id);
         emit Yank(id);
     }

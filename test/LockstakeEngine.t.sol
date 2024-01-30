@@ -130,7 +130,7 @@ contract LockstakeEngineTest is DssTest {
             gap: 1_000_000 * 10**45,
             ttl: 1 days,
             dust: 50,
-            duty: 1001 * 10**27 / 1000,
+            duty: 100000001 * 10**27 / 100000000,
             mat: 3 * 10**27,
             buf: 1.25 * 10**27, // 25% Initial price buffer
             tail: 3600, // 1 hour before reset
@@ -243,7 +243,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(gap, 1_000_000 * 10**45);
         assertEq(ttl, 1 days);
         assertEq(_rho(ilk), block.timestamp);
-        assertEq(_duty(ilk), 1001 * 10**27 / 1000);
+        assertEq(_duty(ilk), 100000001 * 10**27 / 100000000);
         assertEq(_mat(ilk), 3 * 10**27);
         assertEq(_pip(ilk), address(pip));
         assertEq(_spot(ilk), (1500 / 3) * 10**27);
@@ -838,24 +838,24 @@ contract LockstakeEngineTest is DssTest {
         emit Draw(urn, address(this), 50 * 10**18);
         engine.draw(urn, address(this), 50 * 10**18);
         uint256 art = _art(ilk, urn);
-        uint256 expectedArt = 50 * 10**18 + _divup(50 * 10**18 * 1000, 1001);
+        uint256 expectedArt = 50 * 10**18 + _divup(50 * 10**18 * 100000000, 100000001);
         assertEq(art, expectedArt);
         uint256 rate = _rate(ilk);
-        assertEq(rate, 1001 * 10**27 / 1000);
+        assertEq(rate, 100000001 * 10**27 / 100000000);
         assertEq(nst.balanceOf(address(this)), 100 * 10**18);
-        assertGt(art * rate, 100.05 * 10**45);
-        assertLt(art * rate, 100.06 * 10**45);
+        assertGt(art * rate, 100.0000005 * 10**45);
+        assertLt(art * rate, 100.0000006 * 10**45);
         vm.expectRevert("Nst/insufficient-balance");
-        engine.wipe(urn, 100.06 * 10**18);
-        deal(address(nst), address(this), 100.06 * 10**18, true);
-        assertEq(nst.balanceOf(address(this)), 100.06 * 10**18);
-        nst.approve(address(engine), 100.06 * 10**18);
+        engine.wipe(urn, 100.0000006 * 10**18);
+        deal(address(nst), address(this), 100.0000006 * 10**18, true);
+        assertEq(nst.balanceOf(address(this)), 100.0000006 * 10**18);
+        nst.approve(address(engine), 100.0000006 * 10**18);
         vm.expectRevert();
-        engine.wipe(urn, 100.06 * 10**18); // It will try to wipe more art than existing, then reverts
+        engine.wipe(urn, 100.0000006 * 10**18); // It will try to wipe more art than existing, then reverts
         vm.expectEmit(true, true, true, true);
-        emit Wipe(urn, 100.05 * 10**18);
-        engine.wipe(urn, 100.05 * 10**18);
-        assertEq(nst.balanceOf(address(this)), 0.01 * 10**18);
+        emit Wipe(urn, 100.0000005 * 10**18);
+        engine.wipe(urn, 100.0000005 * 10**18);
+        assertEq(nst.balanceOf(address(this)), 0.0000001 * 10**18);
         assertEq(_art(ilk, urn), 1); // Dust which is impossible to wipe
         assertEq(nst.balanceOf(address(123)), 0);
         emit Draw(urn, address(123), 50 * 10**18);

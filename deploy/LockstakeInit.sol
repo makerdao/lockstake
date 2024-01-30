@@ -102,6 +102,10 @@ struct LockstakeConfig {
 }
 
 library LockstakeInit {
+    uint256 constant internal RATES_ONE_HUNDRED_PCT = 1000000021979553151239153027;
+    uint256 constant internal WAD = 10**18;
+    uint256 constant internal RAY = 10**27;
+
     function initLockstake(
         DssInstance        memory dss,
         LockstakeInstance  memory lockstakeInstance,
@@ -127,6 +131,13 @@ library LockstakeInit {
         require(clipper.engine()         == address(engine),       "Clipper engine mismatch");
         require(clipper.dog()            == address(dss.dog),      "Clipper dog mismatch");
         require(clipper.spotter()        == address(dss.spotter),  "Clipper spotter mismatch");
+
+        require(cfg.dust <= cfg.hole, "dust greater than hole");
+        require(cfg.duty >= RAY && cfg.duty <= RATES_ONE_HUNDRED_PCT, "duty out of boundaries");
+        require(cfg.mat >= RAY && cfg.mat < 10 * RAY, "mat out of boundaries");
+        require(cfg.buf >= RAY && cfg.buf < 10 * RAY, "buf out of boundaries");
+        require(cfg.cusp < RAY, "cusp negative drop value");
+        require(cfg.chip < WAD, "chip equal or greater than 100%");
 
         dss.vat.init(cfg.ilk);
         dss.vat.file(cfg.ilk, "line", cfg.gap);

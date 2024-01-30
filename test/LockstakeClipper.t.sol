@@ -118,10 +118,6 @@ contract PublicClip is LockstakeClipper {
     }
 }
 
-interface ChainlogLike {
-    function getAddress(bytes32) external view returns (address);
-}
-
 interface VatLike {
     function dai(address) external view returns (uint256);
     function gem(bytes32, address) external view returns (uint256);
@@ -211,7 +207,7 @@ contract LockstakeClipperTest is DssTest {
     }
 
     modifier takeSetup {
-        address calc = CalcFabLike(ChainlogLike(LOG).getAddress("CALC_FAB")).newStairstepExponentialDecrease(address(this));
+        address calc = CalcFabLike(dss.chainlog.getAddress("CALC_FAB")).newStairstepExponentialDecrease(address(this));
         CalcLike(calc).file("cut",  RAY - ray(0.01 ether));  // 1% decrease
         CalcLike(calc).file("step", 1);                      // Decrease every 1 second
 
@@ -256,8 +252,8 @@ contract LockstakeClipperTest is DssTest {
 
         dss = MCD.loadFromChainlog(LOG);
 
-        pauseProxy = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
-        dai = GemLike(ChainlogLike(LOG).getAddress("MCD_DAI"));
+        pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
+        dai = GemLike(dss.chainlog.getAddress("MCD_DAI"));
 
         pip = new PipMock();
         pip.setPrice(price); // Spot = $2.5
@@ -1055,7 +1051,7 @@ contract LockstakeClipperTest is DssTest {
     }
 
     function _auctionResetSetup(uint256 tau) internal {
-        address calc = CalcFabLike(ChainlogLike(LOG).getAddress("CALC_FAB")).newLinearDecrease(address(this));
+        address calc = CalcFabLike(dss.chainlog.getAddress("CALC_FAB")).newLinearDecrease(address(this));
         CalcLike(calc).file("tau", tau);       // tau hours till zero is reached (used to test tail)
 
         vm.prank(pauseProxy); dss.vat.file(ilk, "dust", rad(20 ether)); // $20 dust

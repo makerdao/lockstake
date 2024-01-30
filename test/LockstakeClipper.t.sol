@@ -1364,11 +1364,14 @@ contract LockstakeClipperTest is DssTest {
 
     function testClipperYank() public takeSetup {
         (,, uint256 lot,, address usr,,) = clip.sales(1);
+        address caller = address(123);
+        clip.rely(caller);
         uint256 prevUsrGemBalance = dss.vat.gem(ilk, address(usr));
+        uint256 prevCallerGemBalance = dss.vat.gem(ilk, address(caller));
         uint256 prevClipperGemBalance = dss.vat.gem(ilk, address(clip));
 
         uint startGas = gasleft();
-        clip.yank(1);
+        vm.prank(caller); clip.yank(1);
         uint endGas = gasleft();
         emit log_named_uint("yank gas", startGas - endGas);
 
@@ -1388,8 +1391,9 @@ contract LockstakeClipperTest is DssTest {
         (,,, uint256 dirt) = dss.dog.ilks(ilk);
         assertEq(dirt, 0);
 
-        // Collateral is destroyed
+        // Assert transfer of gem.
         assertEq(dss.vat.gem(ilk, address(usr)), prevUsrGemBalance);
+        assertEq(dss.vat.gem(ilk, address(caller)), prevCallerGemBalance + lot);
         assertEq(dss.vat.gem(ilk, address(clip)), prevClipperGemBalance - lot);
     }
 

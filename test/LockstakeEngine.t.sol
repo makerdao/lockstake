@@ -67,7 +67,6 @@ contract LockstakeEngineTest is DssTest {
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
     event OnRemove(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
-    event OnYank(address indexed urn, uint256 wad);
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
         unchecked {
@@ -350,14 +349,13 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testModifiers() public {
-        bytes4[] memory authedMethods = new bytes4[](7);
+        bytes4[] memory authedMethods = new bytes4[](6);
         authedMethods[0] = engine.addFarm.selector;
         authedMethods[1] = engine.delFarm.selector;
         authedMethods[2] = engine.freeNoFee.selector;
         authedMethods[3] = engine.onKick.selector;
         authedMethods[4] = engine.onTake.selector;
         authedMethods[5] = engine.onRemove.selector;
-        authedMethods[6] = engine.onYank.selector;
 
         // this checks the case where sender is not authed
         vm.startPrank(address(0xBEEF));
@@ -1384,51 +1382,29 @@ contract LockstakeEngineTest is DssTest {
         vm.prank(pauseProxy); engine.onRemove(address(1), 0, uint256(type(int256).max) + 1);
     }
 
-    function _testOnYank(bool withDelegate, bool withStaking) internal {
+    function _testYank(bool withDelegate, bool withStaking) internal {
         address urn = _urnSetUp(withDelegate, withStaking);
-        uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 id = _forceLiquidation(urn);
 
-        LockstakeClipper.Sale memory sale;
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, 2_000 * 10**45);
-        assertEq(sale.lot, 100_000 * 10**18);
-        assertEq(sale.tot, 100_000 * 10**18);
-        assertEq(sale.usr, address(urn));
-        assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, pip.read() * (1.25 * 10**9));
-
         vm.expectEmit(true, true, true, true);
-        emit OnYank(urn, 100_000 * 10**18);
+        emit OnRemove(urn, 0, 0, 0);
         vm.prank(pauseProxy); clip.yank(id);
-
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, 0);
-        assertEq(sale.lot, 0);
-        assertEq(sale.tot, 0);
-        assertEq(sale.usr, address(0));
-        assertEq(sale.tic, 0);
-        assertEq(sale.top, 0);
         assertEq(engine.urnAuctions(urn), 0);
-
-        assertEq(mkr.totalSupply(), mkrInitialSupply - 100_000 * 10**18);
     }
 
-    function testOnYankNoStakingNoDelegate() public {
-        _testOnYank(false, false);
+    function testYankNoStakingNoDelegate() public {
+        _testYank(false, false);
     }
 
-    function testOnYankNoStakingWithDelegate() public {
-        _testOnYank(true, false);
+    function testYankNoStakingWithDelegate() public {
+        _testYank(true, false);
     }
 
-    function testOnYankWithStakingNoDelegate() public {
-        _testOnYank(false, true);
+    function testYankWithStakingNoDelegate() public {
+        _testYank(false, true);
     }
 
-    function testOnYankWithStakingWithDelegate() public {
-        _testOnYank(true, true);
+    function testYankWithStakingWithDelegate() public {
+        _testYank(true, true);
     }
 }

@@ -79,7 +79,7 @@ contract LockstakeEngineTest is DssTest {
 
         dss = MCD.loadFromChainlog(LOG);
 
-        pauseProxy = ChainlogAbstract(LOG).getAddress("MCD_PAUSE_PROXY");
+        pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
         mkr = new GemMock(0);
         nst = new NstMock();
         nstJoin = new NstJoinMock(address(dss.vat), address(nst));
@@ -1047,7 +1047,7 @@ contract LockstakeEngineTest is DssTest {
         address urn = _urnSetUp(withDelegate, withStaking);
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
-        address vow = address(ChainlogAbstract(LOG).getAddress("MCD_VOW"));
+        address vow = address(dss.vow);
         uint256 vowInitialBalance = dss.vat.dai(vow);
         uint256 id = _forceLiquidation(urn);
 
@@ -1161,7 +1161,7 @@ contract LockstakeEngineTest is DssTest {
         address urn = _urnSetUp(withDelegate, withStaking);
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
-        address vow = address(ChainlogAbstract(LOG).getAddress("MCD_VOW"));
+        address vow = address(dss.vow);
         uint256 vowInitialBalance = dss.vat.dai(vow);
         uint256 id = _forceLiquidation(urn);
 
@@ -1242,7 +1242,7 @@ contract LockstakeEngineTest is DssTest {
         address urn = _urnSetUp(withDelegate, withStaking);
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 stkMkrInitialSupply = stkMkr.totalSupply();
-        address vow = address(ChainlogAbstract(LOG).getAddress("MCD_VOW"));
+        address vow = address(dss.vow);
         uint256 vowInitialBalance = dss.vat.dai(vow);
         uint256 id = _forceLiquidation(urn);
 

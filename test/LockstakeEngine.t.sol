@@ -85,7 +85,6 @@ contract LockstakeEngineTest is DssTest {
     address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
     event AddFarm(address farm);
-    event DelFarm(address farm);
     event Open(address indexed owner, uint256 indexed index, address urn);
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
@@ -200,13 +199,12 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testModifiers() public {
-        bytes4[] memory authedMethods = new bytes4[](6);
+        bytes4[] memory authedMethods = new bytes4[](5);
         authedMethods[0] = engine.addFarm.selector;
-        authedMethods[1] = engine.delFarm.selector;
-        authedMethods[2] = engine.freeNoFee.selector;
-        authedMethods[3] = engine.onKick.selector;
-        authedMethods[4] = engine.onTake.selector;
-        authedMethods[5] = engine.onRemove.selector;
+        authedMethods[1] = engine.freeNoFee.selector;
+        authedMethods[2] = engine.onKick.selector;
+        authedMethods[3] = engine.onTake.selector;
+        authedMethods[4] = engine.onRemove.selector;
 
         // this checks the case where sender is not authed
         vm.startPrank(address(0xBEEF));
@@ -241,16 +239,12 @@ contract LockstakeEngineTest is DssTest {
         vm.stopPrank();
     }
 
-    function testAddDelFarm() public {
+    function testAddFarm() public {
         assertEq(engine.farms(address(1111)), 0);
         vm.expectEmit(true, true, true, true);
         emit AddFarm(address(1111));
         vm.prank(pauseProxy); engine.addFarm(address(1111));
         assertEq(engine.farms(address(1111)), 1);
-        vm.expectEmit(true, true, true, true);
-        emit DelFarm(address(1111));
-        vm.prank(pauseProxy); engine.delFarm(address(1111));
-        assertEq(engine.farms(address(1111)), 0);
     }
 
     function testOpen() public {
@@ -480,12 +474,6 @@ contract LockstakeEngineTest is DssTest {
             assertEq(mkr.balanceOf(address(engine)), 50_000 * 10**18);
         }
         assertEq(mkr.totalSupply(), initialMkrSupply - 50_000 * 10**18 * 15 / 100);
-        if (withStaking) {
-            mkr.approve(address(engine), 1);
-            vm.prank(pauseProxy); engine.delFarm(address(farm));
-            vm.expectRevert("Lockstake/farm-not-whitelisted-anymore");
-            engine.lock(urn, 1, 0);
-        }
     }
 
     function testLockFreeNoDelegateNoStaking() public {
@@ -571,12 +559,6 @@ contract LockstakeEngineTest is DssTest {
             assertEq(mkr.balanceOf(address(engine)), 50_000 * 10**18);
         }
         assertEq(ngt.totalSupply(), initialNgtSupply - (100_000 - 50_000) * 24_000 * 10**18 - 50_000 * 24_000 * 10**18 * 15 / 100);
-        if (withStaking) {
-            ngt.approve(address(engine), 24_000);
-            vm.prank(pauseProxy); engine.delFarm(address(farm));
-            vm.expectRevert("Lockstake/farm-not-whitelisted-anymore");
-            engine.lockNgt(urn, 24_000, 0);
-        }
     }
 
     function testLockFreeNgtNoDelegateNoStaking() public {

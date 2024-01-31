@@ -101,7 +101,6 @@ contract LockstakeEngine is Multicall {
     event Deny(address indexed usr);
     event File(bytes32 indexed what, address data);
     event AddFarm(address farm);
-    event DelFarm(address farm);
     event Open(address indexed owner, uint256 indexed index, address urn);
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
@@ -205,11 +204,6 @@ contract LockstakeEngine is Multicall {
     function addFarm(address farm) external auth {
         farms[farm] = 1;
         emit AddFarm(farm);
-    }
-
-    function delFarm(address farm) external auth {
-        farms[farm] = 0;
-        emit DelFarm(farm);
     }
 
     // --- getters ---

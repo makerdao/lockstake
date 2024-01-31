@@ -152,6 +152,7 @@ library LockstakeInit {
         require(cfg.buf >= RAY && cfg.buf < 10 * RAY, "buf out of boundaries");
         require(cfg.cusp < RAY, "cusp negative drop value");
         require(cfg.chip < WAD, "chip equal or greater than 100%");
+        require(cfg.chop >= WAD && cfg.chop < 2 * WAD, "chop out of boundaries");
         require(cfg.tolerance < RAY, "tolerance equal or greater than 100%");
 
         dss.vat.init(cfg.ilk);

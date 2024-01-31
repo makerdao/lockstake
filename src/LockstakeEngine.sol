@@ -100,7 +100,7 @@ contract LockstakeEngine is Multicall {
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event File(bytes32 indexed what, address data);
-    event AddFarm(address farm);
+    event VerifyFarm(address farm);
     event Open(address indexed owner, uint256 indexed index, address urn);
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
@@ -201,9 +201,9 @@ contract LockstakeEngine is Multicall {
         emit File(what, data);
     }
 
-    function addFarm(address farm) external auth {
+    function verifyFarm(address farm) external auth {
         farms[farm] = 1;
-        emit AddFarm(farm);
+        emit VerifyFarm(farm);
     }
 
     // --- getters ---
@@ -271,7 +271,7 @@ contract LockstakeEngine is Multicall {
 
     function selectFarm(address urn, address farm, uint16 ref) external urnAuth(urn) {
         require(urnAuctions[urn] == 0, "LockstakeEngine/urn-in-auction");
-        require(farm == address(0) || farms[farm] == 1, "LockstakeEngine/non-existing-farm");
+        require(farm == address(0) || farms[farm] == 1, "LockstakeEngine/non-verified-farm");
         address prevFarm = urnFarms[urn];
         require(prevFarm != farm, "LockstakeEngine/same-farm");
         (uint256 ink,) = vat.urns(ilk, urn);
@@ -383,7 +383,7 @@ contract LockstakeEngine is Multicall {
     // --- staking rewards function ---
 
     function getReward(address urn, address farm, address to) external urnAuth(urn) returns (uint256 amt) {
-        require(farms[farm] == 1, "Lockstake/non-existing-farm");
+        require(farms[farm] == 1, "Lockstake/non-verified-farm");
         amt = LockstakeUrn(urn).getReward(farm, to);
         emit GetReward(urn, farm, to, amt);
     }

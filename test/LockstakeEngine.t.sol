@@ -299,7 +299,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(gem, address(mkr));
         assertEq(dec, 18);
         assertEq(pipV, address(pip));
-        assertEq(join, address(engine));
+        assertEq(join, address(0));
         assertEq(xlip, address(clip));
 
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_ENGINE"),    address(engine));

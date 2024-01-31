@@ -217,7 +217,7 @@ library LockstakeInit {
 
         IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY")).put(
             cfg.ilk,
-            address(engine),
+            address(0),
             cfg.mkr,
             18,
             7, // New class

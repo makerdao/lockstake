@@ -47,6 +47,10 @@ interface LockstakeClipperLike {
     function upchost() external;
 }
 
+interface PipLike {
+    function kiss(address) external;
+}
+
 interface CalcLike {
     function file(bytes32, uint256) external;
 }
@@ -162,8 +166,17 @@ library LockstakeInit {
         dss.jug.init(cfg.ilk);
         dss.jug.file(cfg.ilk, "duty", cfg.duty);
 
+        address pip = dss.chainlog.getAddress("PIP_MKR");
+        address clipperMom = dss.chainlog.getAddress("CLIPPER_MOM");
+        PipLike(pip).kiss(address(dss.spotter));
+        PipLike(pip).kiss(address(clipper));
+        PipLike(pip).kiss(clipperMom);
+        PipLike(pip).kiss(address(dss.end));
+        // TODO: If a sticky oracle wrapper is implemented we will need to also kiss the source to it
+        // If an osm is implemented instead we also need the source to kiss the osm and add the OsmMom permissions
+
         dss.spotter.file(cfg.ilk, "mat", cfg.mat);
-        dss.spotter.file(cfg.ilk, "pip", lockstakeInstance.pip);
+        dss.spotter.file(cfg.ilk, "pip", pip);
         dss.spotter.poke(cfg.ilk);
 
         dss.dog.file(cfg.ilk, "clip", address(clipper));
@@ -188,8 +201,7 @@ library LockstakeInit {
         clipper.upchost();
         clipper.rely(address(dss.dog));
         clipper.rely(address(dss.end));
-        address cMAddr = dss.chainlog.getAddress("CLIPPER_MOM");
-        clipper.rely(cMAddr);
+        clipper.rely(clipperMom);
 
         if (cfg.tau  > 0) calc.file("tau",  cfg.tau);
         if (cfg.cut  > 0) calc.file("cut",  cfg.cut);
@@ -200,7 +212,7 @@ library LockstakeInit {
         }
 
         if (cfg.tolerance > 0) {
-            ClipperMomLike(cMAddr).setPriceTolerance(address(clipper), cfg.tolerance);
+            ClipperMomLike(clipperMom).setPriceTolerance(address(clipper), cfg.tolerance);
         }
 
         IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY")).put(
@@ -209,7 +221,7 @@ library LockstakeInit {
             cfg.mkr,
             18,
             888, // TODO: check class
-            lockstakeInstance.pip,
+            pip,
             address(clipper),
             cfg.name,
             cfg.symbol

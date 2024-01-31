@@ -21,7 +21,6 @@ import { MCD, DssInstance } from "dss-test/MCD.sol";
 import { LockstakeInstance } from "./LockstakeInstance.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
-import { PipMock } from "test/mocks/PipMock.sol";
 
 // Deploy a Lockstake instance
 library LockstakeDeploy {
@@ -44,8 +43,6 @@ library LockstakeDeploy {
         (bool ok, bytes memory returnV) = dss.chainlog.getAddress("CALC_FAB").call(abi.encodeWithSelector(calcSig, owner));
         require(ok);
         lockstakeInstance.clipperCalc = abi.decode(returnV, (address));
-        lockstakeInstance.pip = address(new PipMock()); // TODO: temporary mock oracle that needs to be replaced by a real one + add all needed authorizations in Init
-        PipMock(lockstakeInstance.pip).setPrice(1500 * 10**18);
 
         ScriptTools.switchOwner(lockstakeInstance.engine, deployer, owner);
         ScriptTools.switchOwner(lockstakeInstance.clipper, deployer, owner);

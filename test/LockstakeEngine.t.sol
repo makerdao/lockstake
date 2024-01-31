@@ -9,7 +9,6 @@ import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
 import { LockstakeUrn } from "src/LockstakeUrn.sol";
 import "dss-interfaces/Interfaces.sol";
-import { PipMock } from "test/mocks/PipMock.sol";
 import { DelegateFactoryMock, DelegateMock } from "test/mocks/DelegateMock.sol";
 import { GemMock } from "test/mocks/GemMock.sol";
 import { NstMock } from "test/mocks/NstMock.sol";
@@ -34,7 +33,7 @@ contract LockstakeEngineTest is DssTest {
     LockstakeEngine     engine;
     LockstakeClipper    clip;
     address             calc;
-    PipMock             pip;
+    MedianAbstract      pip;
     DelegateFactoryMock delFactory;
     NstMock             nst;
     NstJoinMock         nstJoin;
@@ -84,6 +83,7 @@ contract LockstakeEngineTest is DssTest {
         dss = MCD.loadFromChainlog(LOG);
 
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
+        pip = MedianAbstract(dss.chainlog.getAddress("PIP_MKR"));
         mkr = new GemMock(0);
         nst = new NstMock();
         nstJoin = new NstJoinMock(address(dss.vat), address(nst));
@@ -93,10 +93,12 @@ contract LockstakeEngineTest is DssTest {
         ngt = new GemMock(0);
         mkrNgt = new MkrNgtMock(address(mkr), address(ngt), 24_000);
 
-        pip = new PipMock();
         delFactory = new DelegateFactoryMock(address(mkr));
         voter = address(123);
         vm.prank(voter); voterDelegate = delFactory.create();
+
+        vm.prank(pauseProxy); pip.kiss(address(this));
+        vm.store(address(pip), bytes32(uint256(1)), bytes32(uint256(1_500 * 10**18)));
 
         LockstakeInstance memory instance = LockstakeDeploy.deployLockstake(
             address(this),
@@ -113,7 +115,6 @@ contract LockstakeEngineTest is DssTest {
         engine = LockstakeEngine(instance.engine);
         clip = LockstakeClipper(instance.clipper);
         calc = instance.clipperCalc;
-        pip = PipMock(instance.pip);
 
         address[] memory farms = new address[](2);
         farms[0] = address(farm);
@@ -250,6 +251,11 @@ contract LockstakeEngineTest is DssTest {
         assertEq(ttl, 1 days);
         assertEq(_rho(ilk), block.timestamp);
         assertEq(_duty(ilk), 100000001 * 10**27 / 100000000);
+        address clipperMom = dss.chainlog.getAddress("CLIPPER_MOM");
+        assertEq(pip.bud(address(dss.spotter)), 1);
+        assertEq(pip.bud(address(clip)), 1);
+        assertEq(pip.bud(address(clipperMom)), 1);
+        assertEq(pip.bud(address(dss.end)), 1);
         assertEq(_mat(ilk), 3 * 10**27);
         assertEq(_pip(ilk), address(pip));
         assertEq(_spot(ilk), (1500 / 3) * 10**27);
@@ -272,7 +278,6 @@ contract LockstakeEngineTest is DssTest {
         assertEq(clip.chost(), 50 * 1 ether / 10**18);
         assertEq(clip.wards(address(dss.dog)), 1);
         assertEq(clip.wards(address(dss.end)), 1);
-        address clipperMom = dss.chainlog.getAddress("CLIPPER_MOM");
         assertEq(clip.wards(clipperMom), 1);
         assertEq(LinearDecreaseAbstract(calc).tau(), 100);
         assertEq(LineMomLike(dss.chainlog.getAddress("LINE_MOM")).ilks(ilk), 1);
@@ -943,7 +948,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function _forceLiquidation(address urn) internal returns (uint256 id) {
-        pip.setPrice(0.05 * 10**18); // Force liquidation
+        vm.store(address(pip), bytes32(uint256(1)), bytes32(uint256(0.05 * 10**18))); // Force liquidation
         dss.spotter.poke(ilk);
         assertEq(clip.kicks(), 0);
         assertEq(engine.urnAuctions(urn), 0);

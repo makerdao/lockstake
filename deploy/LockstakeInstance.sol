@@ -20,5 +20,4 @@ struct LockstakeInstance {
     address engine;
     address clipper;
     address clipperCalc;
-    address pip;
 }

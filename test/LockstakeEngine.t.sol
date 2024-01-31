@@ -733,8 +733,10 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testGetReward() public {
-        vm.prank(pauseProxy); engine.addFarm(address(farm));
         address urn = engine.open(0);
+        vm.expectRevert("Lockstake/non-existing-farm");
+        engine.getReward(urn, address(123), address(123));
+        vm.prank(pauseProxy); engine.addFarm(address(farm));
         farm.setReward(address(urn), 20_000);
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 0);
         vm.expectEmit(true, true, true, true);

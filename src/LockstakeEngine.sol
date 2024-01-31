@@ -316,7 +316,6 @@ contract LockstakeEngine is Multicall {
         stkMkr.mint(urn, wad);
         address urnFarm = urnFarms[urn];
         if (urnFarm != address(0)) {
-            require(farms[urnFarm] == 1, "Lockstake/farm-not-whitelisted-anymore");
             LockstakeUrn(urn).stake(urnFarm, wad, ref);
         }
     }
@@ -384,6 +383,7 @@ contract LockstakeEngine is Multicall {
     // --- staking rewards function ---
 
     function getReward(address urn, address farm, address to) external urnAuth(urn) returns (uint256 amt) {
+        require(farms[farm] == 1, "Lockstake/non-existing-farm");
         amt = LockstakeUrn(urn).getReward(farm, to);
         emit GetReward(urn, farm, to, amt);
     }

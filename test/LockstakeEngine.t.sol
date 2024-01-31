@@ -295,7 +295,7 @@ contract LockstakeEngineTest is DssTest {
         ) = IlkRegistryAbstract(dss.chainlog.getAddress("ILK_REGISTRY")).info(ilk);
         assertEq(name, "LOCKSTAKE");
         assertEq(symbol, "LMKR");
-        assertEq(class, 888);
+        assertEq(class, 7);
         assertEq(gem, address(mkr));
         assertEq(dec, 18);
         assertEq(pipV, address(pip));

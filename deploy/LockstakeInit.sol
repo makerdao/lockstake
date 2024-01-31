@@ -220,7 +220,7 @@ library LockstakeInit {
             address(engine),
             cfg.mkr,
             18,
-            888, // TODO: check class
+            7, // New class
             pip,
             address(clipper),
             cfg.name,

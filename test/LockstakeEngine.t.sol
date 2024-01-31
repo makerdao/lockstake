@@ -21,6 +21,10 @@ interface CalcFabLike {
     function newLinearDecrease(address) external returns (address);
 }
 
+interface LineMomLike {
+    function ilks(bytes32) external view returns (uint256);
+}
+
 contract LockstakeEngineTest is DssTest {
     using stdStorage for StdStorage;
 
@@ -143,6 +147,8 @@ contract LockstakeEngineTest is DssTest {
             tau: 100,
             cut: 0,
             step: 0,
+            lineMom: true,
+            tolerance: 0.5 * 10**27,
             name: "LOCKSTAKE",
             symbol: "LMKR"
         });
@@ -266,7 +272,11 @@ contract LockstakeEngineTest is DssTest {
         assertEq(clip.chost(), 50 * 1 ether / 10**18);
         assertEq(clip.wards(address(dss.dog)), 1);
         assertEq(clip.wards(address(dss.end)), 1);
+        address clipperMom = dss.chainlog.getAddress("CLIPPER_MOM");
+        assertEq(clip.wards(clipperMom), 1);
         assertEq(LinearDecreaseAbstract(calc).tau(), 100);
+        assertEq(LineMomLike(dss.chainlog.getAddress("LINE_MOM")).ilks(ilk), 1);
+        assertEq(ClipperMomAbstract(clipperMom).tolerance(address(clip)), 0.5 * 10**27);
 
         (
             string memory name,

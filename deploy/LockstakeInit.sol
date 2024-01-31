@@ -55,6 +55,14 @@ interface AutoLineLike {
     function setIlk(bytes32, uint256, uint256, uint256) external;
 }
 
+interface LineMomLike {
+    function addIlk(bytes32) external;
+}
+
+interface ClipperMomLike {
+    function setPriceTolerance(address, uint256) external;
+}
+
 interface IlkRegistryLike {
     function put(
         bytes32 _ilk,
@@ -97,6 +105,8 @@ struct LockstakeConfig {
     uint256   tau;
     uint256   cut;
     uint256   step;
+    bool      lineMom;
+    uint256   tolerance;
     string    name;
     string    symbol;
 }
@@ -138,6 +148,7 @@ library LockstakeInit {
         require(cfg.buf >= RAY && cfg.buf < 10 * RAY, "buf out of boundaries");
         require(cfg.cusp < RAY, "cusp negative drop value");
         require(cfg.chip < WAD, "chip equal or greater than 100%");
+        require(cfg.tolerance < RAY, "tolerance equal or greater than 100%");
 
         dss.vat.init(cfg.ilk);
         dss.vat.file(cfg.ilk, "line", cfg.gap);
@@ -177,10 +188,20 @@ library LockstakeInit {
         clipper.upchost();
         clipper.rely(address(dss.dog));
         clipper.rely(address(dss.end));
+        address cMAddr = dss.chainlog.getAddress("CLIPPER_MOM");
+        clipper.rely(cMAddr);
 
         if (cfg.tau  > 0) calc.file("tau",  cfg.tau);
         if (cfg.cut  > 0) calc.file("cut",  cfg.cut);
         if (cfg.step > 0) calc.file("step", cfg.step);
+
+        if (cfg.lineMom) {
+            LineMomLike(dss.chainlog.getAddress("LINE_MOM")).addIlk(cfg.ilk);
+        }
+
+        if (cfg.tolerance > 0) {
+            ClipperMomLike(cMAddr).setPriceTolerance(address(clipper), cfg.tolerance);
+        }
 
         IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY")).put(
             cfg.ilk,

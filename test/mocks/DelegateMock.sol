@@ -8,7 +8,7 @@ interface GemLike {
 }
 
 contract DelegateFactoryMock {
-    mapping(address => uint256) public created;
+    mapping(address => uint256) public isDelegate;
     address immutable public gov;
 
     constructor(address _gov) {
@@ -18,7 +18,7 @@ contract DelegateFactoryMock {
     function create() external returns (address delegate) {
         delegate = address(new DelegateMock(gov));
         require(delegate != address(0), "DelegateFactory/creation-failed");
-        created[delegate] = 1;
+        isDelegate[delegate] = 1;
     }
 }
 
@@ -31,7 +31,7 @@ contract DelegateMock {
         gov = GemLike(gov_);
     }
 
-    // --- NGT owner functions
+    // --- GOV owner functions
 
     function lock(uint256 wad) external {
         gov.transferFrom(msg.sender, address(this), wad);

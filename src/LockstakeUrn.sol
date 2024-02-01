@@ -37,7 +37,8 @@ contract LockstakeUrn {
     // --- immutables ---
 
     address immutable public engine;
-    GemLike immutable public stkNgt;
+    GemLike immutable public stkMkr;
+    VatLike immutable public vat;
 
     // --- modifiers ---
 
@@ -46,29 +47,34 @@ contract LockstakeUrn {
         _;
     }
 
-    // --- constructor ---
+    // --- constructor & init ---
 
-    constructor(address vat_, address stkNgt_) {
+    constructor(address vat_, address stkMkr_) {
         engine = msg.sender;
-        stkNgt = GemLike(stkNgt_);
-        VatLike(vat_).hope(msg.sender);
-        stkNgt.approve(msg.sender, type(uint256).max);
+        vat = VatLike(vat_);
+        stkMkr = GemLike(stkMkr_);
+    }
+
+    function init() external isEngine {
+        vat.hope(msg.sender);
+        stkMkr.approve(msg.sender, type(uint256).max);
     }
 
     // --- staking functions ---
 
     function stake(address farm, uint256 wad, uint16 ref) external isEngine {
-        stkNgt.approve(farm, wad);
+        stkMkr.approve(farm, wad);
         StakingRewardsLike(farm).stake(wad, ref);
     }
 
-    function withdraw(address farm, uint256 amt) external isEngine{
-        StakingRewardsLike(farm).withdraw(amt);
+    function withdraw(address farm, uint256 wad) external isEngine {
+        StakingRewardsLike(farm).withdraw(wad);
     }
 
-    function getReward(address farm, address usr) external isEngine {
+    function getReward(address farm, address to) external isEngine returns (uint256 amt) {
         StakingRewardsLike(farm).getReward();
         GemLike rewardsToken = StakingRewardsLike(farm).rewardsToken();
-        rewardsToken.transfer(usr, rewardsToken.balanceOf(address(this)));
+        amt = rewardsToken.balanceOf(address(this));
+        rewardsToken.transfer(to, amt);
     }
 }

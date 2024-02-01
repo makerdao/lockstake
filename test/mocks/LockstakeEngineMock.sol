@@ -22,10 +22,7 @@ contract LockstakeEngineMock {
         VatLike(vat).slip(ilk, who, int256(wad));
     }
 
-    function onTakeLeftovers(address urn, uint256, uint256 left) external {
+    function onRemove(address urn, uint256, uint256 left) external {
         VatLike(vat).slip(ilk, urn, int256(left));
-    }
-
-    function onYank(address, uint256) external {
     }
 }

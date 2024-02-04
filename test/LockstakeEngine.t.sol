@@ -84,7 +84,7 @@ contract LockstakeEngineTest is DssTest {
     
     address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
-    event VerifyFarm(address farm);
+    event VerifyFarm(address farm, bool blockStaking);
     event Open(address indexed owner, uint256 indexed index, address urn);
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
@@ -240,11 +240,11 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testAddFarm() public {
-        assertEq(engine.farms(address(1111)), 0);
+        assert(engine.farms(address(1111)) == LockstakeEngine.FarmStatus.Disabled);
         vm.expectEmit(true, true, true, true);
-        emit VerifyFarm(address(1111));
-        vm.prank(pauseProxy); engine.verifyFarm(address(1111));
-        assertEq(engine.farms(address(1111)), 1);
+        emit VerifyFarm(address(1111), false);
+        vm.prank(pauseProxy); engine.verifyFarm(address(1111), false);
+        assert(engine.farms(address(1111)) == LockstakeEngine.FarmStatus.CanStake);
     }
 
     function testOpen() public {
@@ -286,7 +286,7 @@ contract LockstakeEngineTest is DssTest {
         address authedAndUrnAuthed = address(789);
         vm.startPrank(pauseProxy);
         engine.rely(authedAndUrnAuthed);
-        engine.verifyFarm(address(farm));
+        engine.verifyFarm(address(farm), false);
         vm.stopPrank();
         mkr.transfer(urnAuthed, 100_000 * 10**18);
         ngt.transfer(urnAuthed, 100_000 * 24_000 * 10**18);
@@ -373,16 +373,16 @@ contract LockstakeEngineTest is DssTest {
         StakingRewardsMock farm2 = new StakingRewardsMock(address(rTok), address(stkMkr));
         address urn = engine.open(0);
         assertEq(engine.urnFarms(urn), address(0));
-        vm.expectRevert("LockstakeEngine/non-verified-farm");
+        vm.expectRevert("LockstakeEngine/farm-staking-disabled");
         engine.selectFarm(urn, address(farm), 5);
-        vm.prank(pauseProxy); engine.verifyFarm(address(farm));
+        vm.prank(pauseProxy); engine.verifyFarm(address(farm), false);
         vm.expectEmit(true, true, true, true);
         emit SelectFarm(urn, address(farm), 5);
         engine.selectFarm(urn, address(farm), 5);
         assertEq(engine.urnFarms(urn), address(farm));
         vm.expectRevert("LockstakeEngine/same-farm");
         engine.selectFarm(urn, address(farm), 5);
-        vm.prank(pauseProxy); engine.verifyFarm(address(farm2));
+        vm.prank(pauseProxy); engine.verifyFarm(address(farm2), false);
         engine.selectFarm(urn, address(farm2), 5);
         assertEq(engine.urnFarms(urn), address(farm2));
         assertEq(stkMkr.balanceOf(address(farm)), 0);
@@ -415,7 +415,7 @@ contract LockstakeEngineTest is DssTest {
             engine.selectDelegate(urn, voterDelegate);
         }
         if (withStaking) {
-            vm.prank(pauseProxy); engine.verifyFarm(address(farm));
+            vm.prank(pauseProxy); engine.verifyFarm(address(farm), false);
             engine.selectFarm(urn, address(farm), 0);
         }
         assertEq(_ink(ilk, urn), 0);
@@ -474,6 +474,12 @@ contract LockstakeEngineTest is DssTest {
             assertEq(mkr.balanceOf(address(engine)), 50_000 * 10**18);
         }
         assertEq(mkr.totalSupply(), initialMkrSupply - 50_000 * 10**18 * 15 / 100);
+        if (withStaking) {
+            mkr.approve(address(engine), 1);
+            vm.prank(pauseProxy); engine.verifyFarm(address(farm), true);
+            vm.expectRevert("LockstakeEngine/farm-staking-disabled");
+            engine.lock(urn, 1, 0);
+        }
     }
 
     function testLockFreeNoDelegateNoStaking() public {
@@ -500,7 +506,7 @@ contract LockstakeEngineTest is DssTest {
             engine.selectDelegate(urn, voterDelegate);
         }
         if (withStaking) {
-            vm.prank(pauseProxy); engine.verifyFarm(address(farm));
+            vm.prank(pauseProxy); engine.verifyFarm(address(farm), false);
             engine.selectFarm(urn, address(farm), 0);
         }
         assertEq(_ink(ilk, urn), 0);
@@ -559,6 +565,12 @@ contract LockstakeEngineTest is DssTest {
             assertEq(mkr.balanceOf(address(engine)), 50_000 * 10**18);
         }
         assertEq(ngt.totalSupply(), initialNgtSupply - (100_000 - 50_000) * 24_000 * 10**18 - 50_000 * 24_000 * 10**18 * 15 / 100);
+        if (withStaking) {
+            ngt.approve(address(engine), 24_000);
+            vm.prank(pauseProxy); engine.verifyFarm(address(farm), true);
+            vm.expectRevert("LockstakeEngine/farm-staking-disabled");
+            engine.lockNgt(urn, 24_000, 0);
+        }
     }
 
     function testLockFreeNgtNoDelegateNoStaking() public {
@@ -589,7 +601,7 @@ contract LockstakeEngineTest is DssTest {
             engine.selectDelegate(urn, voterDelegate);
         }
         if (withStaking) {
-            vm.prank(pauseProxy); engine.verifyFarm(address(farm));
+            vm.prank(pauseProxy); engine.verifyFarm(address(farm), false);
             engine.selectFarm(urn, address(farm), 0);
         }
         engine.lock(urn, 100_000 * 10**18, 5);
@@ -704,7 +716,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testOpenLockStakeMulticall() public {
-        vm.prank(pauseProxy); engine.verifyFarm(address(farm));
+        vm.prank(pauseProxy); engine.verifyFarm(address(farm), false);
         mkr.approve(address(engine), 100_000 * 10**18);
 
         address urn = engine.getUrn(address(this), 0);
@@ -734,9 +746,9 @@ contract LockstakeEngineTest is DssTest {
 
     function testGetReward() public {
         address urn = engine.open(0);
-        vm.expectRevert("Lockstake/non-verified-farm");
+        vm.expectRevert("LockstakeEngine/non-verified-farm");
         engine.getReward(urn, address(123), address(123));
-        vm.prank(pauseProxy); engine.verifyFarm(address(farm));
+        vm.prank(pauseProxy); engine.verifyFarm(address(farm), false);
         farm.setReward(address(urn), 20_000);
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 0);
         vm.expectEmit(true, true, true, true);
@@ -747,7 +759,7 @@ contract LockstakeEngineTest is DssTest {
 
     function _clipperSetUp(bool withDelegate, bool withStaking) internal returns (address urn) {
         vm.startPrank(pauseProxy);
-        engine.verifyFarm(address(farm));
+        engine.verifyFarm(address(farm), false);
         clip = new LockstakeClipper(vat, spot, dog, address(engine));
         clip.file("vow", ChainlogLike(LOG).getAddress("MCD_VOW"));
         engine.rely(address(clip));

@@ -66,7 +66,7 @@ contract LockstakeEngine is Multicall {
     // --- storage variables ---
 
     mapping(address => uint256)                     public wards;        // usr => 1 == access
-    mapping(address => uint256)                     public farms;        // farm => 1 == whitelisted
+    mapping(address => FarmStatus)                  public farms;        // farm => FarmStatus
     mapping(address => uint256)                     public usrAmts;      // usr => urns amount
     mapping(address => address)                     public urnOwners;    // urn => owner
     mapping(address => mapping(address => uint256)) public urnCan;       // urn => usr => allowed (1 = yes, 0 = no)
@@ -75,10 +75,12 @@ contract LockstakeEngine is Multicall {
     mapping(address => uint256)                     public urnAuctions;  // urn => amount of ongoing liquidations
     JugLike                                         public jug;
 
-    // --- constants ---
+    // --- constants and enums---
 
     uint256 constant WAD = 10**18;
     uint256 constant RAY = 10**27;
+
+    enum FarmStatus { Disabled, Verified, CanStake }
 
     // --- immutables ---
 
@@ -100,7 +102,7 @@ contract LockstakeEngine is Multicall {
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event File(bytes32 indexed what, address data);
-    event VerifyFarm(address farm);
+    event VerifyFarm(address farm, bool blockStaking);
     event Open(address indexed owner, uint256 indexed index, address urn);
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
@@ -201,9 +203,9 @@ contract LockstakeEngine is Multicall {
         emit File(what, data);
     }
 
-    function verifyFarm(address farm) external auth {
-        farms[farm] = 1;
-        emit VerifyFarm(farm);
+    function verifyFarm(address farm, bool blockStaking) external auth {
+        farms[farm] = blockStaking ? FarmStatus.Verified : FarmStatus.CanStake;
+        emit VerifyFarm(farm, blockStaking);
     }
 
     // --- getters ---
@@ -271,7 +273,7 @@ contract LockstakeEngine is Multicall {
 
     function selectFarm(address urn, address farm, uint16 ref) external urnAuth(urn) {
         require(urnAuctions[urn] == 0, "LockstakeEngine/urn-in-auction");
-        require(farm == address(0) || farms[farm] == 1, "LockstakeEngine/non-verified-farm");
+        require(farm == address(0) || farms[farm] == FarmStatus.CanStake, "LockstakeEngine/farm-staking-disabled");
         address prevFarm = urnFarms[urn];
         require(prevFarm != farm, "LockstakeEngine/same-farm");
         (uint256 ink,) = vat.urns(ilk, urn);
@@ -316,6 +318,7 @@ contract LockstakeEngine is Multicall {
         stkMkr.mint(urn, wad);
         address urnFarm = urnFarms[urn];
         if (urnFarm != address(0)) {
+            require(farms[urnFarm] == FarmStatus.CanStake, "LockstakeEngine/farm-staking-disabled");
             LockstakeUrn(urn).stake(urnFarm, wad, ref);
         }
     }
@@ -383,7 +386,7 @@ contract LockstakeEngine is Multicall {
     // --- staking rewards function ---
 
     function getReward(address urn, address farm, address to) external urnAuth(urn) returns (uint256 amt) {
-        require(farms[farm] == 1, "Lockstake/non-verified-farm");
+        require(farms[farm] >= FarmStatus.Verified, "LockstakeEngine/non-verified-farm");
         amt = LockstakeUrn(urn).getReward(farm, to);
         emit GetReward(urn, farm, to, amt);
     }

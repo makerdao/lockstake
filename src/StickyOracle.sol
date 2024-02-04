@@ -26,12 +26,12 @@ contract StickyOracle {
     mapping (address => uint256) public wards;
     mapping (address => uint256) public buds;       // whitelisted feed readers
 
-    mapping (uint256 => Accumulator ) accumulators; // daily sticky oracle price accumulators
+    mapping (uint256 => Accumulator) accumulators;  // daily sticky oracle price accumulators
     uint128 cap;                                    // max allowed price
     uint128 pokePrice;                              // last price at which poke() was called
     uint256 pokeDay;                                // last day at which poke() was called
 
-    uint96 public slope = uint96(RAY); // maximum allowable price growth factor from center of TWAP window to now (in RAY such that slope = (1 + {max growth rate}) * RAY)
+    uint96 public slope = uint96(RAY); // maximum allowable price growth factor from the average value of a TWAP window (in RAY such that slope = (1 + {max growth rate}) * RAY)
     uint8  public lo; // how many days ago should the TWAP window start (exclusive), should be more than hi
     uint8  public hi; // how many days ago should the TWAP window end (inclusive), should be less than lo and more than 0
 
@@ -157,7 +157,7 @@ contract StickyOracle {
     function read() external view toll returns (uint128) {
         uint128 cap_ = cap;
         require(cap_ > 0, "StickyOracle/cap-not-set");
-        return _min(pip.read(), cap);
+        return _min(pip.read(), cap_);
     }
 
     function peek() external view toll returns (uint128, bool) {

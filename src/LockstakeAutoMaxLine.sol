@@ -16,50 +16,120 @@
 
 pragma solidity ^0.8.16;
 
+import { Babylonian } from "src/Babylonian.sol";
+
 interface VatLike {
-    function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
+    function ilks(bytes32) external view returns(uint256, uint256, uint256, uint256, uint256);
+    function dai(address) external view returns(uint256);
+    function sin(address) external view returns(uint256);
 }
 
 interface JugLike {
-    function ilks(bytes32) external view returns (uint256, uint256);
-    function drip(bytes32) external returns (uint256);
+    function ilks(bytes32) external view returns(uint256, uint256);
+    function drip(bytes32) external returns(uint256);
     function file(bytes32, bytes32, uint256) external;
 }
 
+interface SpotLike {
+    function par() external view returns(uint256);
+}
+
 interface AutoLineLike {
-    function ilks(bytes32) external view returns (uint256, uint256, uint48, uint48, uint48);
+    function ilks(bytes32) external view returns(uint256, uint256, uint48, uint48, uint48);
     function setIlk(bytes32, uint256, uint256, uint256) view external;
+}
+
+interface PairLike {
+    function balanceOf(address) external view returns(uint256);
+    function totalSupply() external view returns(uint256);
+    function getReserves() external view returns(uint112, uint112, uint32);
+    function token0() external view returns(address);
+    function token1() external view returns(address);
+    function sync() external;
+}
+
+interface PipLike {
+    function read() external view returns(uint256);
+}
+
+interface GemLike {
+    function decimals() external view returns(uint8);
 }
 
 contract LockstakeAutoMaxLine {
 
+    // --- storage variables ---
+
     mapping(address => uint256) public wards;
-    JugLike                     public jug;
-    AutoLineLike                public autoLine;
     uint256                     public duty;         // [ray]
     uint256                     public windDownDuty; // [ray]
+    uint256                     public lpFactor;     // [wad]
 
-    VatLike public immutable vat;
-    bytes32 public immutable ilk;
+    // --- constants ---
+
+    uint256 constant WAD = 10**18;
+    uint256 constant RAY = 10**27;
+
+    // --- immutables ---
+
+    VatLike      public immutable vat;
+    JugLike      public immutable jug;
+    SpotLike     public immutable spotter;
+    AutoLineLike public immutable autoLine;
+    bytes32      public immutable ilk;
+    address      public immutable dai;
+    PairLike     public immutable pair;
+    address      public immutable vow;
+    PipLike      public immutable pip;
+    address      public immutable lpOwner;
+    bool         public immutable daiFirst;
+
+    // --- events ---
 
     event Rely(address indexed usr);
     event Deny(address indexed usr);
-    event File(bytes32 indexed what, address data);
     event File(bytes32 indexed what, uint256 data);
     event Exec(uint256 oldMaxLine, uint256 newMaxLine, uint256 debt, uint256 oldDuty, uint256 newDuty);
 
-    constructor(address vat_, bytes32 ilk_) {
-        vat = VatLike(vat_);
-        ilk = ilk_;
-
-        wards[msg.sender] = 1;
-        emit Rely(msg.sender);
-    }
+    // --- modifiers ---
 
     modifier auth {
         require(wards[msg.sender] == 1, "LockstakeAutoMaxLine/not-authorized");
         _;
     }
+
+    constructor(
+        address vat_,
+        address jug_,
+        address spotter_,
+        address autoLine_,
+        bytes32 ilk_,
+        address dai_,
+        address pair_,
+        address vow_,
+        address pip_,
+        address lpOwner_
+    ) {
+        vat      = VatLike(vat_);
+        jug      = JugLike(jug_);
+        spotter  = SpotLike(spotter_);
+        autoLine = AutoLineLike(autoLine_);
+        ilk      = ilk_;
+        dai      = dai_;
+        pair     = PairLike(pair_);
+        vow      = vow_;
+        pip      = PipLike(pip_);
+        lpOwner  = lpOwner_;
+
+        daiFirst = pair.token0() == dai;
+        address gem = daiFirst ? pair.token1() : pair.token0();
+        require(GemLike(gem).decimals() == 18, "LockstakeAutoMaxLine/gem-decimals-not-18");
+
+        wards[msg.sender] = 1;
+        emit Rely(msg.sender);
+    }
+
+    // --- administration ---
 
     function rely(address usr) external auth {
         wards[usr] = 1;
@@ -71,30 +141,66 @@ contract LockstakeAutoMaxLine {
         emit Deny(usr);
     }
 
-    function file(bytes32 what, address data) external auth {
-        if      (what == "jug")           jug = JugLike(data);
-        else if (what == "autoLine") autoLine = AutoLineLike(data);
-        else revert("LockstakeAutoMaxLine/file-unrecognized-param");
-        emit File(what, data);
-    }
-
     function file(bytes32 what, uint256 data) external auth {
-        if      (what == "duty")                  duty = data;
+        if      (what == "duty")                 duty = data;
         else if (what == "windDownDuty") windDownDuty = data;
+        else if (what == "lpFactor")         lpFactor = data;
         else revert("LockstakeAutoMaxLine/file-unrecognized-param");
         emit File(what, data);
     }
 
-    function exec() external returns (uint256 oldMaxLine, uint256 newMaxLine, uint256 debt, uint256 oldDuty, uint256 newDuty) {
+    // --- internals ---
+
+    // Based on https://github.com/makerdao/univ2-lp-oracle/blob/874a59d74d847909cc4a31f0d38ee6b020f6525f/src/UNIV2LPOracle.sol#L261
+    function seek_() internal returns(uint256 quote) {
+        // Sync up reserves of uniswap liquidity pool
+        pair.sync();
+
+        // Get reserves of uniswap liquidity pool
+        (uint112 r0, uint112 r1,) = pair.getReserves();
+        require(r0 > 0 && r1 > 0, "LockstakeAutoMaxLine/invalid-reserves");
+
+        // All Oracle prices are priced with 18 decimals against USD
+        uint256 pGem = pip.read();  // Query gem price from oracle (WAD)
+        require(pGem != 0, "LockstakeAutoMaxLine/invalid-oracle-price");
+
+        uint256 p0 = daiFirst ? WAD : pGem;
+        uint256 p1 = daiFirst ? pGem : WAD;
+
+        // This calculation should be overflow-resistant even for tokens with very high or very
+        // low prices, as the dollar value of each reserve should lie in a fairly controlled range
+        // regardless of the token prices.
+        uint256 value0 = p0 * uint256(r0) / WAD;
+        uint256 value1 = p1 * uint256(r1) / WAD;
+        quote = 2 * WAD * Babylonian.sqrt(value0 * value1) / pair.totalSupply();
+    }
+
+    function calcMaxLine_() internal returns(uint256 maxLine) {
+        uint256 uniswapLiquidity = (pair.balanceOf(lpOwner) * seek_() / WAD) * RAY / spotter.par();
+
+        address vow_ = vow;
+        uint256 eligible = uniswapLiquidity * lpFactor / WAD + vat.dai(vow_) / RAY;
+        uint256 shortfall = vat.sin(vow_) / RAY;
+
+        if (eligible > shortfall) {
+            unchecked { maxLine = eligible - shortfall; }
+        } else {
+            maxLine = 0;
+        }
+    }
+
+    // --- user function ---
+
+    function exec() external returns(
+        uint256 oldMaxLine, uint256 newMaxLine, uint256 debt, uint256 oldDuty, uint256 newDuty
+    ) {
         uint256 gap;
         uint48 ttl;
         (oldMaxLine, gap, ttl,,) = autoLine.ilks(ilk);
         require(oldMaxLine !=0 && gap != 0 && ttl != 0, "LockstakeAutoMaxLine/auto-line-not-enabled");
 
-        newMaxLine = 0; // TODO: calculate
-        if (newMaxLine != oldMaxLine) {
-            autoLine.setIlk(ilk, newMaxLine, uint256(gap), uint256(ttl));
-        }
+        newMaxLine = calcMaxLine_();
+        autoLine.setIlk(ilk, newMaxLine, uint256(gap), uint256(ttl));
 
         uint256 duty_         = duty;
         uint256 windDownDuty_ = windDownDuty;

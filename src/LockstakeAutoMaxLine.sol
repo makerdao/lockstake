@@ -36,7 +36,7 @@ interface SpotLike {
 
 interface AutoLineLike {
     function ilks(bytes32) external view returns(uint256, uint256, uint48, uint48, uint48);
-    function setIlk(bytes32, uint256, uint256, uint256) view external;
+    function setIlk(bytes32, uint256, uint256, uint256) external;
 }
 
 interface PairLike {
@@ -67,6 +67,7 @@ contract LockstakeAutoMaxLine {
 
     // --- constants ---
 
+    uint256 constant BLN = 10**9;
     uint256 constant WAD = 10**18;
     uint256 constant RAY = 10**27;
 
@@ -179,8 +180,8 @@ contract LockstakeAutoMaxLine {
         uint256 uniswapLiquidity = (pair.balanceOf(lpOwner) * seek_() / WAD) * RAY / spotter.par();
 
         address vow_ = vow;
-        uint256 eligible = uniswapLiquidity * lpFactor / WAD + vat.dai(vow_) / RAY;
-        uint256 shortfall = vat.sin(vow_) / RAY;
+        uint256 eligible = uniswapLiquidity * lpFactor * BLN + vat.dai(vow_);
+        uint256 shortfall = vat.sin(vow_);
 
         if (eligible > shortfall) {
             unchecked { maxLine = eligible - shortfall; }
@@ -197,7 +198,7 @@ contract LockstakeAutoMaxLine {
         uint256 gap;
         uint48 ttl;
         (oldMaxLine, gap, ttl,,) = autoLine.ilks(ilk);
-        require(oldMaxLine !=0 && gap != 0 && ttl != 0, "LockstakeAutoMaxLine/auto-line-not-enabled");
+        require(oldMaxLine != 0 && gap != 0 && ttl != 0, "LockstakeAutoMaxLine/auto-line-not-enabled");
 
         newMaxLine = calcMaxLine_();
         autoLine.setIlk(ilk, newMaxLine, uint256(gap), uint256(ttl));
@@ -220,4 +221,3 @@ contract LockstakeAutoMaxLine {
         return (oldMaxLine, newMaxLine, debt, oldDuty, newDuty);
     }
 }
-

@@ -264,8 +264,8 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_hole(ilk), 10_000 * 10**45);
         assertEq(dss.dog.wards(address(clip)), 1);
         assertEq(address(engine.jug()), address(dss.jug));
-        assertEq(engine.farms(address(farm)), 1);
-        assertEq(engine.farms(address(1111111)), 1);
+        assertTrue(engine.farms(address(farm)) == LockstakeEngine.FarmStatus.ACTIVE);
+        assertTrue(engine.farms(address(1111111)) == LockstakeEngine.FarmStatus.ACTIVE);
         assertEq(engine.wards(address(clip)), 1);
         assertEq(clip.buf(), 1.25 * 10**27);
         assertEq(clip.tail(), 3600);
@@ -406,15 +406,15 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testAddDelFarm() public {
-        assertEq(engine.farms(address(1111)), 0);
+        assertTrue(engine.farms(address(1111)) == LockstakeEngine.FarmStatus.UNSUPPORTED);
         vm.expectEmit(true, true, true, true);
         emit AddFarm(address(1111));
         vm.prank(pauseProxy); engine.addFarm(address(1111));
-        assertEq(engine.farms(address(1111)), 1);
+        assertTrue(engine.farms(address(1111)) == LockstakeEngine.FarmStatus.ACTIVE);
         vm.expectEmit(true, true, true, true);
         emit DelFarm(address(1111));
         vm.prank(pauseProxy); engine.delFarm(address(1111));
-        assertEq(engine.farms(address(1111)), 0);
+        assertTrue(engine.farms(address(1111)) == LockstakeEngine.FarmStatus.DELETED);
     }
 
     function testOpen() public {
@@ -542,7 +542,7 @@ contract LockstakeEngineTest is DssTest {
         StakingRewardsMock farm2 = new StakingRewardsMock(address(rTok), address(stkMkr));
         address urn = engine.open(0);
         assertEq(engine.urnFarms(urn), address(0));
-        vm.expectRevert("LockstakeEngine/non-existing-farm");
+        vm.expectRevert("LockstakeEngine/farm-unsupported-or-deleted");
         engine.selectFarm(urn, address(farm2), 5);
         vm.prank(pauseProxy); engine.addFarm(address(farm2));
         vm.expectEmit(true, true, true, true);
@@ -564,6 +564,9 @@ contract LockstakeEngineTest is DssTest {
         assertEq(stkMkr.balanceOf(address(farm2)), 0);
         assertEq(farm.balanceOf(urn),  100_000 * 10**18);
         assertEq(farm2.balanceOf(urn), 0);
+        vm.prank(pauseProxy); engine.delFarm(address(farm2));
+        vm.expectRevert("LockstakeEngine/farm-unsupported-or-deleted");
+        engine.selectFarm(urn, address(farm2), 5);
     }
 
     function _testLockFree(bool withDelegate, bool withStaking) internal {
@@ -642,7 +645,7 @@ contract LockstakeEngineTest is DssTest {
         if (withStaking) {
             mkr.approve(address(engine), 1);
             vm.prank(pauseProxy); engine.delFarm(address(farm));
-            vm.expectRevert("Lockstake/farm-not-whitelisted-anymore");
+            vm.expectRevert("LockstakeEngine/farm-deleted");
             engine.lock(urn, 1, 0);
         }
     }
@@ -732,7 +735,7 @@ contract LockstakeEngineTest is DssTest {
         if (withStaking) {
             ngt.approve(address(engine), 24_000);
             vm.prank(pauseProxy); engine.delFarm(address(farm));
-            vm.expectRevert("Lockstake/farm-not-whitelisted-anymore");
+            vm.expectRevert("LockstakeEngine/farm-deleted");
             engine.lockNgt(urn, 24_000, 0);
         }
     }
@@ -908,12 +911,18 @@ contract LockstakeEngineTest is DssTest {
 
     function testGetReward() public {
         address urn = engine.open(0);
+        vm.expectRevert("LockstakeEngine/farm-unsupported");
+        engine.getReward(urn, address(456), address(123));
         farm.setReward(address(urn), 20_000);
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 0);
         vm.expectEmit(true, true, true, true);
         emit GetReward(urn, address(farm), address(123), 20_000);
         assertEq(engine.getReward(urn, address(farm), address(123)), 20_000);
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 20_000);
+        vm.prank(pauseProxy); engine.delFarm(address(farm));
+        farm.setReward(address(urn), 30_000);
+        assertEq(engine.getReward(urn, address(farm), address(123)), 30_000); // Can get reward after farm is deleted
+        assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 50_000);
     }
 
     function _urnSetUp(bool withDelegate, bool withStaking) internal returns (address urn) {

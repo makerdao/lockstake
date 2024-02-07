@@ -62,9 +62,10 @@ interface GemLike {
 }
 
 interface AutoLineLike {
-    function setIlk(bytes32, uint256, uint256, uint256) external;
-    function rely(address) external;
     function ilks(bytes32) external view returns(uint256, uint256, uint48, uint48, uint48);
+    function rely(address) external;
+    function setIlk(bytes32, uint256, uint256, uint256) external;
+    function remIlk(bytes32) external;
 }
 
 interface RouterLike {
@@ -98,6 +99,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
     address constant LOG                 = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
     address constant UNIV2_FACTORY       = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
     address constant UNIV2_DAI_MKR_PAIR  = 0x517F9dD285e75b599234F7221227339478d0FcC8;
+    address constant UNIV2_DAI_USDC_PAIR = 0xAE461cA67B15dc8dc81CE7615e0320dA1A9aB8D5;
     address constant UNIV2_ROUTER        = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
     uint256 constant RATE_5_PERCENT      = 1000000001547125957863212448;
@@ -164,17 +166,17 @@ contract LockstakeAutoMaxLineTest is DssTest {
         changeUniV2Price(pip.read(), mkr, UNIV2_DAI_MKR_PAIR);
 
         deal(UNIV2_DAI_MKR_PAIR, pauseProxy, 0);
-        deal(dai, pauseProxy, 20_000_000 * WAD);
-        deal(mkr, pauseProxy, 20_000_000 * WAD / initialPrice);
+        deal(dai, pauseProxy, 40_000_000 * WAD);
+        deal(mkr, pauseProxy, 40_000_000 * WAD / initialPrice);
 
         vm.startPrank(pauseProxy);
-        GemLike(dai).approve(UNIV2_ROUTER, 20_000_000 * WAD);
-        GemLike(mkr).approve(UNIV2_ROUTER, 20_000_000 * WAD / initialPrice);
-        (uint256 depositedDai, uint256 depositedMkr, uint256 liquidity) = RouterLike(UNIV2_ROUTER).addLiquidity(
+        GemLike(dai).approve(UNIV2_ROUTER, 40_000_000 * WAD);
+        GemLike(mkr).approve(UNIV2_ROUTER, 40_000_000 * WAD / initialPrice);
+        RouterLike(UNIV2_ROUTER).addLiquidity(
             dai,
             mkr,
-            20_000_000 * WAD,
-            20_000_000 * WAD / initialPrice,
+            40_000_000 * WAD,
+            40_000_000 * WAD / initialPrice,
             0,
             0,
             pauseProxy,
@@ -183,9 +185,8 @@ contract LockstakeAutoMaxLineTest is DssTest {
         vm.stopPrank();
 
         // Set surplus buffer funds
-        stdstore.target(address(vat)).sig("dai(address)").with_key(vow).depth(0).checked_write(70_000_000 * RAD);
+        stdstore.target(address(vat)).sig("dai(address)").with_key(vow).depth(0).checked_write(50_000_000 * RAD);
         stdstore.target(address(vat)).sig("sin(address)").with_key(vow).depth(0).checked_write(uint256(0));
-
     }
 
     function changeUniV2Price(uint256 daiForGem, address gem, address pair) internal {
@@ -209,9 +210,48 @@ contract LockstakeAutoMaxLineTest is DssTest {
         assertGt(a, b - tolerance);
     }
 
-
     function testConstructor() public {
-        // TODO: implement
+        vm.expectRevert("LockstakeAutoMaxLine/gem-decimals-not-18");
+        new LockstakeAutoMaxLine(
+            address(vat),
+            address(jug),
+            address(spotter),
+            address(autoLine),
+            ILK,
+            dai,
+            UNIV2_DAI_USDC_PAIR,
+            vow,
+            address(pip),
+            pauseProxy
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit Rely(address(this));
+        LockstakeAutoMaxLine a = new LockstakeAutoMaxLine(
+            address(vat),
+            address(jug),
+            address(spotter),
+            address(autoLine),
+            ILK,
+            dai,
+            UNIV2_DAI_MKR_PAIR,
+            vow,
+            address(pip),
+            pauseProxy
+        );
+        assertEq(address(a.vat()),      address(vat));
+        assertEq(address(a.jug()),      address(jug));
+        assertEq(address(a.spotter()),  address(spotter));
+        assertEq(address(a.autoLine()), address(autoLine));
+        assertEq(a.ilk(),               ILK);
+        assertEq(address(a.dai()),      dai);
+        assertEq(address(a.pair()),     UNIV2_DAI_MKR_PAIR);
+        assertEq(address(a.vow()),      vow);
+        assertEq(address(a.pip()),      address(pip));
+        assertEq(address(a.lpOwner()),  pauseProxy);
+
+        assertEq(a.daiFirst(),  true);
+        assertEq(a.wards(address(this)), 1);
     }
 
     function testAuth() public {
@@ -222,10 +262,33 @@ contract LockstakeAutoMaxLineTest is DssTest {
         checkFileUint(address(autoMaxLine), "LockstakeAutoMaxLine", ["duty", "windDownDuty", "lpFactor"]);
     }
 
-    // TODO: test auto-line-not-enabled
-    // TODO: test ilk-not-enabled"
+    function testAutoLineNotEnabled() public {
+        vm.prank(pauseProxy); autoLine.remIlk(ILK);
+        vm.expectRevert("LockstakeAutoMaxLine/auto-line-not-enabled");
+        autoMaxLine.exec();
 
-    function checkExec(uint256 debtToCreate, uint256 expectedNewDuty) internal {
+        vm.prank(pauseProxy); autoLine.setIlk(ILK, 200_000_000 * RAD, 0, 8 hours);
+        vm.expectRevert("LockstakeAutoMaxLine/auto-line-not-enabled");
+        autoMaxLine.exec();
+
+        vm.prank(pauseProxy); autoLine.setIlk(ILK, 200_000_000 * RAD, 10_000_000 * RAD, 0);
+        vm.expectRevert("LockstakeAutoMaxLine/auto-line-not-enabled");
+        autoMaxLine.exec();
+    }
+
+    function testMissingDuty() public {
+        vm.prank(pauseProxy); autoMaxLine.file("duty", 0);
+        vm.expectRevert("LockstakeAutoMaxLine/missing-duties");
+        autoMaxLine.exec();
+    }
+
+    function testMissingWindDownDuty() public {
+        vm.prank(pauseProxy); autoMaxLine.file("windDownDuty", 0);
+        vm.expectRevert("LockstakeAutoMaxLine/missing-duties");
+        autoMaxLine.exec();
+    }
+
+    function checkExec(uint256 debtToCreate, uint256 expectedNewMaxLine, uint256 expectedNewDuty) internal {
         vat.frob(ILK, address(this), address(0), address(0), 0, int256(debtToCreate)); // assuming rate == RAY (jug never dripped)
 
         uint256 snapshot = vm.snapshot();
@@ -233,20 +296,18 @@ contract LockstakeAutoMaxLineTest is DssTest {
         vm.revertTo(snapshot);
 
         (, uint256 gapBefore, uint48 ttlBefore, uint48 lastBefore, uint48 lastIncBefore) = autoLine.ilks(ILK);
-        (uint256 dutyBefore,)= jug.ilks(ILK);
-
         vm.expectEmit(true, true, true, true);
         emit Exec(oldMaxLine, newMaxLine, debt, oldDuty, newDuty);
         autoMaxLine.exec();
 
-        // check return values and event values
+        // check return values and event values are as expected
         assertEq(oldMaxLine, 200_000_000 * RAD);
-        assertEqApprox(newMaxLine, 86_000_000 * RAD, RAD / 1000); // 70m + 0.4 * 40m
+        assertEqApprox(newMaxLine, expectedNewMaxLine, RAD / 1000);
         assertEq(debt, debtToCreate * RAY);
         assertEq(oldDuty, 1001 * RAY / 1000);
         assertEq(newDuty, expectedNewDuty);
 
-        // check modifications
+        // check storage modifications are as expected
         (uint256 maxLineAfter, uint256 gapAfter, uint48 ttlAfter, uint48 lastAfter, uint48 lastIncAfter) = autoLine.ilks(ILK);
         assertEq(maxLineAfter, newMaxLine);
         assertEq(gapAfter,     gapBefore);
@@ -258,12 +319,30 @@ contract LockstakeAutoMaxLineTest is DssTest {
     }
 
     function testExecDebtLessThanNewMaxLine() public {
-        checkExec(75_000_000 * WAD, RATE_5_PERCENT);
+        checkExec(70_000_000 * WAD, 82_000_000 * RAD, RATE_5_PERCENT); // 70m < max(50m - 0m + 0.4 * 80m, RAD)
     }
 
     function testExecDebtMoreThanNewMaxLine() public {
-        checkExec(90_000_000 * WAD, RATE_15_PERCENT);
+        checkExec(90_000_000 * WAD, 82_000_000 * RAD, RATE_15_PERCENT); // 90m > max(50m - 0m + 0.4 * 80m, RAD)
     }
 
-    // TODO: test seek not affected by trading
+    function testExecMinusLargerThanPlus() public {
+        stdstore.target(address(vat)).sig("sin(address)").with_key(vow).depth(0).checked_write(90_000_000 * RAD);
+        checkExec(15_000_000 * WAD, RAD, RATE_15_PERCENT); // 15m > max(50m - 90m + 0.4 * 80m, RAD)
+    }
+
+    function testManipulation() public {
+        // Set surplus buffer to 0 for simplicity
+        stdstore.target(address(vat)).sig("dai(address)").with_key(vow).depth(0).checked_write(uint256(0));
+        stdstore.target(address(vat)).sig("sin(address)").with_key(vow).depth(0).checked_write(uint256(0));
+
+
+        // first show that similar to naive pricing
+        (, uint256 newMaxLine,,,) = autoMaxLine.exec();
+
+        // TODO: continue
+
+    }
+
+
 }

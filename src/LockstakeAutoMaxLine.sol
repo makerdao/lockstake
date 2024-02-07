@@ -70,6 +70,7 @@ contract LockstakeAutoMaxLine {
     uint256 constant BLN = 10**9;
     uint256 constant WAD = 10**18;
     uint256 constant RAY = 10**27;
+    uint256 constant RAD = 10**45;
 
     // --- immutables ---
 
@@ -178,16 +179,16 @@ contract LockstakeAutoMaxLine {
 
     function calcMaxLine_() internal returns(uint256 maxLine) {
         uint256 uniswapLiquidity = (pair.balanceOf(lpOwner) * seek_() / WAD) * RAY / spotter.par();
+        uint256 plus = uniswapLiquidity * lpFactor * BLN + vat.dai(vow);
+        uint256 minus = vat.sin(vow);
 
-        address vow_ = vow;
-        uint256 eligible = uniswapLiquidity * lpFactor * BLN + vat.dai(vow_);
-        uint256 shortfall = vat.sin(vow_);
-
-        if (eligible > shortfall) {
-            unchecked { maxLine = eligible - shortfall; }
-        } else {
-            maxLine = 0;
+        if (plus > minus) {
+            unchecked { maxLine = plus - minus; }
         }
+
+        // Due to the following maxLine can not be 0:
+        // https://github.com/makerdao/dss-auto-line/blob/bff7e6cc43dbd7d9a054dd359ef18a1b4d06b6f5/src/DssAutoLine.sol#L83
+        maxLine = maxLine > RAD ? maxLine : RAD;
     }
 
     // --- user function ---
@@ -205,7 +206,7 @@ contract LockstakeAutoMaxLine {
 
         uint256 duty_         = duty;
         uint256 windDownDuty_ = windDownDuty;
-        require(duty_ !=0 && windDownDuty_ != 0, "LockstakeAutoMaxLine/ilk-not-enabled");
+        require(duty_ !=0 && windDownDuty_ != 0, "LockstakeAutoMaxLine/missing-duties");
 
         (uint256 Art, uint256 rate,,,) = vat.ilks(ilk);
         debt = Art * rate;

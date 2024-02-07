@@ -28,6 +28,8 @@ interface ChainlogLike {
 interface VatLike {
     function init(bytes32) external;
     function file(bytes32, bytes32, uint256) external;
+    function slip(bytes32, address, int256) external;
+    function frob(bytes32, address, address, address, int256, int256) external;
 }
 
 interface PipLike {
@@ -39,12 +41,14 @@ interface JugLike {
     function init(bytes32) external;
     function file(bytes32, bytes32, uint256) external;
     function rely(address) external;
+    function ilks(bytes32) external view returns (uint256, uint256);
 }
 
 interface SpotterLike {
     function par() external view returns (uint256);
     function file(bytes32, bytes32, address) external;
     function file(bytes32, bytes32, uint256) external;
+    function poke(bytes32) external;
 }
 
 interface PairLike {
@@ -60,6 +64,7 @@ interface GemLike {
 interface AutoLineLike {
     function setIlk(bytes32, uint256, uint256, uint256) external;
     function rely(address) external;
+    function ilks(bytes32) external view returns(uint256, uint256, uint48, uint48, uint48);
 }
 
 interface RouterLike {
@@ -95,6 +100,11 @@ contract LockstakeAutoMaxLineTest is DssTest {
     address constant UNIV2_DAI_MKR_PAIR  = 0x517F9dD285e75b599234F7221227339478d0FcC8;
     address constant UNIV2_ROUTER        = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
+    uint256 constant RATE_5_PERCENT      = 1000000001547125957863212448;
+    uint256 constant RATE_15_PERCENT     = 1000000004431822129783699001;
+
+    event Exec(uint256 oldMaxLine, uint256 newMaxLine, uint256 debt, uint256 oldDuty, uint256 newDuty);
+
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
@@ -113,11 +123,16 @@ contract LockstakeAutoMaxLineTest is DssTest {
         jug.init(ILK);
         jug.file(ILK, "duty", 1001 * RAY / 1000);
         spotter.file(ILK, "pip", address(pip));
-        spotter.file(ILK, "mat", 3 * RAY); // 300% coll ratio
-        vat.file(ILK, "line", 10_000_000 * RAD);
-        autoLine.setIlk(ILK, 100_000_000 * RAD, 10_000_000 * RAD, 8 hours);
+        spotter.file(ILK, "mat", 1 * RAY); // 100% coll ratio
+        vat.file(ILK, "line", 100_000_000 * RAD);
+        autoLine.setIlk(ILK, 200_000_000 * RAD, 10_000_000 * RAD, 8 hours);
+        pip.kiss(address(spotter));
+        spotter.poke(ILK);
         pip.kiss(address(this));
+        vat.slip(ILK, address(this), type(int256).max);
         vm.stopPrank();
+
+        vat.frob(ILK, address(this), address(this), address(0), int256(500_000_000 * WAD), 0);
 
         autoMaxLine = new LockstakeAutoMaxLine(
             address(vat),
@@ -138,8 +153,8 @@ contract LockstakeAutoMaxLineTest is DssTest {
         jug.rely(address(autoMaxLine));
         pip.kiss(address(autoMaxLine));
         autoLine.rely(address(autoMaxLine));
-        autoMaxLine.file("duty",         1000000001547125957863212448); // 5%
-        autoMaxLine.file("windDownDuty", 1000000004431822129783699001); // 15%
+        autoMaxLine.file("duty",         RATE_5_PERCENT);
+        autoMaxLine.file("windDownDuty", RATE_15_PERCENT);
         autoMaxLine.file("lpFactor", 40 * WAD / 100);
         vm.stopPrank();
 
@@ -155,7 +170,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         vm.startPrank(pauseProxy);
         GemLike(dai).approve(UNIV2_ROUTER, 20_000_000 * WAD);
         GemLike(mkr).approve(UNIV2_ROUTER, 20_000_000 * WAD / initialPrice);
-        (uint256 amountDai, uint256 amountMkr, uint256 liquidity) = RouterLike(UNIV2_ROUTER).addLiquidity(
+        (uint256 depositedDai, uint256 depositedMkr, uint256 liquidity) = RouterLike(UNIV2_ROUTER).addLiquidity(
             dai,
             mkr,
             20_000_000 * WAD,
@@ -189,6 +204,12 @@ contract LockstakeAutoMaxLineTest is DssTest {
         vm.store(address(pip), bytes32(uint256(1)), bytes32(block.timestamp << 128 | daiForGem));
     }
 
+    function assertEqApprox(uint256 a, uint256 b, uint256 tolerance) internal {
+        assertLt(a, b + tolerance);
+        assertGt(a, b - tolerance);
+    }
+
+
     function testConstructor() public {
         // TODO: implement
     }
@@ -201,9 +222,48 @@ contract LockstakeAutoMaxLineTest is DssTest {
         checkFileUint(address(autoMaxLine), "LockstakeAutoMaxLine", ["duty", "windDownDuty", "lpFactor"]);
     }
 
-    function testExec() public {
+    // TODO: test auto-line-not-enabled
+    // TODO: test ilk-not-enabled"
+
+    function checkExec(uint256 debtToCreate, uint256 expectedNewDuty) internal {
+        vat.frob(ILK, address(this), address(0), address(0), 0, int256(debtToCreate)); // assuming rate == RAY (jug never dripped)
+
+        uint256 snapshot = vm.snapshot();
+        (uint256 oldMaxLine, uint256 newMaxLine, uint256 debt, uint256 oldDuty, uint256 newDuty) = autoMaxLine.exec();
+        vm.revertTo(snapshot);
+
+        (, uint256 gapBefore, uint48 ttlBefore, uint48 lastBefore, uint48 lastIncBefore) = autoLine.ilks(ILK);
+        (uint256 dutyBefore,)= jug.ilks(ILK);
+
+        vm.expectEmit(true, true, true, true);
+        emit Exec(oldMaxLine, newMaxLine, debt, oldDuty, newDuty);
         autoMaxLine.exec();
+
+        // check return values and event values
+        assertEq(oldMaxLine, 200_000_000 * RAD);
+        assertEqApprox(newMaxLine, 86_000_000 * RAD, RAD / 1000); // 70m + 0.4 * 40m
+        assertEq(debt, debtToCreate * RAY);
+        assertEq(oldDuty, 1001 * RAY / 1000);
+        assertEq(newDuty, expectedNewDuty);
+
+        // check modifications
+        (uint256 maxLineAfter, uint256 gapAfter, uint48 ttlAfter, uint48 lastAfter, uint48 lastIncAfter) = autoLine.ilks(ILK);
+        assertEq(maxLineAfter, newMaxLine);
+        assertEq(gapAfter,     gapBefore);
+        assertEq(ttlAfter,     ttlBefore);
+        assertEq(lastAfter,    lastBefore);
+        assertEq(lastIncAfter, lastIncBefore);
+        (uint256 dutyAfter,)= jug.ilks(ILK);
+        assertEq(dutyAfter, newDuty);
     }
 
-    // TODO: more tests
+    function testExecDebtLessThanNewMaxLine() public {
+        checkExec(75_000_000 * WAD, RATE_5_PERCENT);
+    }
+
+    function testExecDebtMoreThanNewMaxLine() public {
+        checkExec(90_000_000 * WAD, RATE_15_PERCENT);
+    }
+
+    // TODO: test seek not affected by trading
 }

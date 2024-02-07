@@ -38,7 +38,7 @@ There is also support for locking and freeing NGT instead of MKR.
 * `selectFarm(address urn, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
 * `draw(address urn, address to, uint256 wad)` - Generate `wad` amount of NST using the `urn`’s MKR as collateral and send it to the `to` address.
 * `wipe(address urn, uint256 wad)` - Repay `wad` amount of NST backed by the `urn`’s MKR.
-* `getReward(address urn, address farm, address to)` - Claim the reward generated from the `urn`'s selected farm and send it to the specified `to` address.
+* `getReward(address urn, address farm, address to)` - Claim the reward generated from a farm on behalf of the `urn` and send it to the specified `to` address.
 * `multicall(bytes[] calldata data)` - Batch multiple methods in a single call to the contract.
 
 **Sequence Diagram:**
@@ -232,8 +232,41 @@ Exposes an `exec` operation to be triggered periodically. Its logic withdraws DA
 
 Up to date implementation: https://github.com/makerdao/dss-flappers/commit/ce7978eaba86c8110d9cf5c04aa50f8f7af83197
 
-## 8. Sticky Oracle
-### 8.a. StickyOracle 
+
+## 8. Maximal Debt Ceiling Instant Access Module
+### 8.a. LockstakeMaxAutoLine
+
+An instant access module which adjusts the SLE's maximal debt ceiling (`autoLine[ilk].line`) according to the protocol owned liquidity, and also adjusts the rate (`jug[ilk].duty`) to incentivise wind-down in case the maximal debt ceiling is exceeded.
+
+#### Maximal Debt ceiling
+
+The maximal debt ceiling is determined based on the surplus and reserves owned by the Maker Protocol. It is adjusted automatically through an algorithm, and set in the regular DC-IAM (`autoLine`).
+
+For the first version (before the SubDaos launch) this contract permissionlessly sets the max debt ceiling of the autoline to:
+`100% * the Surplus Buffer + 80% * protocol DAI deposited in Uniswap`
+
+Note that the above amount of Uniswap held DAI is equivalent to 40% of Elixir value.
+
+The Surplus Buffer amount of DAI can be fetched easily (`vat.dai(vow) - vat.sin(vow)`). However, the Uniswap owned DAI calculation needs to be resistent to manipulation. For that we use the fair token prices, as in the [Uniswap V2 LP oracle](https://github.com/makerdao/univ2-lp-oracle/blob/874a59d74d847909cc4a31f0d38ee6b020f6525f/src/UNIV2LPOracle.sol#L22).
+
+#### Rate
+
+Upon setting a new max debt ceiling, the rate (`jug[ilk].duty`) is adjusted either to its regular value, or to a wind-down value (expected to incentivize debt repayment).
+
+**Configurable Parameters:**
+* `duty` - Regular rate.
+* `windDownDuty` - Repayment incetivizing rate.
+* `lpFactor` - Percentage of Elixir value to take into account in the maximal debt ceiling calculation (planned as 40%).
+
+Up to date implementation:
+https://github.com/makerdao/lockstake/commit/f837c5ef3967654b313b2dbb28d4b8cc09c25094
+
+### 8.b. Cron Keeper Job
+
+For triggering the LockstakeMaxAutoLine a keeper job contract will be added. It should hold sensitivity thresholds, similarly to how the current autoline job [does](https://github.com/makerdao/dss-cron/blob/ae1300023b5db04851b1e8f926e5b7a59ffd18b0/src/AutoLineJob.sol#L47).
+
+## 9. Sticky Oracle
+### 9.a. StickyOracle 
 
 The MKR oracle for the SLE vaults has sticky upwards price movement. It works by operating both on a market price measured from the MKR underlying oracle, and a Sticky Price. The Sticky Price is what is actually used for calculating the Liquidation Ratio.
 
@@ -283,40 +316,14 @@ sticky samples: 1000 ----- 1000 ----- 1000 ----- 1050 ----- 1066 ----- 1080
 
 Up to date implementation: https://github.com/makerdao/lockstake/commit/1ed6d987b3ed4bdfa378f3f35f18a01a064a2a43
 
-### 8.b. Cron Keeper Job
+### 9.b. Cron Keeper Job
 
 For performing `poke` on the Sticky Oracle a simple keeper job contract will be added. Since the `poke` will revert if it was already performed on that certain day, the job can return a workable status whenever it does not revert.
 
-## 9. Debt Ceiling Instant Access Module
-### 9.a. DC-IAM-SETTER
 
-The Debt Ceiling of SLE vaults is determined based on the surplus and reserves owned by the Maker Protocol. The total value of the debt ceiling is adjusted automatically through an algorithm.
+## 10. Deployment Scripts
 
-For the first version (before the SubDaos launch) this contract permissionlessly sets the max debt ceiling of the autoline to:
-`100% * the Surplus Buffer + 80% * protocol DAI deposited in Uniswap`
-
-Note that the above amount of Uniswap held DAI is equivalent to 40% of Elixir value.
-
-The Surplus Buffer amount of DAI can be fetched easily (`vat.dai(vow) - vat.sin(vow)`). However, the Uniswap owned DAI calculation needs to be resistent to manipulation. For that we can use the [fair token prices](https://github.com/Uniswap/v2-periphery/blob/0335e8f7e1bd1e8d8329fd300aea2ef2f36dd19f/contracts/libraries/UniswapV2LiquidityMathLibrary.sol#L116) (which requires reading the MKR oracle).
-
-### 9.b. Cron Keeper Job
-
-For triggering the DC-IAM-SETTER a keeper job contract will be added. It should hold sensitivity thresholds, similarly to how the current autoline job [does](https://github.com/makerdao/dss-cron/blob/ae1300023b5db04851b1e8f926e5b7a59ffd18b0/src/AutoLineJob.sol#L47).
-
-## 10. Stability Rate Setter
-### 10.a. STABILITY-RATE-SETTER
-
-Under normal circumstances the Stability Fee of the SLE vaults is equal to the Base Rate. However, when the max debt ceiling is exceeded there needs to be a mechanism for incentivizing wind down.
-
-To achieve this, the STABILITY-RATE-SETTER will increase the stability fee when such a situation takes place, and will allow returning to the Base Rate once the max debt ceiling has again been reached.
-
-### 10.b. Cron Keeper Job
-
-For triggering the STABILITY-RATE-SETTER a keeper job contract will be added. It should hold sensitivity thresholds, similarly to how the current autoline job [does](https://github.com/makerdao/dss-cron/blob/ae1300023b5db04851b1e8f926e5b7a59ffd18b0/src/AutoLineJob.sol#L47).
-
-## 11. Deployment Scripts
-
-## 12. Formal Verification
+## 11. Formal Verification
     
 ## General Notes
 * In many of the modules, such as the splitter and the flappers, NST can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.

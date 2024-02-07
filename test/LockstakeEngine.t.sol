@@ -264,8 +264,8 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_hole(ilk), 10_000 * 10**45);
         assertEq(dss.dog.wards(address(clip)), 1);
         assertEq(address(engine.jug()), address(dss.jug));
-        assert(engine.farms(address(farm)) == LockstakeEngine.FarmStatus.ADDED);
-        assert(engine.farms(address(1111111)) == LockstakeEngine.FarmStatus.ADDED);
+        assertTrue(engine.farms(address(farm)) == LockstakeEngine.FarmStatus.ADDED);
+        assertTrue(engine.farms(address(1111111)) == LockstakeEngine.FarmStatus.ADDED);
         assertEq(engine.wards(address(clip)), 1);
         assertEq(clip.buf(), 1.25 * 10**27);
         assertEq(clip.tail(), 3600);
@@ -406,15 +406,15 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testAddDelFarm() public {
-        assert(engine.farms(address(1111)) == LockstakeEngine.FarmStatus.UNSUPPORTED);
+        assertTrue(engine.farms(address(1111)) == LockstakeEngine.FarmStatus.UNSUPPORTED);
         vm.expectEmit(true, true, true, true);
         emit AddFarm(address(1111));
         vm.prank(pauseProxy); engine.addFarm(address(1111));
-        assert(engine.farms(address(1111)) == LockstakeEngine.FarmStatus.ADDED);
+        assertTrue(engine.farms(address(1111)) == LockstakeEngine.FarmStatus.ADDED);
         vm.expectEmit(true, true, true, true);
         emit DelFarm(address(1111));
         vm.prank(pauseProxy); engine.delFarm(address(1111));
-        assert(engine.farms(address(1111)) == LockstakeEngine.FarmStatus.DELETED);
+        assertTrue(engine.farms(address(1111)) == LockstakeEngine.FarmStatus.DELETED);
     }
 
     function testOpen() public {

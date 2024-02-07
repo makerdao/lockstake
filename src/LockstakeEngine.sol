@@ -80,7 +80,7 @@ contract LockstakeEngine is Multicall {
     uint256 constant WAD = 10**18;
     uint256 constant RAY = 10**27;
 
-    enum FarmStatus { UNSUPPORTED, DELETED, ADDED }
+    enum FarmStatus { UNSUPPORTED, ACTIVE, DELETED }
 
     // --- immutables ---
 
@@ -205,7 +205,7 @@ contract LockstakeEngine is Multicall {
     }
 
     function addFarm(address farm) external auth {
-        farms[farm] = FarmStatus.ADDED;
+        farms[farm] = FarmStatus.ACTIVE;
         emit AddFarm(farm);
     }
 
@@ -279,7 +279,7 @@ contract LockstakeEngine is Multicall {
 
     function selectFarm(address urn, address farm, uint16 ref) external urnAuth(urn) {
         require(urnAuctions[urn] == 0, "LockstakeEngine/urn-in-auction");
-        require(farm == address(0) || farms[farm] == FarmStatus.ADDED, "LockstakeEngine/farm-unsupported-or-deleted");
+        require(farm == address(0) || farms[farm] == FarmStatus.ACTIVE, "LockstakeEngine/farm-unsupported-or-deleted");
         address prevFarm = urnFarms[urn];
         require(prevFarm != farm, "LockstakeEngine/same-farm");
         (uint256 ink,) = vat.urns(ilk, urn);
@@ -324,7 +324,7 @@ contract LockstakeEngine is Multicall {
         stkMkr.mint(urn, wad);
         address urnFarm = urnFarms[urn];
         if (urnFarm != address(0)) {
-            require(farms[urnFarm] == FarmStatus.ADDED, "LockstakeEngine/farm-deleted");
+            require(farms[urnFarm] == FarmStatus.ACTIVE, "LockstakeEngine/farm-deleted");
             LockstakeUrn(urn).stake(urnFarm, wad, ref);
         }
     }

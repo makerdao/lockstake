@@ -919,6 +919,10 @@ contract LockstakeEngineTest is DssTest {
         emit GetReward(urn, address(farm), address(123), 20_000);
         assertEq(engine.getReward(urn, address(farm), address(123)), 20_000);
         assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 20_000);
+        vm.prank(pauseProxy); engine.delFarm(address(farm));
+        farm.setReward(address(urn), 30_000);
+        assertEq(engine.getReward(urn, address(farm), address(123)), 30_000); // Can get reward after farm is deleted
+        assertEq(GemMock(address(farm.rewardsToken())).balanceOf(address(123)), 50_000);
     }
 
     function _urnSetUp(bool withDelegate, bool withStaking) internal returns (address urn) {

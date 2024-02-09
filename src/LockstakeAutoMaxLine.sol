@@ -178,17 +178,17 @@ contract LockstakeAutoMaxLine {
     }
 
     function calcMaxLine_() internal returns(uint256 maxLine) {
-        uint256 uniswapLiquidity = (pair.balanceOf(lpOwner) * seek_() / WAD) * RAY / spotter.par();
+        uint256 uniswapLiquidity = (pair.balanceOf(lpOwner) * seek_() / WAD) * RAY / spotter.par(); // TODO: make sure par handling is correct
         uint256 plus = uniswapLiquidity * lpFactor * BLN + vat.dai(vow);
         uint256 minus = vat.sin(vow);
 
         if (plus > minus) {
             unchecked { maxLine = plus - minus; }
+        } else {
+            // Due to the following maxLine can not be 0:
+            // https://github.com/makerdao/dss-auto-line/blob/bff7e6cc43dbd7d9a054dd359ef18a1b4d06b6f5/src/DssAutoLine.sol#L83
+            maxLine = 1 wei;
         }
-
-        // Due to the following maxLine can not be 0:
-        // https://github.com/makerdao/dss-auto-line/blob/bff7e6cc43dbd7d9a054dd359ef18a1b4d06b6f5/src/DssAutoLine.sol#L83
-        maxLine = maxLine > RAD ? maxLine : RAD;
     }
 
     // --- user function ---

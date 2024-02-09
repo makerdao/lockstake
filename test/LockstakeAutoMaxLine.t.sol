@@ -57,6 +57,7 @@ interface PairLike {
 
 interface GemLike {
     function balanceOf(address) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
     function approve(address, uint256) external;
     function transfer(address, uint256) external;
 }
@@ -79,6 +80,14 @@ interface RouterLike {
         address to,
         uint256 deadline
     ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity);
+
+    function swapExactTokensForTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external returns (uint256[] memory amounts);
 }
 
 contract LockstakeAutoMaxLineTest is DssTest {
@@ -160,7 +169,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         autoMaxLine.file("lpFactor", 40 * WAD / 100);
         vm.stopPrank();
 
-        // Set protocol owned liquidity in Uniswap
+        // Set price and protocol owned liquidity in Uniswap
         uint256 initialPrice = 727;
         changeMedianizerPrice(initialPrice * WAD);
         changeUniV2Price(pip.read(), mkr, UNIV2_DAI_MKR_PAIR);
@@ -205,9 +214,20 @@ contract LockstakeAutoMaxLineTest is DssTest {
         vm.store(address(pip), bytes32(uint256(1)), bytes32(block.timestamp << 128 | daiForGem));
     }
 
-    function assertEqApprox(uint256 a, uint256 b, uint256 tolerance) internal {
-        assertLt(a, b + tolerance);
-        assertGt(a, b - tolerance);
+    function assertEqApprox(uint256 _a, uint256 _b, uint256 _tolerance) internal {
+        uint256 a = _a;
+        uint256 b = _b;
+        if (a < b) {
+            uint256 tmp = a;
+            a = b;
+            b = tmp;
+        }
+        if (a - b > _tolerance) {
+            emit log_bytes32("Error: Wrong `uint256' value");
+            emit log_named_uint("  Expected", _b);
+            emit log_named_uint("    Actual", _a);
+            fail();
+        }
     }
 
     function testConstructor() public {
@@ -319,16 +339,24 @@ contract LockstakeAutoMaxLineTest is DssTest {
     }
 
     function testExecDebtLessThanNewMaxLine() public {
-        checkExec(70_000_000 * WAD, 82_000_000 * RAD, RATE_5_PERCENT); // 70m < max(50m - 0m + 0.4 * 80m, RAD)
+        checkExec(70_000_000 * WAD, 82_000_000 * RAD, RATE_5_PERCENT); // 70m < max(50m - 0m + 0.4 * 80m, 1 wei)
     }
 
     function testExecDebtMoreThanNewMaxLine() public {
-        checkExec(90_000_000 * WAD, 82_000_000 * RAD, RATE_15_PERCENT); // 90m > max(50m - 0m + 0.4 * 80m, RAD)
+        checkExec(90_000_000 * WAD, 82_000_000 * RAD, RATE_15_PERCENT); // 90m > max(50m - 0m + 0.4 * 80m, 1 wei)
     }
 
     function testExecMinusLargerThanPlus() public {
         stdstore.target(address(vat)).sig("sin(address)").with_key(vow).depth(0).checked_write(90_000_000 * RAD);
-        checkExec(15_000_000 * WAD, RAD, RATE_15_PERCENT); // 15m > max(50m - 90m + 0.4 * 80m, RAD)
+        checkExec(15_000_000 * WAD, 1 wei, RATE_15_PERCENT); // 15m > max(50m - 90m + 0.4 * 80m, 1 wei)
+    }
+
+    function calculateNaiveMaxLine() public view returns (uint256) {
+        (uint256 reserveDai, uint256 reserveMkr) = UniswapV2Library.getReserves(UNIV2_FACTORY, dai, mkr);
+        uint256 currentDaiForMkr = reserveDai * WAD / reserveMkr;
+        uint256 reservesInDai = reserveDai + reserveMkr * currentDaiForMkr / WAD;
+        uint256 protocolReseveInDai = GemLike(UNIV2_DAI_MKR_PAIR).balanceOf(pauseProxy) * reservesInDai / GemLike(UNIV2_DAI_MKR_PAIR).totalSupply();
+        return (protocolReseveInDai * autoMaxLine.lpFactor() / WAD) * RAY;
     }
 
     function testManipulation() public {
@@ -336,13 +364,23 @@ contract LockstakeAutoMaxLineTest is DssTest {
         stdstore.target(address(vat)).sig("dai(address)").with_key(vow).depth(0).checked_write(uint256(0));
         stdstore.target(address(vat)).sig("sin(address)").with_key(vow).depth(0).checked_write(uint256(0));
 
-
         // first show that similar to naive pricing
-        (, uint256 newMaxLine,,,) = autoMaxLine.exec();
+        (, uint256 newMaxLineBefore,,,) = autoMaxLine.exec();
+        uint256 naiveMaxLineBefore = calculateNaiveMaxLine();
+        assertEqApprox(newMaxLineBefore, naiveMaxLineBefore, RAD / 1000);
 
-        // TODO: continue
+        // Buy 4B DAI worth of MKR to inflate the MKR value
+        deal(dai, address(this), 4_000_000_000 * WAD);
+        GemLike(dai).approve(UNIV2_ROUTER, 4_000_000_000 * WAD);
+        address[] memory path = new address[](2);
+        path[0] = dai;
+        path[1] = mkr;
+        RouterLike(UNIV2_ROUTER).swapExactTokensForTokens(4_000_000_000 * WAD, 0, path, address(this), block.timestamp);
 
+        (, uint256 newMaxLineAfter,,,) = autoMaxLine.exec();
+        uint256 naiveMaxLineAfter = calculateNaiveMaxLine();
+
+        assertGt(naiveMaxLineAfter, naiveMaxLineBefore * 40);
+        assertEqApprox(newMaxLineAfter, naiveMaxLineBefore, 50_000 * RAD); // TODO: investigate why this is not closer
     }
-
-
 }

@@ -20,8 +20,6 @@ import { Babylonian } from "src/Babylonian.sol";
 
 interface VatLike {
     function ilks(bytes32) external view returns(uint256, uint256, uint256, uint256, uint256);
-    function dai(address) external view returns(uint256);
-    function sin(address) external view returns(uint256);
 }
 
 interface JugLike {
@@ -81,7 +79,6 @@ contract LockstakeAutoMaxLine {
     bytes32      public immutable ilk;
     address      public immutable dai;
     PairLike     public immutable pair;
-    address      public immutable vow;
     PipLike      public immutable pip;
     address      public immutable lpOwner;
     bool         public immutable daiFirst;
@@ -108,7 +105,6 @@ contract LockstakeAutoMaxLine {
         bytes32 ilk_,
         address dai_,
         address pair_,
-        address vow_,
         address pip_,
         address lpOwner_
     ) {
@@ -119,7 +115,6 @@ contract LockstakeAutoMaxLine {
         ilk      = ilk_;
         dai      = dai_;
         pair     = PairLike(pair_);
-        vow      = vow_;
         pip      = PipLike(pip_);
         lpOwner  = lpOwner_;
 
@@ -177,20 +172,6 @@ contract LockstakeAutoMaxLine {
         quote = 2 * WAD * Babylonian.sqrt(value0 * value1) / pair.totalSupply();
     }
 
-    function calcMaxLine_() internal returns(uint256 maxLine) {
-        uint256 uniswapLiquidity = (pair.balanceOf(lpOwner) * seek_() / WAD) * RAY / spotter.par(); // TODO: make sure par handling is correct
-        uint256 plus = uniswapLiquidity * lpFactor * BLN + vat.dai(vow);
-        uint256 minus = vat.sin(vow);
-
-        if (plus > minus) {
-            unchecked { maxLine = plus - minus; }
-        } else {
-            // Due to the following maxLine can not be 0:
-            // https://github.com/makerdao/dss-auto-line/blob/bff7e6cc43dbd7d9a054dd359ef18a1b4d06b6f5/src/DssAutoLine.sol#L83
-            maxLine = 1 wei;
-        }
-    }
-
     // --- user function ---
 
     function exec() external returns(
@@ -201,7 +182,13 @@ contract LockstakeAutoMaxLine {
         (oldMaxLine, gap, ttl,,) = autoLine.ilks(ilk);
         require(oldMaxLine != 0 && gap != 0 && ttl != 0, "LockstakeAutoMaxLine/auto-line-not-enabled");
 
-        newMaxLine = calcMaxLine_();
+        uint256 uniswapLps = pair.balanceOf(lpOwner);
+        uint256 uniswapLiquidity = uniswapLps > 0 ? (uniswapLps * seek_() / WAD) * RAY / spotter.par() : 0; // TODO: verify par usage is correct
+        newMaxLine = uniswapLiquidity * lpFactor * BLN;
+
+        // Due to the following validation maxLine can not be 0:
+        // https://github.com/makerdao/dss-auto-line/blob/bff7e6cc43dbd7d9a054dd359ef18a1b4d06b6f5/src/DssAutoLine.sol#L83
+        if (newMaxLine == 0) newMaxLine = 1 wei;
         autoLine.setIlk(ilk, newMaxLine, uint256(gap), uint256(ttl));
 
         uint256 duty_         = duty;

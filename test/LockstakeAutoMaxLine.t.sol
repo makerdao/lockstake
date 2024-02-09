@@ -91,12 +91,9 @@ interface RouterLike {
 }
 
 contract LockstakeAutoMaxLineTest is DssTest {
-    using stdStorage for StdStorage;
-
     address              dai;
     address              mkr;
     address              pauseProxy;
-    address              vow;
     SpotterLike          spotter;
     JugLike              jug;
     AutoLineLike         autoLine;
@@ -122,7 +119,6 @@ contract LockstakeAutoMaxLineTest is DssTest {
         dai           = ChainlogLike(LOG).getAddress("MCD_DAI");
         mkr           = ChainlogLike(LOG).getAddress("MCD_GOV");
         pauseProxy    = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
-        vow           = ChainlogLike(LOG).getAddress("MCD_VOW");
         spotter       = SpotterLike(ChainlogLike(LOG).getAddress("MCD_SPOT"));
         jug           = JugLike(ChainlogLike(LOG).getAddress("MCD_JUG"));
         autoLine      = AutoLineLike(ChainlogLike(LOG).getAddress("MCD_IAM_AUTO_LINE"));
@@ -153,7 +149,6 @@ contract LockstakeAutoMaxLineTest is DssTest {
             ILK,
             dai,
             UNIV2_DAI_MKR_PAIR,
-            vow,
             address(pip),
             pauseProxy
         );
@@ -192,10 +187,6 @@ contract LockstakeAutoMaxLineTest is DssTest {
             block.timestamp
         );
         vm.stopPrank();
-
-        // Set surplus buffer funds
-        stdstore.target(address(vat)).sig("dai(address)").with_key(vow).depth(0).checked_write(50_000_000 * RAD);
-        stdstore.target(address(vat)).sig("sin(address)").with_key(vow).depth(0).checked_write(uint256(0));
     }
 
     function changeUniV2Price(uint256 daiForGem, address gem, address pair) internal {
@@ -240,7 +231,6 @@ contract LockstakeAutoMaxLineTest is DssTest {
             ILK,
             dai,
             UNIV2_DAI_USDC_PAIR,
-            vow,
             address(pip),
             pauseProxy
         );
@@ -255,7 +245,6 @@ contract LockstakeAutoMaxLineTest is DssTest {
             ILK,
             dai,
             UNIV2_DAI_MKR_PAIR,
-            vow,
             address(pip),
             pauseProxy
         );
@@ -266,7 +255,6 @@ contract LockstakeAutoMaxLineTest is DssTest {
         assertEq(a.ilk(),               ILK);
         assertEq(address(a.dai()),      dai);
         assertEq(address(a.pair()),     UNIV2_DAI_MKR_PAIR);
-        assertEq(address(a.vow()),      vow);
         assertEq(address(a.pip()),      address(pip));
         assertEq(address(a.lpOwner()),  pauseProxy);
 
@@ -339,16 +327,16 @@ contract LockstakeAutoMaxLineTest is DssTest {
     }
 
     function testExecDebtLessThanNewMaxLine() public {
-        checkExec(70_000_000 * WAD, 82_000_000 * RAD, RATE_5_PERCENT); // 70m < max(50m - 0m + 0.4 * 80m, 1 wei)
+        checkExec(31_000_000 * WAD, 32_000_000 * RAD, RATE_5_PERCENT); // 31m < max(0.4 * 80m, 1 wei)
     }
 
     function testExecDebtMoreThanNewMaxLine() public {
-        checkExec(90_000_000 * WAD, 82_000_000 * RAD, RATE_15_PERCENT); // 90m > max(50m - 0m + 0.4 * 80m, 1 wei)
+        checkExec(33_000_000 * WAD, 32_000_000 * RAD, RATE_15_PERCENT); // 33m > max(0.4 * 80m, 1 wei)
     }
 
-    function testExecMinusLargerThanPlus() public {
-        stdstore.target(address(vat)).sig("sin(address)").with_key(vow).depth(0).checked_write(90_000_000 * RAD);
-        checkExec(15_000_000 * WAD, 1 wei, RATE_15_PERCENT); // 15m > max(50m - 90m + 0.4 * 80m, 1 wei)
+    function testExecNoLpFunds() public {
+        deal(UNIV2_DAI_MKR_PAIR, pauseProxy, 0);
+        checkExec(1_000_000 * WAD, 1 wei, RATE_15_PERCENT); // 1m > max(0.4 * 0m, 1 wei)
     }
 
     function calculateNaiveMaxLine() public view returns (uint256) {
@@ -360,14 +348,9 @@ contract LockstakeAutoMaxLineTest is DssTest {
     }
 
     function testManipulation() public {
-        // Set surplus buffer to 0 for simplicity
-        stdstore.target(address(vat)).sig("dai(address)").with_key(vow).depth(0).checked_write(uint256(0));
-        stdstore.target(address(vat)).sig("sin(address)").with_key(vow).depth(0).checked_write(uint256(0));
-
-        // first show that similar to naive pricing
         (, uint256 newMaxLineBefore,,,) = autoMaxLine.exec();
         uint256 naiveMaxLineBefore = calculateNaiveMaxLine();
-        assertEqApprox(newMaxLineBefore, naiveMaxLineBefore, RAD / 1000);
+        assertEqApprox(newMaxLineBefore, naiveMaxLineBefore, RAD / 1000); // Without manipulating naive pricing worked
 
         // Buy 4B DAI worth of MKR to inflate the MKR value
         deal(dai, address(this), 4_000_000_000 * WAD);
@@ -380,7 +363,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         (, uint256 newMaxLineAfter,,,) = autoMaxLine.exec();
         uint256 naiveMaxLineAfter = calculateNaiveMaxLine();
 
-        assertGt(naiveMaxLineAfter, naiveMaxLineBefore * 40);
+        assertGt(naiveMaxLineAfter, naiveMaxLineBefore * 40); // Naive pricing allows a huge max line manipulations
         assertEqApprox(newMaxLineAfter, naiveMaxLineBefore, 50_000 * RAD); // TODO: investigate why this is not closer
     }
 }

@@ -63,7 +63,7 @@ interface GemLike {
 }
 
 interface AutoLineLike {
-    function ilks(bytes32) external view returns(uint256, uint256, uint48, uint48, uint48);
+    function ilks(bytes32) external view returns (uint256, uint256, uint48, uint48, uint48);
     function rely(address) external;
     function setIlk(bytes32, uint256, uint256, uint256) external;
     function remIlk(bytes32) external;

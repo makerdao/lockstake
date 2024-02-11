@@ -19,39 +19,39 @@ pragma solidity ^0.8.16;
 import { Babylonian } from "src/Babylonian.sol";
 
 interface VatLike {
-    function ilks(bytes32) external view returns(uint256, uint256, uint256, uint256, uint256);
+    function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
 }
 
 interface JugLike {
-    function ilks(bytes32) external view returns(uint256, uint256);
-    function drip(bytes32) external returns(uint256);
+    function ilks(bytes32) external view returns (uint256, uint256);
+    function drip(bytes32) external returns (uint256);
     function file(bytes32, bytes32, uint256) external;
 }
 
 interface SpotLike {
-    function par() external view returns(uint256);
+    function par() external view returns (uint256);
 }
 
 interface AutoLineLike {
-    function ilks(bytes32) external view returns(uint256, uint256, uint48, uint48, uint48);
+    function ilks(bytes32) external view returns (uint256, uint256, uint48, uint48, uint48);
     function setIlk(bytes32, uint256, uint256, uint256) external;
 }
 
 interface PairLike {
-    function balanceOf(address) external view returns(uint256);
-    function totalSupply() external view returns(uint256);
-    function getReserves() external view returns(uint112, uint112, uint32);
-    function token0() external view returns(address);
-    function token1() external view returns(address);
+    function balanceOf(address) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function getReserves() external view returns (uint112, uint112, uint32);
+    function token0() external view returns (address);
+    function token1() external view returns (address);
     function sync() external;
 }
 
 interface PipLike {
-    function read() external view returns(uint256);
+    function read() external view returns (uint256);
 }
 
 interface GemLike {
-    function decimals() external view returns(uint8);
+    function decimals() external view returns (uint8);
 }
 
 contract LockstakeAutoMaxLine {
@@ -149,7 +149,7 @@ contract LockstakeAutoMaxLine {
     // --- internals ---
 
     // Based on https://github.com/makerdao/univ2-lp-oracle/blob/874a59d74d847909cc4a31f0d38ee6b020f6525f/src/UNIV2LPOracle.sol#L261
-    function seek_() internal returns(uint256 quote) {
+    function seek_() internal returns (uint256 quote) {
         // Sync up reserves of uniswap liquidity pool
         pair.sync();
 

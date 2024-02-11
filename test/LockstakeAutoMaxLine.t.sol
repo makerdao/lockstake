@@ -286,13 +286,13 @@ contract LockstakeAutoMaxLineTest is DssTest {
 
     function testMissingDuty() public {
         vm.prank(pauseProxy); autoMaxLine.file("duty", 0);
-        vm.expectRevert("LockstakeAutoMaxLine/missing-duties");
+        vm.expectRevert("LockstakeAutoMaxLine/missing-duty");
         autoMaxLine.exec();
     }
 
     function testMissingWindDownDuty() public {
         vm.prank(pauseProxy); autoMaxLine.file("windDownDuty", 0);
-        vm.expectRevert("LockstakeAutoMaxLine/missing-duties");
+        vm.expectRevert("LockstakeAutoMaxLine/missing-duty");
         autoMaxLine.exec();
     }
 

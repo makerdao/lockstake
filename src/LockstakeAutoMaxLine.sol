@@ -193,12 +193,12 @@ contract LockstakeAutoMaxLine {
 
         uint256 duty_         = duty;
         uint256 windDownDuty_ = windDownDuty;
-        require(duty_ !=0 && windDownDuty_ != 0, "LockstakeAutoMaxLine/missing-duties");
+        require(duty_ != 0 && windDownDuty_ != 0, "LockstakeAutoMaxLine/missing-duties");
 
         (uint256 Art, uint256 rate,,,) = vat.ilks(ilk);
         debt = Art * rate;
 
-        (oldDuty,)= jug.ilks(ilk);
+        (oldDuty,) = jug.ilks(ilk);
         newDuty = (debt > newMaxLine) ? windDownDuty_ : duty_;
         if (newDuty != oldDuty) {
             jug.drip(ilk);

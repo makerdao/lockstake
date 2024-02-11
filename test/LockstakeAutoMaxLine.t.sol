@@ -161,7 +161,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         autoLine.rely(address(autoMaxLine));
         autoMaxLine.file("duty",         RATE_5_PERCENT);
         autoMaxLine.file("windDownDuty", RATE_15_PERCENT);
-        autoMaxLine.file("lpFactor", 40 * WAD / 100);
+        autoMaxLine.file("lpFactor", 40 * RAY / 100);
         vm.stopPrank();
 
         // Set price and protocol owned liquidity in Uniswap
@@ -344,7 +344,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         uint256 currentDaiForMkr = reserveDai * WAD / reserveMkr;
         uint256 reservesInDai = reserveDai + reserveMkr * currentDaiForMkr / WAD;
         uint256 protocolReseveInDai = GemLike(UNIV2_DAI_MKR_PAIR).balanceOf(pauseProxy) * reservesInDai / GemLike(UNIV2_DAI_MKR_PAIR).totalSupply();
-        return (protocolReseveInDai * autoMaxLine.lpFactor() / WAD) * RAY;
+        return protocolReseveInDai * autoMaxLine.lpFactor();
     }
 
     function testManipulation() public {

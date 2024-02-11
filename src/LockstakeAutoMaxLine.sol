@@ -61,7 +61,7 @@ contract LockstakeAutoMaxLine {
     mapping(address => uint256) public wards;
     uint256                     public duty;         // [ray]
     uint256                     public windDownDuty; // [ray]
-    uint256                     public lpFactor;     // [wad]
+    uint256                     public lpFactor;     // [ray]
 
     // --- constants ---
 
@@ -149,7 +149,7 @@ contract LockstakeAutoMaxLine {
     // --- internals ---
 
     // Based on https://github.com/makerdao/univ2-lp-oracle/blob/874a59d74d847909cc4a31f0d38ee6b020f6525f/src/UNIV2LPOracle.sol#L261
-    function _seek() internal returns (uint256 quote) {
+    function _seek(uint256 par) internal returns (uint256 quote) {
         // Sync up reserves of uniswap liquidity pool
         pair.sync();
 
@@ -161,8 +161,8 @@ contract LockstakeAutoMaxLine {
         uint256 pGem = pip.read();  // Query gem price from oracle (WAD)
         require(pGem != 0, "LockstakeAutoMaxLine/invalid-oracle-price");
 
-        uint256 p0 = daiFirst ? WAD : pGem;
-        uint256 p1 = daiFirst ? pGem : WAD;
+        uint256 p0 = daiFirst ? (par / BLN) : pGem;
+        uint256 p1 = daiFirst ? pGem : (par / BLN);
 
         // This calculation should be overflow-resistant even for tokens with very high or very
         // low prices, as the dollar value of each reserve should lie in a fairly controlled range
@@ -183,8 +183,12 @@ contract LockstakeAutoMaxLine {
         require(oldMaxLine != 0 && gap != 0 && ttl != 0, "LockstakeAutoMaxLine/auto-line-not-enabled");
 
         uint256 uniswapLps = pair.balanceOf(lpOwner);
-        uint256 uniswapLiquidity = uniswapLps > 0 ? (uniswapLps * _seek() / WAD) * RAY / spotter.par() : 0; // TODO: verify par usage is correct
-        newMaxLine = uniswapLiquidity * lpFactor * BLN;
+        if (uniswapLps > 0) {
+            uint256 par = spotter.par();
+            newMaxLine = ((uniswapLps * _seek(par) / WAD) * RAY / par) * lpFactor;
+        } else {
+            newMaxLine = 0; // Also ensures we do not call _seek when pair.totalSupply() is 0
+        }
 
         // Due to the following validation maxLine can not be 0:
         // https://github.com/makerdao/dss-auto-line/blob/bff7e6cc43dbd7d9a054dd359ef18a1b4d06b6f5/src/DssAutoLine.sol#L83

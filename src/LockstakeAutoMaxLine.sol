@@ -149,7 +149,7 @@ contract LockstakeAutoMaxLine {
     // --- internals ---
 
     // Based on https://github.com/makerdao/univ2-lp-oracle/blob/874a59d74d847909cc4a31f0d38ee6b020f6525f/src/UNIV2LPOracle.sol#L261
-    function seek_() internal returns (uint256 quote) {
+    function _seek() internal returns (uint256 quote) {
         // Sync up reserves of uniswap liquidity pool
         pair.sync();
 
@@ -183,7 +183,7 @@ contract LockstakeAutoMaxLine {
         require(oldMaxLine != 0 && gap != 0 && ttl != 0, "LockstakeAutoMaxLine/auto-line-not-enabled");
 
         uint256 uniswapLps = pair.balanceOf(lpOwner);
-        uint256 uniswapLiquidity = uniswapLps > 0 ? (uniswapLps * seek_() / WAD) * RAY / spotter.par() : 0; // TODO: verify par usage is correct
+        uint256 uniswapLiquidity = uniswapLps > 0 ? (uniswapLps * _seek() / WAD) * RAY / spotter.par() : 0; // TODO: verify par usage is correct
         newMaxLine = uniswapLiquidity * lpFactor * BLN;
 
         // Due to the following validation maxLine can not be 0:

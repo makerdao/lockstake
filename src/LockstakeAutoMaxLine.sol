@@ -174,7 +174,7 @@ contract LockstakeAutoMaxLine {
 
     // --- user function ---
 
-    function exec() external returns(
+    function exec() external returns (
         uint256 oldMaxLine, uint256 newMaxLine, uint256 debt, uint256 oldDuty, uint256 newDuty
     ) {
         uint256 gap;
@@ -197,7 +197,7 @@ contract LockstakeAutoMaxLine {
 
         uint256 duty_         = duty;
         uint256 windDownDuty_ = windDownDuty;
-        require(duty_ != 0 && windDownDuty_ != 0, "LockstakeAutoMaxLine/missing-duties");
+        require(duty_ != 0 && windDownDuty_ != 0, "LockstakeAutoMaxLine/missing-duty");
 
         (uint256 Art, uint256 rate,,,) = vat.ilks(ilk);
         debt = Art * rate;

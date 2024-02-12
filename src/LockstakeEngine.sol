@@ -419,7 +419,7 @@ contract LockstakeEngine is Multicall {
         uint256 burn;
         uint256 refund;
         if (left > 0) {
-            burn = _min(sold * fee / WAD, left);
+            burn = _min(sold * fee / (WAD - fee), left);
             mkr.burn(address(this), burn);
             unchecked { refund = left - burn; }
             if (refund > 0) {

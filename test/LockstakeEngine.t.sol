@@ -1133,11 +1133,13 @@ contract LockstakeEngineTest is DssTest {
         assertEq(stkMkr.balanceOf(address(urn)), 0);
         assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 100_000 * 10**18);
 
+        uint256 burn = 32_000 * 10**18 * engine.fee() / (WAD - engine.fee());
         vm.expectEmit(true, true, true, true);
         emit OnTake(urn, buyer, 12_000 * 10**18);
         vm.expectEmit(true, true, true, true);
-        emit OnRemove(urn, 32_000 * 10**18, 32_000 * 10**18 * engine.fee() / WAD, 100_000 * 10**18 - 32_000 * 10**18 - 32_000 * 10**18 * engine.fee() / WAD);
+        emit OnRemove(urn, 32_000 * 10**18, burn, 100_000 * 10**18 - 32_000 * 10**18 - burn);
         vm.prank(buyer); clip.take(id, 12_000 * 10**18, type(uint256).max, buyer, "");
+        assertEq(burn, (32_000 * 10**18 + burn) * engine.fee() / WAD);
         assertEq(mkr.balanceOf(buyer), 32_000 * 10**18);
         assertEq(engine.urnAuctions(urn), 0);
 
@@ -1150,18 +1152,18 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.tic, 0);
         assertEq(sale.top, 0);
 
-        assertEq(_ink(ilk, urn), (100_000 - 32_000 * 1.15) * 10**18);
+        assertEq(_ink(ilk, urn), 100_000 * 10**18 - 32_000 * 10**18 - burn);
         assertEq(_art(ilk, urn), 0);
         assertEq(dss.vat.gem(ilk, address(clip)), 0);
 
-        assertEq(mkr.balanceOf(address(engine)), (100_000 - 32_000 * 1.15) * 10**18);
-        assertEq(mkr.totalSupply(), mkrInitialSupply - 32_000 * 0.15 * 10**18);
+        assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18 - 32_000 * 10**18 - burn);
+        assertEq(mkr.totalSupply(), mkrInitialSupply - burn);
         if (withStaking) {
             assertEq(stkMkr.balanceOf(address(farm)), 0);
             assertEq(farm.balanceOf(address(urn)), 0);
         }
-        assertEq(stkMkr.balanceOf(address(urn)), (100_000 - 32_000 * 1.15) * 10**18);
-        assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 32_000 * 1.15 * 10**18);
+        assertEq(stkMkr.balanceOf(address(urn)), 100_000 * 10**18 - 32_000 * 10**18 - burn);
+        assertEq(stkMkr.totalSupply(), stkMkrInitialSupply - 32_000 * 10**18 - burn);
         assertEq(dss.vat.dai(vow), vowInitialBalance + 2_000 * 10**45);
     }
 
@@ -1374,10 +1376,11 @@ contract LockstakeEngineTest is DssTest {
         address buyer = address(888);
         vm.prank(pauseProxy); dss.vat.suck(address(0), buyer, 4_000 * 10**45);
         vm.prank(buyer); dss.vat.hope(address(clip));
+        uint256 burn = 8_000 * 10**18 * engine.fee() / (WAD - engine.fee());
         vm.expectEmit(true, true, true, true);
         emit OnTake(urn, buyer, 8_000 * 10**18); // 500 / (0.05 * 1.25 )
         vm.expectEmit(true, true, true, true);
-        emit OnRemove(urn, 8_000 * 10**18, 8_000 * 10**18 * engine.fee() / WAD, 25_000 * 10**18 - 8_000 * 10**18 - 8_000 * 10**18 * engine.fee() / WAD);
+        emit OnRemove(urn, 8_000 * 10**18, burn, 25_000 * 10**18 - 8_000 * 10**18 - burn);
         vm.prank(buyer); clip.take(id1, 25_000 * 10**18, type(uint256).max, buyer, "");
         assertEq(engine.urnAuctions(urn), 1);
 

@@ -30,6 +30,7 @@ interface DelegateLike {
 }
 
 interface VatLike {
+    function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
     function urns(bytes32, address) external view returns (uint256, uint256);
     function hope(address) external;
     function slip(bytes32, address, int256) external;
@@ -379,10 +380,10 @@ contract LockstakeEngine is Multicall {
         emit Draw(urn, to, wad);
     }
 
-    function wipe(address urn, uint256 wad) external urnAuth(urn) {
+    function wipe(address urn, uint256 wad) external {
         nst.transferFrom(msg.sender, address(this), wad);
         nstJoin.join(address(this), wad);
-        uint256 rate = jug.drip(ilk);
+        (, uint256 rate,,,) = vat.ilks(ilk);
         uint256 dart = wad * RAY / rate;
         require(dart <= uint256(type(int256).max), "LockstakeEngine/overflow");
         vat.frob(ilk, urn, address(0), address(this), 0, -int256(dart));

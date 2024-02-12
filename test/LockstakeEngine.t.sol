@@ -377,7 +377,7 @@ contract LockstakeEngineTest is DssTest {
         checkModifier(address(engine), "LockstakeEngine/not-authorized", authedMethods);
         vm.stopPrank();
 
-        bytes4[] memory urnOwnersMethods = new bytes4[](11);
+        bytes4[] memory urnOwnersMethods = new bytes4[](10);
         urnOwnersMethods[0]  = engine.hope.selector;
         urnOwnersMethods[1]  = engine.nope.selector;
         urnOwnersMethods[2]  = engine.selectDelegate.selector;
@@ -387,8 +387,7 @@ contract LockstakeEngineTest is DssTest {
         urnOwnersMethods[6]  = engine.free.selector;
         urnOwnersMethods[7]  = engine.freeNgt.selector;
         urnOwnersMethods[8]  = engine.draw.selector;
-        urnOwnersMethods[9]  = engine.wipe.selector;
-        urnOwnersMethods[10] = engine.getReward.selector;
+        urnOwnersMethods[9] = engine.getReward.selector;
 
         // this checks the case when sender is not the urn owner and not hoped, the hoped case is checked in testHopeNope and the urn owner case in the specific tests
         vm.startPrank(address(0xBEEF));
@@ -865,20 +864,22 @@ contract LockstakeEngineTest is DssTest {
         assertLt(art * rate, 100.0000006 * 10**45);
         vm.expectRevert("Nst/insufficient-balance");
         engine.wipe(urn, 100.0000006 * 10**18);
-        deal(address(nst), address(this), 100.0000006 * 10**18, true);
-        assertEq(nst.balanceOf(address(this)), 100.0000006 * 10**18);
-        nst.approve(address(engine), 100.0000006 * 10**18);
+        address anyone = address(1221121);
+        deal(address(nst), anyone, 100.0000006 * 10**18, true);
+        assertEq(nst.balanceOf(anyone), 100.0000006 * 10**18);
+        vm.prank(anyone); nst.approve(address(engine), 100.0000006 * 10**18);
         vm.expectRevert();
-        engine.wipe(urn, 100.0000006 * 10**18); // It will try to wipe more art than existing, then reverts
+        vm.prank(anyone); engine.wipe(urn, 100.0000006 * 10**18); // It will try to wipe more art than existing, then reverts
         vm.expectEmit(true, true, true, true);
         emit Wipe(urn, 100.0000005 * 10**18);
-        engine.wipe(urn, 100.0000005 * 10**18);
-        assertEq(nst.balanceOf(address(this)), 0.0000001 * 10**18);
+        vm.prank(anyone); engine.wipe(urn, 100.0000005 * 10**18);
+        assertEq(nst.balanceOf(anyone), 0.0000001 * 10**18);
         assertEq(_art(ilk, urn), 1); // Dust which is impossible to wipe
-        assertEq(nst.balanceOf(address(123)), 0);
-        emit Draw(urn, address(123), 50 * 10**18);
-        engine.draw(urn, address(123), 50 * 10**18);
-        assertEq(nst.balanceOf(address(123)), 50 * 10**18);
+        address other = address(123);
+        assertEq(nst.balanceOf(other), 0);
+        emit Draw(urn, other, 50 * 10**18);
+        engine.draw(urn, other, 50 * 10**18);
+        assertEq(nst.balanceOf(other), 50 * 10**18);
     }
 
     function testOpenLockStakeMulticall() public {

@@ -19,7 +19,8 @@ There is also support for locking and freeing NGT instead of MKR.
 * A single user address can open multiple positions (each denoted as `urn`).
 * Each `urn` relates to zero or one chosen delegate contract, zero or one chosen farm, and one vault.
 * MKR cannot be moved outside of an `urn` or between `urn`s without paying the exit fee.
-* At any time the user's entire locked MKR amount is either staked or not, and is either delegated or not.
+* At any time the `urn`'s entire locked MKR amount is either staked or not, and is either delegated or not.
+* Staking rewards are not part of the collateral, and are still claimable after freeing from the engine, changing a farm or being liquidated.
 * The entire locked MKR amount is also credited as collateral for the user. However, the user itself decides if and how much NST to borrow, and should be aware of liquidation risk.
 * A user can delegate control of an `urn` that it controls to another EOA/contract. This is helpful for supporting manager-type contracts that can be built on top of the engine.
 * Once a vault goes into liquidation, it's MKR is undelegated and unstaked. It and can only be re-delegated or re-staked once there are no more auctions for it.
@@ -30,9 +31,9 @@ There is also support for locking and freeing NGT instead of MKR.
 * `hope(address urn, address usr)` - Allow `usr` to also manage the sender's controlled `urn`.
 * `nope(address urn, address usr)` - Disallow `usr` from managing the sender's controlled `urn`.
 * `lock(address urn, uint256 wad, uint16 ref)` - Deposit `wad` amount of MKR into the `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
-* `lockNgt(address urn, uint256 ngtWad)` - Deposit `ngtWad` amount of NGT. The NGT is first converted to MKR, which then gets deposited into the `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
+* `lockNgt(address urn, uint256 ngtWad, uint16 ref)` - Deposit `ngtWad` amount of NGT. The NGT is first converted to MKR, which then gets deposited into the `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
 * `free(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed.
-* `freeNgt(address urn, address to, uint256 ngtWad)` - Withdraw `ngtWad` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed.
+* `freeNgt(address urn, address to, uint256 ngtWad)` - Withdraw `ngtWad` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed. Note that freeing NGT is possible even if regular locking (using MKR) was done, and vice-vera.
 * `freeNoFee(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address without paying any fee. This will undelegate the requested amount of MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed. This function can only be called by an address which was both authorized on the contract by governance and for which the urn owner has called `hope` for. It is useful for implementing a migration contract that will move the funds to another engine contract (if ever needed).
 * `selectDelegate(address urn, address delegate)` - Choose which delegate contract to delegate the `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
 * `selectFarm(address urn, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
@@ -95,7 +96,7 @@ Upon calling `open`, an `urn` contract is deployed for each position. The `urn` 
 
 The following functions are called from the LockstakeClipper (see below) throughout the liquidation process.
 
-* `onKick(address urn, uint256 wad)` - Undelegate and unstake the entire `urn`'s MKR amount. Also burn the liquidated amount of staking token (`stkMkr`).
+* `onKick(address urn, uint256 wad)` - Undelegate and unstake the entire `urn`'s MKR amount.
 * `onTake(address urn, address who, uint256 wad)` - Transfer MKR to the liquidation auction buyer.
 * `onRemove(address urn, uint256 sold, uint256 left)` - Burn a proportional amount of the MKR which was bought in the auction and return the rest to the `urn`.
 
@@ -119,7 +120,7 @@ The SLE liquidation process differs from the usual liquidations by the fact that
 
 For a liquidated position the relative exit fee is burned from the MKR (collateral) leftovers upon completion of the auction. To ensure enough MKR is left, and also prevent incentives for self-liquidation, the ilk's liquidation ratio (`mat`) must be set high enough. We calculate below the minimal `mat` (while ignoring parameters resolution for simplicity):
 
-To be able to liquidate we need the vault to be under-collateralized. The point where that happens is:
+To be able to liquidate we need the vault to be liquidate-able. The point where that happens is:
 `① ink * price / mat = debt`
 
 The debt to be auctioned is enlarged (by the penalty) to `debt * chop` (where typically `chop` is 113%). If we assume the auction selling is at market price and that the market price didn't move since the auction trigger, then the amount of collateral sold is:

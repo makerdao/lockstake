@@ -347,23 +347,42 @@ contract LockstakeAutoMaxLineTest is DssTest {
         return protocolReseveInDai * autoMaxLine.lpFactor();
     }
 
-    function testManipulation() public {
+    function checkManipulation(uint256 daiForManipulation, uint256 minNaiveRelativeGrowthPct, uint256 maxMaxLineDiff) internal {
         (, uint256 newMaxLineBefore,,,) = autoMaxLine.exec();
         uint256 naiveMaxLineBefore = calculateNaiveMaxLine();
-        assertEqApprox(newMaxLineBefore, naiveMaxLineBefore, RAD / 1000); // Without manipulating naive pricing worked
+        assertEqApprox(newMaxLineBefore, naiveMaxLineBefore, RAD / 1000); // Without manipulating naive pricing works
 
         // Buy 4B DAI worth of MKR to inflate the MKR value
-        deal(dai, address(this), 4_000_000_000 * WAD);
-        GemLike(dai).approve(UNIV2_ROUTER, 4_000_000_000 * WAD);
+        deal(dai, address(this), daiForManipulation);
+        GemLike(dai).approve(UNIV2_ROUTER, daiForManipulation);
         address[] memory path = new address[](2);
         path[0] = dai;
         path[1] = mkr;
-        RouterLike(UNIV2_ROUTER).swapExactTokensForTokens(4_000_000_000 * WAD, 0, path, address(this), block.timestamp);
+        RouterLike(UNIV2_ROUTER).swapExactTokensForTokens(daiForManipulation, 0, path, address(this), block.timestamp);
+
+        uint256 naiveMaxLineAfter = calculateNaiveMaxLine();
+        assertGt(naiveMaxLineAfter, naiveMaxLineBefore * minNaiveRelativeGrowthPct / 100); // Naive pricing allows a huge max line manipulations
 
         (, uint256 newMaxLineAfter,,,) = autoMaxLine.exec();
-        uint256 naiveMaxLineAfter = calculateNaiveMaxLine();
+        assertLt(newMaxLineAfter - newMaxLineBefore, maxMaxLineDiff); // With non-naive pricing the manipulation effect is very limited
 
-        assertGt(naiveMaxLineAfter, naiveMaxLineBefore * 40); // Naive pricing allows a huge max line manipulations
-        assertEqApprox(newMaxLineAfter, naiveMaxLineBefore, 50_000 * RAD); // TODO: investigate why this is not closer
+        uint256 estimatedManipulationCost = daiForManipulation * RAY * 2 * 3 / 1000; // 0.3% fee for both directions
+        assertGt(estimatedManipulationCost, (newMaxLineAfter - newMaxLineBefore) * 10); // Manipulation cost is at least 10x higher than the max line increase
+    }
+
+    function testManipulation10M() public {
+        checkManipulation(10_000_000 * WAD, 101, 10_000 * RAD);
+    }
+
+    function testManipulation100M() public {
+        checkManipulation(100_000_000 * WAD, 200, 30_000 * RAD);
+    }
+
+    function testManipulation2B() public {
+        checkManipulation(2_000_000_000 * WAD, 2000, 50_000 * RAD);
+    }
+
+    function testManipulation4B() public {
+        checkManipulation(4_000_000_000 * WAD, 4000, 50_000 * RAD);
     }
 }

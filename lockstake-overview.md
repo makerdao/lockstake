@@ -241,7 +241,7 @@ An instant access module which adjusts the SLE's maximal debt ceiling (`autoLine
 
 #### Maximal Debt ceiling
 
-The maximal debt ceiling is determined based on the reserves owned by the Maker Protocol in Uniswap. It is adjusted automatically through an algorithm, and set in the regular DC-IAM (`autoLine`).
+The maximal debt ceiling is determined based on the reserves owned by the Maker Protocol. It is adjusted automatically through an algorithm, and set in the regular DC-IAM (`autoLine`).
 For the first version (before the SubDaos launch) this contract permissionlessly sets the max debt ceiling of the autoline to 40% of the DAI value of the Uniswap MKR/DAI LP position owned by the Pause Proxy.
 The Uniswap owned DAI calculation needs to be resistent to manipulation. For that we use the fair token prices, as in the [Uniswap V2 LP oracle](https://github.com/makerdao/univ2-lp-oracle/blob/874a59d74d847909cc4a31f0d38ee6b020f6525f/src/UNIV2LPOracle.sol#L22).
 

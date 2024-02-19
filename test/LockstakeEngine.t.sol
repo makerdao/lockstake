@@ -66,6 +66,7 @@ contract LockstakeEngineTest is DssTest {
     event FreeNoFee(address indexed urn, address indexed to, uint256 wad);
     event Draw(address indexed urn, address indexed to, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
+    event WipeAll(address indexed urn);
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
@@ -874,7 +875,11 @@ contract LockstakeEngineTest is DssTest {
         emit Wipe(urn, 100.0000005 * 10**18);
         vm.prank(anyone); engine.wipe(urn, 100.0000005 * 10**18);
         assertEq(nst.balanceOf(anyone), 0.0000001 * 10**18);
-        assertEq(_art(ilk, urn), 1); // Dust which is impossible to wipe
+        assertEq(_art(ilk, urn), 1); // Dust which is impossible to wipe via this regular function
+        emit WipeAll(urn);
+        vm.prank(anyone); engine.wipeAll(urn);
+        assertEq(_art(ilk, urn), 0);
+        assertEq(nst.balanceOf(anyone), 0.0000001 * 10**18 - _divup(rate, RAY));
         address other = address(123);
         assertEq(nst.balanceOf(other), 0);
         emit Draw(urn, other, 50 * 10**18);

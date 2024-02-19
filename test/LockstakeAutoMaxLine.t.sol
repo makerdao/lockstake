@@ -93,18 +93,23 @@ interface RouterLike {
 contract LockstakeAutoMaxLineTest is DssTest {
     address              dai;
     address              mkr;
+    address              link;
     address              pauseProxy;
     SpotterLike          spotter;
     JugLike              jug;
     AutoLineLike         autoLine;
     VatLike              vat;
-    PipLike              pip;
+    PipLike              pipEth;
+    PipLike              pipMkr;
+    PipLike              pipLink;
     LockstakeAutoMaxLine autoMaxLine;
+    LockstakeAutoMaxLine linkAutoMaxLine;
     
     bytes32 constant ILK                 = "ILK";
     address constant LOG                 = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
     address constant UNIV2_FACTORY       = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
     address constant UNIV2_DAI_MKR_PAIR  = 0x517F9dD285e75b599234F7221227339478d0FcC8;
+    address constant UNIV2_LINK_DAI_PAIR = 0x6D4fd456eDecA58Cf53A8b586cd50754547DBDB2;
     address constant UNIV2_DAI_USDC_PAIR = 0xAE461cA67B15dc8dc81CE7615e0320dA1A9aB8D5;
     address constant UNIV2_ROUTER        = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
@@ -118,69 +123,79 @@ contract LockstakeAutoMaxLineTest is DssTest {
 
         dai           = ChainlogLike(LOG).getAddress("MCD_DAI");
         mkr           = ChainlogLike(LOG).getAddress("MCD_GOV");
+        link          = ChainlogLike(LOG).getAddress("LINK");
         pauseProxy    = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
         spotter       = SpotterLike(ChainlogLike(LOG).getAddress("MCD_SPOT"));
         jug           = JugLike(ChainlogLike(LOG).getAddress("MCD_JUG"));
         autoLine      = AutoLineLike(ChainlogLike(LOG).getAddress("MCD_IAM_AUTO_LINE"));
         vat           = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
-        pip           = PipLike(ChainlogLike(LOG).getAddress("PIP_MKR"));
+        pipEth        = PipLike(ChainlogLike(LOG).getAddress("PIP_ETH"));
+        pipMkr        = PipLike(ChainlogLike(LOG).getAddress("PIP_MKR"));
+        pipLink       = PipLike(0xbAd4212d73561B240f10C56F27e6D9608963f17b); // MedianLINKUSD
 
         vm.startPrank(pauseProxy);
         vat.init(ILK);
         jug.init(ILK);
         jug.file(ILK, "duty", 1001 * RAY / 1000);
-        spotter.file(ILK, "pip", address(pip));
+        spotter.file(ILK, "pip", address(pipEth));
         spotter.file(ILK, "mat", 1 * RAY); // 100% coll ratio
         vat.file(ILK, "line", 100_000_000 * RAD);
         autoLine.setIlk(ILK, 200_000_000 * RAD, 10_000_000 * RAD, 8 hours);
-        pip.kiss(address(spotter));
         spotter.poke(ILK);
-        pip.kiss(address(this));
         vat.slip(ILK, address(this), type(int256).max);
         vm.stopPrank();
 
         vat.frob(ILK, address(this), address(this), address(0), int256(500_000_000 * WAD), 0);
 
-        autoMaxLine = new LockstakeAutoMaxLine(
+        autoMaxLine = setupAutoMaxLine(mkr, UNIV2_DAI_MKR_PAIR, pipMkr, 727);
+        linkAutoMaxLine = setupAutoMaxLine(link, UNIV2_LINK_DAI_PAIR, pipLink, 727);
+    }
+
+    function setupAutoMaxLine(address gem, address pair, PipLike pip, uint256 price)
+        internal
+        returns (LockstakeAutoMaxLine autoMaxLine_)
+    {
+        autoMaxLine_ = new LockstakeAutoMaxLine(
             address(vat),
             address(jug),
             address(spotter),
             address(autoLine),
             ILK,
             dai,
-            UNIV2_DAI_MKR_PAIR,
+            pair,
             address(pip),
             pauseProxy
         );
-        autoMaxLine.rely(pauseProxy);
-        autoMaxLine.deny(address(this));
+        autoMaxLine_.rely(pauseProxy);
+        autoMaxLine_.deny(address(this));
 
         vm.startPrank(pauseProxy);
-        jug.rely(address(autoMaxLine));
-        pip.kiss(address(autoMaxLine));
-        autoLine.rely(address(autoMaxLine));
-        autoMaxLine.file("duty",         RATE_5_PERCENT);
-        autoMaxLine.file("windDownDuty", RATE_15_PERCENT);
-        autoMaxLine.file("lpFactor", 40 * RAY / 100);
+        jug.rely(address(autoMaxLine_));
+        pip.kiss(address(autoMaxLine_));
+        autoLine.rely(address(autoMaxLine_));
+        autoMaxLine_.file("duty",         RATE_5_PERCENT);
+        autoMaxLine_.file("windDownDuty", RATE_15_PERCENT);
+        autoMaxLine_.file("lpFactor", 40 * RAY / 100);
+
+        pip.kiss(address(this));
         vm.stopPrank();
 
         // Set price and protocol owned liquidity in Uniswap
-        uint256 initialPrice = 727;
-        changeMedianizerPrice(initialPrice * WAD);
-        changeUniV2Price(pip.read(), mkr, UNIV2_DAI_MKR_PAIR);
+        changeMedianizerPrice(address(pip), price * WAD);
+        changeUniV2Price(pip.read(), gem, pair);
 
-        deal(UNIV2_DAI_MKR_PAIR, pauseProxy, 0);
+        deal(pair, pauseProxy, 0);
         deal(dai, pauseProxy, 40_000_000 * WAD);
-        deal(mkr, pauseProxy, 40_000_000 * WAD / initialPrice);
+        deal(gem, pauseProxy, 40_000_000 * WAD / price);
 
         vm.startPrank(pauseProxy);
         GemLike(dai).approve(UNIV2_ROUTER, 40_000_000 * WAD);
-        GemLike(mkr).approve(UNIV2_ROUTER, 40_000_000 * WAD / initialPrice);
+        GemLike(gem).approve(UNIV2_ROUTER, 40_000_000 * WAD / price);
         RouterLike(UNIV2_ROUTER).addLiquidity(
             dai,
-            mkr,
+            gem,
             40_000_000 * WAD,
-            40_000_000 * WAD / initialPrice,
+            40_000_000 * WAD / price,
             0,
             0,
             pauseProxy,
@@ -194,6 +209,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         uint256 currentDaiForGem = reserveDai * WAD / reserveGem;
 
         if (currentDaiForGem > daiForGem) {
+            console.log("deal reserveDai * WAD / daiForGem", reserveDai * WAD / daiForGem);
             deal(gem, pair, reserveDai * WAD / daiForGem);
         } else {
             deal(dai, pair, reserveGem * daiForGem / WAD);
@@ -201,8 +217,8 @@ contract LockstakeAutoMaxLineTest is DssTest {
         PairLike(pair).sync();
     }
 
-    function changeMedianizerPrice(uint256 daiForGem) internal {
-        vm.store(address(pip), bytes32(uint256(1)), bytes32(block.timestamp << 128 | daiForGem));
+    function changeMedianizerPrice(address pip, uint256 daiForGem) internal {
+        vm.store(pip, bytes32(uint256(1)), bytes32(block.timestamp << 128 | daiForGem));
     }
 
     function assertEqApprox(uint256 _a, uint256 _b, uint256 _tolerance) internal {
@@ -231,7 +247,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
             ILK,
             dai,
             UNIV2_DAI_USDC_PAIR,
-            address(pip),
+            address(pipMkr),
             pauseProxy
         );
 
@@ -245,7 +261,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
             ILK,
             dai,
             UNIV2_DAI_MKR_PAIR,
-            address(pip),
+            address(pipMkr),
             pauseProxy
         );
         assertEq(address(a.vat()),      address(vat));
@@ -255,11 +271,24 @@ contract LockstakeAutoMaxLineTest is DssTest {
         assertEq(a.ilk(),               ILK);
         assertEq(address(a.dai()),      dai);
         assertEq(address(a.pair()),     UNIV2_DAI_MKR_PAIR);
-        assertEq(address(a.pip()),      address(pip));
+        assertEq(address(a.pip()),      address(pipMkr));
         assertEq(address(a.lpOwner()),  pauseProxy);
 
         assertEq(a.daiFirst(),  true);
         assertEq(a.wards(address(this)), 1);
+
+        LockstakeAutoMaxLine b = new LockstakeAutoMaxLine(
+            address(vat),
+            address(jug),
+            address(spotter),
+            address(autoLine),
+            ILK,
+            dai,
+            UNIV2_LINK_DAI_PAIR,
+            address(pipLink),
+            pauseProxy
+        );
+        assertEq(b.daiFirst(), false);
     }
 
     function testAuth() public {
@@ -296,17 +325,17 @@ contract LockstakeAutoMaxLineTest is DssTest {
         autoMaxLine.exec();
     }
 
-    function checkExec(uint256 debtToCreate, uint256 expectedNewMaxLine, uint256 expectedNewDuty) internal {
+    function checkExec(LockstakeAutoMaxLine autoMaxLine_, uint256 debtToCreate, uint256 expectedNewMaxLine, uint256 expectedNewDuty) internal {
         vat.frob(ILK, address(this), address(0), address(0), 0, int256(debtToCreate)); // assuming rate == RAY (jug never dripped)
 
         uint256 snapshot = vm.snapshot();
-        (uint256 oldMaxLine, uint256 newMaxLine, uint256 debt, uint256 oldDuty, uint256 newDuty) = autoMaxLine.exec();
+        (uint256 oldMaxLine, uint256 newMaxLine, uint256 debt, uint256 oldDuty, uint256 newDuty) = autoMaxLine_.exec();
         vm.revertTo(snapshot);
 
         (, uint256 gapBefore, uint48 ttlBefore, uint48 lastBefore, uint48 lastIncBefore) = autoLine.ilks(ILK);
         vm.expectEmit(true, true, true, true);
         emit Exec(oldMaxLine, newMaxLine, debt, oldDuty, newDuty);
-        autoMaxLine.exec();
+        autoMaxLine_.exec();
 
         // check return values and event values are as expected
         assertEq(oldMaxLine, 200_000_000 * RAD);
@@ -327,16 +356,29 @@ contract LockstakeAutoMaxLineTest is DssTest {
     }
 
     function testExecDebtLessThanNewMaxLine() public {
-        checkExec(31_000_000 * WAD, 32_000_000 * RAD, RATE_5_PERCENT); // 31m < max(0.4 * 80m, 1 wei)
+        checkExec(autoMaxLine, 31_000_000 * WAD, 32_000_000 * RAD, RATE_5_PERCENT); // 31m < max(0.4 * 80m, 1 wei)
+    }
+
+    function testExecDebtLessThanNewMaxLineDaiSecond() public {
+        checkExec(linkAutoMaxLine, 31_000_000 * WAD, 32_000_000 * RAD, RATE_5_PERCENT); // 31m < max(0.4 * 80m, 1 wei)
     }
 
     function testExecDebtMoreThanNewMaxLine() public {
-        checkExec(33_000_000 * WAD, 32_000_000 * RAD, RATE_15_PERCENT); // 33m > max(0.4 * 80m, 1 wei)
+        checkExec(autoMaxLine, 33_000_000 * WAD, 32_000_000 * RAD, RATE_15_PERCENT); // 33m > max(0.4 * 80m, 1 wei)
+    }
+
+    function testExecDebtMoreThanNewMaxLineDaiSecond() public {
+        checkExec(linkAutoMaxLine, 33_000_000 * WAD, 32_000_000 * RAD, RATE_15_PERCENT); // 33m > max(0.4 * 80m, 1 wei)
     }
 
     function testExecNoLpFunds() public {
         deal(UNIV2_DAI_MKR_PAIR, pauseProxy, 0);
-        checkExec(1_000_000 * WAD, 1 wei, RATE_15_PERCENT); // 1m > max(0.4 * 0m, 1 wei)
+        checkExec(autoMaxLine, 1_000_000 * WAD, 1 wei, RATE_15_PERCENT); // 1m > max(0.4 * 0m, 1 wei)
+    }
+
+    function testExecNoLpFundsDaiSecond() public {
+        deal(UNIV2_LINK_DAI_PAIR, pauseProxy, 0);
+        checkExec(linkAutoMaxLine, 1_000_000 * WAD, 1 wei, RATE_15_PERCENT); // 1m > max(0.4 * 0m, 1 wei)
     }
 
     function calculateNaiveMaxLine() public view returns (uint256) {

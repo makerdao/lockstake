@@ -90,6 +90,10 @@ interface RouterLike {
     ) external returns (uint256[] memory amounts);
 }
 
+interface OsmLike {
+    function src() external returns (address);
+}
+
 contract LockstakeAutoMaxLineTest is DssTest {
     address              dai;
     address              mkr;
@@ -131,13 +135,13 @@ contract LockstakeAutoMaxLineTest is DssTest {
         vat           = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
         pipEth        = PipLike(ChainlogLike(LOG).getAddress("PIP_ETH"));
         pipMkr        = PipLike(ChainlogLike(LOG).getAddress("PIP_MKR"));
-        pipLink       = PipLike(0xbAd4212d73561B240f10C56F27e6D9608963f17b); // MedianLINKUSD
+        pipLink       = PipLike(OsmLike(ChainlogLike(LOG).getAddress("PIP_LINK")).src()); // Compatability with MKR pip
 
         vm.startPrank(pauseProxy);
         vat.init(ILK);
         jug.init(ILK);
         jug.file(ILK, "duty", 1001 * RAY / 1000);
-        spotter.file(ILK, "pip", address(pipEth));
+        spotter.file(ILK, "pip", address(pipEth)); // Using ETH for simplicity, can be anything
         spotter.file(ILK, "mat", 1 * RAY); // 100% coll ratio
         vat.file(ILK, "line", 100_000_000 * RAD);
         autoLine.setIlk(ILK, 200_000_000 * RAD, 10_000_000 * RAD, 8 hours);
@@ -264,19 +268,19 @@ contract LockstakeAutoMaxLineTest is DssTest {
             address(pipMkr),
             pauseProxy
         );
-        assertEq(address(a.vat()),      address(vat));
-        assertEq(address(a.jug()),      address(jug));
-        assertEq(address(a.spotter()),  address(spotter));
-        assertEq(address(a.autoLine()), address(autoLine));
-        assertEq(a.ilk(),               ILK);
-        assertEq(address(a.dai()),      dai);
-        assertEq(address(a.pair()),     UNIV2_DAI_MKR_PAIR);
-        assertEq(address(a.pip()),      address(pipMkr));
-        assertEq(address(a.lpOwner()),  pauseProxy);
-
-        assertEq(a.daiFirst(),  true);
+        assertEq(address(a.vat()),       address(vat));
+        assertEq(address(a.jug()),       address(jug));
+        assertEq(address(a.spotter()),   address(spotter));
+        assertEq(address(a.autoLine()),  address(autoLine));
+        assertEq(a.ilk(),                ILK);
+        assertEq(a.dai(),                dai);
+        assertEq(address(a.pair()),      UNIV2_DAI_MKR_PAIR);
+        assertEq(address(a.pip()),       address(pipMkr));
+        assertEq(a.lpOwner(),            pauseProxy);
+        assertEq(a.daiFirst(),           true);
         assertEq(a.wards(address(this)), 1);
 
+        // check also when dai is second
         LockstakeAutoMaxLine b = new LockstakeAutoMaxLine(
             address(vat),
             address(jug),
@@ -288,7 +292,17 @@ contract LockstakeAutoMaxLineTest is DssTest {
             address(pipLink),
             pauseProxy
         );
-        assertEq(b.daiFirst(), false);
+        assertEq(address(b.vat()),       address(vat));
+        assertEq(address(b.jug()),       address(jug));
+        assertEq(address(b.spotter()),   address(spotter));
+        assertEq(address(b.autoLine()),  address(autoLine));
+        assertEq(b.ilk(),                ILK);
+        assertEq(a.dai(),                dai);
+        assertEq(address(b.pair()),      UNIV2_LINK_DAI_PAIR);
+        assertEq(address(b.pip()),       address(pipLink));
+        assertEq(a.lpOwner(),            pauseProxy);
+        assertEq(b.daiFirst(),           false);
+        assertEq(b.wards(address(this)), 1);
     }
 
     function testAuth() public {

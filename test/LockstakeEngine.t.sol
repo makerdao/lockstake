@@ -1410,6 +1410,27 @@ contract LockstakeEngineTest is DssTest {
         engine.selectFarm(urn, address(farm), 0);
     }
 
+    function testUrnUnsafe() public {
+        address urn = _urnSetUp(true, true);
+
+        assertEq(engine.urnDelegates(urn), voterDelegate);
+
+        address voterDelegate2 = delFactory.create();
+
+        vm.store(address(pip), bytes32(uint256(1)), bytes32(uint256(0.05 * 10**18))); // Force urn unsafe
+        dss.spotter.poke(ilk);
+
+        vm.expectRevert("LockstakeEngine/urn-unsafe");
+        engine.selectDelegate(urn, voterDelegate2);
+
+        vm.store(address(pip), bytes32(uint256(1)), bytes32(uint256(1_500 * 10**18))); // Back to safety
+        dss.spotter.poke(ilk);
+
+        engine.selectDelegate(urn, voterDelegate2);
+
+        assertEq(engine.urnDelegates(urn), voterDelegate2);
+    }
+
     function testOnRemoveOverflow() public {
         vm.expectRevert("LockstakeEngine/refund-over-maxint");
         vm.prank(pauseProxy); engine.onRemove(address(1), 0, uint256(type(int256).max) + 1);

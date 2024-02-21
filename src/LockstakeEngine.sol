@@ -261,7 +261,9 @@ contract LockstakeEngine is Multicall {
         require(delegate == address(0) || delegateFactory.isDelegate(delegate) == 1, "LockstakeEngine/not-valid-delegate");
         address prevDelegate = urnDelegates[urn];
         require(prevDelegate != delegate, "LockstakeEngine/same-delegate");
-        (uint256 ink,) = vat.urns(ilk, urn);
+        (, uint256 rate, uint256 spot,,) = vat.ilks(ilk);
+        (uint256 ink, uint256 art) = vat.urns(ilk, urn);
+        require(ink * spot >= art * rate, "LockstakeEngine/urn-unsafe");
         _selectDelegate(urn, ink, prevDelegate, delegate);
         emit SelectDelegate(urn, delegate);
     }

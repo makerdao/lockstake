@@ -138,7 +138,7 @@ contract LockstakeEngine is Multicall {
     // --- constructor ---
 
     constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address stkMkr_, uint256 fee_, address mkrNgt_) {
-        require(fee_ <= WAD, "LockstakeEngine/fee-over-wad");
+        require(fee_ < WAD, "LockstakeEngine/fee-equal-or-greater-wad");
         delegateFactory = DelegateFactoryLike(delegateFactory_);
         nstJoin = NstJoinLike(nstJoin_);
         vat = nstJoin.vat();

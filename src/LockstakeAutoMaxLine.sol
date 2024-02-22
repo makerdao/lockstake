@@ -192,6 +192,7 @@ contract LockstakeAutoMaxLine {
 
         // Due to the following validation maxLine can not be 0:
         // https://github.com/makerdao/dss-auto-line/blob/bff7e6cc43dbd7d9a054dd359ef18a1b4d06b6f5/src/DssAutoLine.sol#L83
+        // This also avoids hitting auto-line-not-enabled in case newMaxLine was calculated as 0 in a previous exec.
         if (newMaxLine == 0) newMaxLine = 1 wei;
         autoLine.setIlk(ilk, newMaxLine, uint256(gap), uint256(ttl));
 

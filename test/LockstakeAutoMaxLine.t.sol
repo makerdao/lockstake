@@ -151,7 +151,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
 
         vat.frob(ILK, address(this), address(this), address(0), int256(500_000_000 * WAD), 0);
 
-        autoMaxLine = setupAutoMaxLine(mkr, UNIV2_DAI_MKR_PAIR, pipMkr, 727);
+        autoMaxLine     = setupAutoMaxLine(mkr,   UNIV2_DAI_MKR_PAIR,  pipMkr, 727);
         linkAutoMaxLine = setupAutoMaxLine(link, UNIV2_LINK_DAI_PAIR, pipLink, 727);
     }
 
@@ -189,8 +189,8 @@ contract LockstakeAutoMaxLineTest is DssTest {
         changeUniV2Price(pip.read(), gem, pair);
 
         deal(pair, pauseProxy, 0);
-        deal(dai, pauseProxy, 40_000_000 * WAD);
-        deal(gem, pauseProxy, 40_000_000 * WAD / price);
+        deal(dai,  pauseProxy, 40_000_000 * WAD);
+        deal(gem,  pauseProxy, 40_000_000 * WAD / price);
 
         vm.startPrank(pauseProxy);
         GemLike(dai).approve(UNIV2_ROUTER, 40_000_000 * WAD);
@@ -213,7 +213,6 @@ contract LockstakeAutoMaxLineTest is DssTest {
         uint256 currentDaiForGem = reserveDai * WAD / reserveGem;
 
         if (currentDaiForGem > daiForGem) {
-            console.log("deal reserveDai * WAD / daiForGem", reserveDai * WAD / daiForGem);
             deal(gem, pair, reserveDai * WAD / daiForGem);
         } else {
             deal(dai, pair, reserveGem * daiForGem / WAD);
@@ -314,13 +313,19 @@ contract LockstakeAutoMaxLineTest is DssTest {
     }
 
     function testAutoLineNotEnabled() public {
+        uint256 snapshot = vm.snapshot();
+
         vm.prank(pauseProxy); autoLine.remIlk(ILK);
         vm.expectRevert("LockstakeAutoMaxLine/auto-line-not-enabled");
         autoMaxLine.exec();
 
+        vm.revertTo(snapshot);
+
         vm.prank(pauseProxy); autoLine.setIlk(ILK, 200_000_000 * RAD, 0, 8 hours);
         vm.expectRevert("LockstakeAutoMaxLine/auto-line-not-enabled");
         autoMaxLine.exec();
+
+        vm.revertTo(snapshot);
 
         vm.prank(pauseProxy); autoLine.setIlk(ILK, 200_000_000 * RAD, 10_000_000 * RAD, 0);
         vm.expectRevert("LockstakeAutoMaxLine/auto-line-not-enabled");
@@ -328,14 +333,30 @@ contract LockstakeAutoMaxLineTest is DssTest {
     }
 
     function testMissingDuty() public {
+        uint256 snapshot = vm.snapshot();
+
         vm.prank(pauseProxy); autoMaxLine.file("duty", 0);
+        vm.expectRevert("LockstakeAutoMaxLine/missing-duty");
+        autoMaxLine.exec();
+
+        vm.revertTo(snapshot);
+
+        vm.prank(pauseProxy); autoMaxLine.file("windDownDuty", 0);
         vm.expectRevert("LockstakeAutoMaxLine/missing-duty");
         autoMaxLine.exec();
     }
 
-    function testMissingWindDownDuty() public {
-        vm.prank(pauseProxy); autoMaxLine.file("windDownDuty", 0);
-        vm.expectRevert("LockstakeAutoMaxLine/missing-duty");
+    function testInvalidReserves() public {
+        uint256 snapshot = vm.snapshot();
+
+        deal(dai, UNIV2_DAI_MKR_PAIR, 0);
+        vm.expectRevert("LockstakeAutoMaxLine/invalid-reserves");
+        autoMaxLine.exec();
+
+        vm.revertTo(snapshot);
+
+        deal(mkr, UNIV2_DAI_MKR_PAIR, 0);
+        vm.expectRevert("LockstakeAutoMaxLine/invalid-reserves");
         autoMaxLine.exec();
     }
 
@@ -395,6 +416,26 @@ contract LockstakeAutoMaxLineTest is DssTest {
         checkExec(linkAutoMaxLine, 1_000_000 * WAD, 1 wei, RATE_15_PERCENT); // 1m > max(0.4 * 0m, 1 wei)
     }
 
+    function testExecToZeroAndBack() public {
+        vat.frob(ILK, address(this), address(0), address(0), 0, int256(31_000_000 * WAD)); // assuming rate == RAY (jug never dripped)
+
+        uint256 initialLpFunds = GemLike(UNIV2_DAI_MKR_PAIR).balanceOf(pauseProxy);
+
+        (, uint256 newMaxLine,,, uint256 newDuty) = autoMaxLine.exec(); // 31m < max(0.4 * 80m, 1 wei)
+        assertEqApprox(newMaxLine, 32_000_000 * RAD, RAD / 1000);
+        assertEq(newDuty, RATE_5_PERCENT);
+
+        deal(UNIV2_DAI_MKR_PAIR, pauseProxy, 0); // 31m > max(0.4 * 0m, 1 wei)
+        (, newMaxLine,,, newDuty) = autoMaxLine.exec();
+        assertEq(newMaxLine, 1 wei);
+        assertEq(newDuty, RATE_15_PERCENT);
+
+        deal(UNIV2_DAI_MKR_PAIR, pauseProxy, initialLpFunds);
+        (, newMaxLine,,, newDuty) = autoMaxLine.exec(); // 31m < max(0.4 * 80m, 1 wei)
+        assertEqApprox(newMaxLine, 32_000_000 * RAD, RAD / 1000);
+        assertEq(newDuty, RATE_5_PERCENT);
+    }
+
     function calculateNaiveMaxLine() public view returns (uint256) {
         (uint256 reserveDai, uint256 reserveMkr) = UniswapV2Library.getReserves(UNIV2_FACTORY, dai, mkr);
         uint256 currentDaiForMkr = reserveDai * WAD / reserveMkr;
@@ -408,7 +449,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         uint256 naiveMaxLineBefore = calculateNaiveMaxLine();
         assertEqApprox(newMaxLineBefore, naiveMaxLineBefore, RAD / 1000); // Without manipulating naive pricing works
 
-        // Buy 4B DAI worth of MKR to inflate the MKR value
+        // Buy MKR to inflate the MKR value
         deal(dai, address(this), daiForManipulation);
         GemLike(dai).approve(UNIV2_ROUTER, daiForManipulation);
         address[] memory path = new address[](2);

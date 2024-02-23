@@ -885,11 +885,7 @@ contract LockstakeEngineTest is DssTest {
         engine.draw(urn, other, 50 * 10**18);
         assertEq(nst.balanceOf(other), 50 * 10**18);
         // Check overflows
-        vm.store(
-            address(dss.vat),
-            bytes32(uint256(keccak256(abi.encode(ilk, uint256(2)))) + 1),
-            bytes32(uint256(1))
-        );
+        stdstore.target(address(dss.vat)).sig("ilks(bytes32)").with_key(ilk).depth(1).checked_write(1);
         assertEq(_rate(ilk), 1);
         vm.expectRevert("LockstakeEngine/overflow");
         engine.draw(urn, address(this), uint256(type(int256).max) / RAY + 1);
@@ -898,11 +894,7 @@ contract LockstakeEngineTest is DssTest {
         nst.approve(address(engine), uint256(type(int256).max) / RAY + 1);
         vm.expectRevert("LockstakeEngine/overflow");
         engine.wipe(urn, uint256(type(int256).max) / RAY + 1);
-        vm.store(
-            address(dss.vat),
-            bytes32(uint256(keccak256(abi.encode(urn, keccak256(abi.encode(ilk, uint256(3)))))) + 1),
-            bytes32(uint256(type(int256).max) + 1)
-        );
+        stdstore.target(address(dss.vat)).sig("urns(bytes32,address)").with_key(ilk).with_key(urn).depth(1).checked_write(uint256(type(int256).max) + 1);
         assertEq(_art(ilk, urn), uint256(type(int256).max) + 1);
         vm.expectRevert("LockstakeEngine/overflow");
         engine.wipeAll(urn);

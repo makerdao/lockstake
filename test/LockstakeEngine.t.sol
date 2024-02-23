@@ -66,7 +66,6 @@ contract LockstakeEngineTest is DssTest {
     event FreeNoFee(address indexed urn, address indexed to, uint256 wad);
     event Draw(address indexed urn, address indexed to, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
-    event WipeAll(address indexed urn);
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
@@ -876,8 +875,8 @@ contract LockstakeEngineTest is DssTest {
         vm.prank(anyone); engine.wipe(urn, 100.0000005 * 10**18);
         assertEq(nst.balanceOf(anyone), 0.0000001 * 10**18);
         assertEq(_art(ilk, urn), 1); // Dust which is impossible to wipe via this regular function
-        emit WipeAll(urn);
-        vm.prank(anyone); engine.wipeAll(urn);
+        emit Wipe(urn, _divup(rate, RAY));
+        vm.prank(anyone); assertEq(engine.wipeAll(urn), _divup(rate, RAY));
         assertEq(_art(ilk, urn), 0);
         assertEq(nst.balanceOf(anyone), 0.0000001 * 10**18 - _divup(rate, RAY));
         address other = address(123);
@@ -885,6 +884,28 @@ contract LockstakeEngineTest is DssTest {
         emit Draw(urn, other, 50 * 10**18);
         engine.draw(urn, other, 50 * 10**18);
         assertEq(nst.balanceOf(other), 50 * 10**18);
+        // Check overflows
+        vm.store(
+            address(dss.vat),
+            bytes32(uint256(keccak256(abi.encode(ilk, uint256(2)))) + 1),
+            bytes32(uint256(1))
+        );
+        assertEq(_rate(ilk), 1);
+        vm.expectRevert("LockstakeEngine/overflow");
+        engine.draw(urn, address(this), uint256(type(int256).max) / RAY + 1);
+        stdstore.target(address(dss.vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(uint256(type(int256).max) + RAY);
+        deal(address(nst), address(this), uint256(type(int256).max) / RAY + 1, true);
+        nst.approve(address(engine), uint256(type(int256).max) / RAY + 1);
+        vm.expectRevert("LockstakeEngine/overflow");
+        engine.wipe(urn, uint256(type(int256).max) / RAY + 1);
+        vm.store(
+            address(dss.vat),
+            bytes32(uint256(keccak256(abi.encode(urn, keccak256(abi.encode(ilk, uint256(3)))))) + 1),
+            bytes32(uint256(type(int256).max) + 1)
+        );
+        assertEq(_art(ilk, urn), uint256(type(int256).max) + 1);
+        vm.expectRevert("LockstakeEngine/overflow");
+        engine.wipeAll(urn);
     }
 
     function testOpenLockStakeMulticall() public {

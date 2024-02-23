@@ -117,7 +117,6 @@ contract LockstakeEngine is Multicall {
     event FreeNoFee(address indexed urn, address indexed to, uint256 wad);
     event Draw(address indexed urn, address indexed to, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
-    event WipeAll(address indexed urn);
     event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
@@ -393,15 +392,15 @@ contract LockstakeEngine is Multicall {
         emit Wipe(urn, wad);
     }
 
-    function wipeAll(address urn) external {
+    function wipeAll(address urn) external returns (uint256 wad) {
         (, uint256 art) = vat.urns(ilk, urn);
         require(art <= uint256(type(int256).max), "LockstakeEngine/overflow");
         (, uint256 rate,,,) = vat.ilks(ilk);
-        uint256 wad = _divup(art * rate, RAY);
+        wad = _divup(art * rate, RAY);
         nst.transferFrom(msg.sender, address(this), wad);
         nstJoin.join(address(this), wad);
         vat.frob(ilk, urn, address(0), address(this), 0, -int256(art));
-        emit WipeAll(urn);
+        emit Wipe(urn, wad);
     }
 
     // --- staking rewards function ---

@@ -21,9 +21,12 @@ import { MCD, DssInstance } from "dss-test/MCD.sol";
 import { LockstakeInstance } from "./LockstakeInstance.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
+import { LockstakeAutoMaxLine } from "src/LockstakeAutoMaxLine.sol";
 
 // Deploy a Lockstake instance
 library LockstakeDeploy {
+
+    address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
     function deployLockstake(
         address deployer,
@@ -36,7 +39,7 @@ library LockstakeDeploy {
         address mkrNgt,
         bytes4  calcSig
     ) internal returns (LockstakeInstance memory lockstakeInstance) {
-        DssInstance memory dss = MCD.loadFromChainlog(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
 
         lockstakeInstance.engine  = address(new LockstakeEngine(delegateFactory, nstJoin, ilk, stkMkr, fee, mkrNgt));
         lockstakeInstance.clipper = address(new LockstakeClipper(address(dss.vat), address(dss.spotter), address(dss.dog), lockstakeInstance.engine));
@@ -46,5 +49,30 @@ library LockstakeDeploy {
 
         ScriptTools.switchOwner(lockstakeInstance.engine, deployer, owner);
         ScriptTools.switchOwner(lockstakeInstance.clipper, deployer, owner);
+    }
+
+    function deployAutoMaxLine(
+        address deployer,
+        address owner,
+        bytes32 ilk,
+        address dai,
+        address pair,
+        address pip
+    ) internal returns (address autoMaxLine) {
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
+
+        autoMaxLine = address(new LockstakeAutoMaxLine(
+            address(dss.vat),
+            address(dss.jug),
+            address(dss.spotter),
+            dss.chainlog.getAddress("MCD_IAM_AUTO_LINE"),
+            ilk,
+            dai,
+            pair,
+            pip,
+            dss.chainlog.getAddress("MCD_PAUSE_PROXY")
+        ));
+
+        ScriptTools.switchOwner(autoMaxLine, deployer, owner);
     }
 }

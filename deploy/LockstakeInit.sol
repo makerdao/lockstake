@@ -232,4 +232,22 @@ library LockstakeInit {
         dss.chainlog.setAddress("LOCKSTAKE_CLIP",      address(clipper));
         dss.chainlog.setAddress("LOCKSTAKE_CLIP_CALC", address(calc));
     }
+
+    function initAutoMaxLine(
+        DssInstance        memory dss,
+        address            autoMaxLine,
+        LockstakeConfig    memory cfg
+    ) {
+        // TODO: sanity checks
+
+        dss.jug.rely(address(autoMaxLine_));
+        pip.kiss(address(autoMaxLine_));
+        autoLine.rely(address(autoMaxLine_));
+
+        autoMaxLine.file("duty",         cfg.duty);
+        autoMaxLine.file("windDownDuty", cfg.windDownDuty);
+        autoMaxLine.file("lpFactor",     cfg.lpFactor);
+
+
+    }
 }

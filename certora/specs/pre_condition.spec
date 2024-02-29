@@ -23,21 +23,23 @@ methods {
 
 ghost bool isUrnOwnersStored;
 
-hook Sstore urnOwners[KEY address k1] address owner {
+hook Sstore urnOwners[KEY address urn] address owner {
   isUrnOwnersStored = true;
 }
 
 ghost bool isUrnCanStored;
 
-hook Sstore urnCan[KEY address k1][KEY address k2] uint256 authorized {
+hook Sstore urnCan[KEY address urn][KEY address candidate] uint256 isAuthorized {
   isUrnCanStored = true;
 }
 
+/* Property: one can store into [urnOwners]/[urnCan] only via the [open], [hope]/[nope]
+functions (respectively) */
 rule updateGhostByCall(method f) {
     env e; calldataarg args;
     require !isUrnOwnersStored && !isUrnCanStored;
     f(e, args);
-    satisfy true;
     assert isUrnOwnersStored => f.selector == sig:open(uint256).selector;
-    assert isUrnCanStored => f.selector == sig:hope(address,address).selector || f.selector == sig:nope(address,address).selector;
+    assert isUrnCanStored => f.selector == sig:hope(address,address).selector ||
+      f.selector == sig:nope(address,address).selector;
 }

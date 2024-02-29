@@ -56,6 +56,7 @@ interface CalcLike {
 }
 
 interface AutoLineLike {
+    function rely(address) external;
     function setIlk(bytes32, uint256, uint256, uint256) external;
 }
 
@@ -79,6 +80,19 @@ interface IlkRegistryLike {
         string memory _name,
         string memory _symbol
     ) external;
+}
+
+interface AutoMaxLineLike {
+    function vat() external view returns (address);
+    function jug() external view returns (address);
+    function spotter() external view returns (address);
+    function autoLine() external view returns (address);
+    function lpOwner() external view returns (address);
+    function ilk() external view returns (bytes32);
+    function dai() external view returns (address);
+    function pair() external view returns (address);
+    function pip() external view returns (address);
+    function file(bytes32, uint256) external;
 }
 
 struct LockstakeConfig {
@@ -113,6 +127,16 @@ struct LockstakeConfig {
     uint256   tolerance;
     string    name;
     string    symbol;
+}
+
+struct AutoMaxLineConfig {
+    bytes32 ilk;
+    address dai;
+    address pair;
+    address pip;
+    uint256 duty;
+    uint256 windDownDuty;
+    uint256 lpFactor;
 }
 
 library LockstakeInit {
@@ -234,20 +258,40 @@ library LockstakeInit {
     }
 
     function initAutoMaxLine(
-        DssInstance        memory dss,
-        address            autoMaxLine,
-        LockstakeConfig    memory cfg
-    ) {
-        // TODO: sanity checks
+        DssInstance       memory dss,
+        address                  autoMaxLine_,
+        AutoMaxLineConfig memory cfg
+    ) internal {
+        AutoMaxLineLike autoMaxLine = AutoMaxLineLike(autoMaxLine_);
 
-        dss.jug.rely(address(autoMaxLine_));
-        pip.kiss(address(autoMaxLine_));
-        autoLine.rely(address(autoMaxLine_));
+        // Sanity checks
+        require(address(autoMaxLine.vat())     == address(dss.vat),     "AutoMaxLine vat mismatch");
+        require(address(autoMaxLine.jug())     == address(dss.jug),     "AutoMaxLine jug mismatch");
+        require(address(autoMaxLine.spotter()) == address(dss.spotter), "AutoMaxLine spotter mismatch");
+
+        address autoLine = address(autoMaxLine.autoLine());
+        require(autoLine              == dss.chainlog.getAddress("MCD_IAM_AUTO_LINE"), "AutoMaxLine auto line mismatch");
+        require(autoMaxLine.lpOwner() == dss.chainlog.getAddress("MCD_PAUSE_PROXY"),   "AutoMaxLine lp owner mismatch");
+
+        require(autoMaxLine.ilk()           == cfg.ilk,  "AutoMaxLine ilk mismatch");
+        require(autoMaxLine.dai()           == cfg.dai,  "AutoMaxLine dai mismatch");
+        require(address(autoMaxLine.pair()) == cfg.pair, "AutoMaxLine pair mismatch");
+        require(address(autoMaxLine.pip())  == cfg.pip,  "AutoMaxLine pip mismatch");
+
+        require(cfg.duty         >= RAY && cfg.duty         <= RATES_ONE_HUNDRED_PCT, "duty out of boundaries");
+        require(cfg.windDownDuty >= RAY && cfg.windDownDuty <= RATES_ONE_HUNDRED_PCT, "windDownDuty out of boundaries");
+        require(cfg.lpFactor     <= RAY , "lpFactor larger than 100%");
+
+        // Configurations
+        dss.jug.rely(autoMaxLine_);
+        PipLike(cfg.pip).kiss(autoMaxLine_);
+        AutoLineLike(autoLine).rely(autoMaxLine_);
 
         autoMaxLine.file("duty",         cfg.duty);
         autoMaxLine.file("windDownDuty", cfg.windDownDuty);
         autoMaxLine.file("lpFactor",     cfg.lpFactor);
 
-
+        // Chainlog
+        dss.chainlog.setAddress("LOCKSTAKE_AUTO_MAX_LINE", autoMaxLine_);
     }
 }

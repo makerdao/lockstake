@@ -19,6 +19,8 @@ pragma solidity ^0.8.16;
 import "dss-test/DssTest.sol";
 
 import { LockstakeAutoMaxLine } from "src/LockstakeAutoMaxLine.sol";
+import { LockstakeDeploy } from "deploy/LockstakeDeploy.sol";
+import { LockstakeInit, AutoMaxLineConfig } from "deploy/LockstakeInit.sol";
 import { UniswapV2Library } from "test/helpers/UniswapV2Library.sol";
 
 interface ChainlogLike {
@@ -95,14 +97,11 @@ interface OsmLike {
 }
 
 contract LockstakeAutoMaxLineTest is DssTest {
-    address              dai;
+    DssInstance          dss;
     address              mkr;
     address              link;
     address              pauseProxy;
-    SpotterLike          spotter;
-    JugLike              jug;
     AutoLineLike         autoLine;
-    VatLike              vat;
     PipLike              pipEth;
     PipLike              pipMkr;
     PipLike              pipLink;
@@ -125,31 +124,29 @@ contract LockstakeAutoMaxLineTest is DssTest {
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
-        dai           = ChainlogLike(LOG).getAddress("MCD_DAI");
-        mkr           = ChainlogLike(LOG).getAddress("MCD_GOV");
-        link          = ChainlogLike(LOG).getAddress("LINK");
-        pauseProxy    = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
-        spotter       = SpotterLike(ChainlogLike(LOG).getAddress("MCD_SPOT"));
-        jug           = JugLike(ChainlogLike(LOG).getAddress("MCD_JUG"));
-        autoLine      = AutoLineLike(ChainlogLike(LOG).getAddress("MCD_IAM_AUTO_LINE"));
-        vat           = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
-        pipEth        = PipLike(ChainlogLike(LOG).getAddress("PIP_ETH"));
-        pipMkr        = PipLike(ChainlogLike(LOG).getAddress("PIP_MKR"));
-        pipLink       = PipLike(OsmLike(ChainlogLike(LOG).getAddress("PIP_LINK")).src()); // Compatability with MKR pip
+        dss = MCD.loadFromChainlog(LOG);
+
+        mkr           = dss.chainlog.getAddress("MCD_GOV");
+        link          = dss.chainlog.getAddress("LINK");
+        pauseProxy    = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
+        autoLine      = AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE"));
+        pipEth        = PipLike(dss.chainlog.getAddress("PIP_ETH"));
+        pipMkr        = PipLike(dss.chainlog.getAddress("PIP_MKR"));
+        pipLink       = PipLike(OsmLike(dss.chainlog.getAddress("PIP_LINK")).src()); // Compatability with MKR pip
 
         vm.startPrank(pauseProxy);
-        vat.init(ILK);
-        jug.init(ILK);
-        jug.file(ILK, "duty", 1001 * RAY / 1000);
-        spotter.file(ILK, "pip", address(pipEth)); // Using ETH for simplicity, can be anything
-        spotter.file(ILK, "mat", 1 * RAY); // 100% coll ratio
-        vat.file(ILK, "line", 100_000_000 * RAD);
+        dss.vat.init(ILK);
+        dss.jug.init(ILK);
+        dss.jug.file(ILK, "duty", 1001 * RAY / 1000);
+        dss.spotter.file(ILK, "pip", address(pipEth)); // Using ETH for simplicity, can be anything
+        dss.spotter.file(ILK, "mat", 1 * RAY); // 100% coll ratio
+        dss.vat.file(ILK, "line", 100_000_000 * RAD);
         autoLine.setIlk(ILK, 200_000_000 * RAD, 10_000_000 * RAD, 8 hours);
-        spotter.poke(ILK);
-        vat.slip(ILK, address(this), type(int256).max);
+        dss.spotter.poke(ILK);
+        dss.vat.slip(ILK, address(this), type(int256).max);
         vm.stopPrank();
 
-        vat.frob(ILK, address(this), address(this), address(0), int256(500_000_000 * WAD), 0);
+        dss.vat.frob(ILK, address(this), address(this), address(0), int256(500_000_000 * WAD), 0);
 
         autoMaxLine     = setupAutoMaxLine(mkr,   UNIV2_DAI_MKR_PAIR,  pipMkr, 727);
         linkAutoMaxLine = setupAutoMaxLine(link, UNIV2_LINK_DAI_PAIR, pipLink, 727);
@@ -159,44 +156,42 @@ contract LockstakeAutoMaxLineTest is DssTest {
         internal
         returns (LockstakeAutoMaxLine autoMaxLine_)
     {
-        autoMaxLine_ = new LockstakeAutoMaxLine(
-            address(vat),
-            address(jug),
-            address(spotter),
-            address(autoLine),
+        autoMaxLine_ = LockstakeAutoMaxLine(LockstakeDeploy.deployAutoMaxLine(
+            address(this),
+            pauseProxy,
             ILK,
-            dai,
+            address(dss.dai),
             pair,
-            address(pip),
-            pauseProxy
-        );
-        autoMaxLine_.rely(pauseProxy);
-        autoMaxLine_.deny(address(this));
+            address(pip)
+        ));
+
+        AutoMaxLineConfig memory cfg = AutoMaxLineConfig({
+            ilk          : ILK,
+            dai          : address(dss.dai),
+            pair         : pair,
+            pip          : address(pip),
+            duty         : RATE_5_PERCENT,
+            windDownDuty : RATE_15_PERCENT,
+            lpFactor     : 40 * RAY / 100
+        });
 
         vm.startPrank(pauseProxy);
-        jug.rely(address(autoMaxLine_));
-        pip.kiss(address(autoMaxLine_));
-        autoLine.rely(address(autoMaxLine_));
-        autoMaxLine_.file("duty",         RATE_5_PERCENT);
-        autoMaxLine_.file("windDownDuty", RATE_15_PERCENT);
-        autoMaxLine_.file("lpFactor", 40 * RAY / 100);
-
-        pip.kiss(address(this));
+        LockstakeInit.initAutoMaxLine(dss, address(autoMaxLine_), cfg);
         vm.stopPrank();
 
         // Set price and protocol owned liquidity in Uniswap
         changeMedianizerPrice(address(pip), price * WAD);
-        changeUniV2Price(pip.read(), gem, pair);
+        changeUniV2Price(price * WAD, gem, pair);
 
         deal(pair, pauseProxy, 0);
-        deal(dai,  pauseProxy, 40_000_000 * WAD);
+        deal(address(dss.dai),  pauseProxy, 40_000_000 * WAD);
         deal(gem,  pauseProxy, 40_000_000 * WAD / price);
 
         vm.startPrank(pauseProxy);
-        GemLike(dai).approve(UNIV2_ROUTER, 40_000_000 * WAD);
+        GemLike(address(dss.dai)).approve(UNIV2_ROUTER, 40_000_000 * WAD);
         GemLike(gem).approve(UNIV2_ROUTER, 40_000_000 * WAD / price);
         RouterLike(UNIV2_ROUTER).addLiquidity(
-            dai,
+            address(dss.dai),
             gem,
             40_000_000 * WAD,
             40_000_000 * WAD / price,
@@ -209,13 +204,13 @@ contract LockstakeAutoMaxLineTest is DssTest {
     }
 
     function changeUniV2Price(uint256 daiForGem, address gem, address pair) internal {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, dai, gem);
+        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, address(dss.dai), gem);
         uint256 currentDaiForGem = reserveDai * WAD / reserveGem;
 
         if (currentDaiForGem > daiForGem) {
             deal(gem, pair, reserveDai * WAD / daiForGem);
         } else {
-            deal(dai, pair, reserveGem * daiForGem / WAD);
+            deal(address(dss.dai), pair, reserveGem * daiForGem / WAD);
         }
         PairLike(pair).sync();
     }
@@ -243,12 +238,12 @@ contract LockstakeAutoMaxLineTest is DssTest {
     function testConstructor() public {
         vm.expectRevert("LockstakeAutoMaxLine/gem-decimals-not-18");
         new LockstakeAutoMaxLine(
-            address(vat),
-            address(jug),
-            address(spotter),
+            address(dss.vat),
+            address(dss.jug),
+            address(dss.spotter),
             address(autoLine),
             ILK,
-            dai,
+            address(dss.dai),
             UNIV2_DAI_USDC_PAIR,
             address(pipMkr),
             pauseProxy
@@ -257,22 +252,22 @@ contract LockstakeAutoMaxLineTest is DssTest {
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
         LockstakeAutoMaxLine a = new LockstakeAutoMaxLine(
-            address(vat),
-            address(jug),
-            address(spotter),
+            address(dss.vat),
+            address(dss.jug),
+            address(dss.spotter),
             address(autoLine),
             ILK,
-            dai,
+            address(dss.dai),
             UNIV2_DAI_MKR_PAIR,
             address(pipMkr),
             pauseProxy
         );
-        assertEq(address(a.vat()),       address(vat));
-        assertEq(address(a.jug()),       address(jug));
-        assertEq(address(a.spotter()),   address(spotter));
+        assertEq(address(a.vat()),       address(dss.vat));
+        assertEq(address(a.jug()),       address(dss.jug));
+        assertEq(address(a.spotter()),   address(dss.spotter));
         assertEq(address(a.autoLine()),  address(autoLine));
         assertEq(a.ilk(),                ILK);
-        assertEq(a.dai(),                dai);
+        assertEq(a.dai(),                address(dss.dai));
         assertEq(address(a.pair()),      UNIV2_DAI_MKR_PAIR);
         assertEq(address(a.pip()),       address(pipMkr));
         assertEq(a.lpOwner(),            pauseProxy);
@@ -281,22 +276,22 @@ contract LockstakeAutoMaxLineTest is DssTest {
 
         // check also when dai is second
         LockstakeAutoMaxLine b = new LockstakeAutoMaxLine(
-            address(vat),
-            address(jug),
-            address(spotter),
+            address(dss.vat),
+            address(dss.jug),
+            address(dss.spotter),
             address(autoLine),
             ILK,
-            dai,
+            address(dss.dai),
             UNIV2_LINK_DAI_PAIR,
             address(pipLink),
             pauseProxy
         );
-        assertEq(address(b.vat()),       address(vat));
-        assertEq(address(b.jug()),       address(jug));
-        assertEq(address(b.spotter()),   address(spotter));
+        assertEq(address(b.vat()),       address(dss.vat));
+        assertEq(address(b.jug()),       address(dss.jug));
+        assertEq(address(b.spotter()),   address(dss.spotter));
         assertEq(address(b.autoLine()),  address(autoLine));
         assertEq(b.ilk(),                ILK);
-        assertEq(a.dai(),                dai);
+        assertEq(a.dai(),                address(dss.dai));
         assertEq(address(b.pair()),      UNIV2_LINK_DAI_PAIR);
         assertEq(address(b.pip()),       address(pipLink));
         assertEq(a.lpOwner(),            pauseProxy);
@@ -349,7 +344,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
     function testInvalidReserves() public {
         uint256 snapshot = vm.snapshot();
 
-        deal(dai, UNIV2_DAI_MKR_PAIR, 0);
+        deal(address(dss.dai), UNIV2_DAI_MKR_PAIR, 0);
         vm.expectRevert("LockstakeAutoMaxLine/invalid-reserves");
         autoMaxLine.exec();
 
@@ -361,7 +356,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
     }
 
     function checkExec(LockstakeAutoMaxLine autoMaxLine_, uint256 debtToCreate, uint256 expectedNewMaxLine, uint256 expectedNewDuty) internal {
-        vat.frob(ILK, address(this), address(0), address(0), 0, int256(debtToCreate)); // assuming rate == RAY (jug never dripped)
+        dss.vat.frob(ILK, address(this), address(0), address(0), 0, int256(debtToCreate)); // assuming rate == RAY (jug never dripped)
 
         uint256 snapshot = vm.snapshot();
         (uint256 oldMaxLine, uint256 newMaxLine, uint256 debt, uint256 oldDuty, uint256 newDuty) = autoMaxLine_.exec();
@@ -386,7 +381,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         assertEq(ttlAfter,     ttlBefore);
         assertEq(lastAfter,    lastBefore);
         assertEq(lastIncAfter, lastIncBefore);
-        (uint256 dutyAfter,)= jug.ilks(ILK);
+        (uint256 dutyAfter,)= dss.jug.ilks(ILK);
         assertEq(dutyAfter, newDuty);
     }
 
@@ -417,7 +412,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
     }
 
     function testExecToZeroAndBack() public {
-        vat.frob(ILK, address(this), address(0), address(0), 0, int256(31_000_000 * WAD)); // assuming rate == RAY (jug never dripped)
+        dss.vat.frob(ILK, address(this), address(0), address(0), 0, int256(31_000_000 * WAD)); // assuming rate == RAY (jug never dripped)
 
         uint256 initialLpFunds = GemLike(UNIV2_DAI_MKR_PAIR).balanceOf(pauseProxy);
 
@@ -437,7 +432,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
     }
 
     function calculateNaiveMaxLine() public view returns (uint256) {
-        (uint256 reserveDai, uint256 reserveMkr) = UniswapV2Library.getReserves(UNIV2_FACTORY, dai, mkr);
+        (uint256 reserveDai, uint256 reserveMkr) = UniswapV2Library.getReserves(UNIV2_FACTORY, address(dss.dai), mkr);
         uint256 currentDaiForMkr = reserveDai * WAD / reserveMkr;
         uint256 reservesInDai = reserveDai + reserveMkr * currentDaiForMkr / WAD;
         uint256 protocolReseveInDai = GemLike(UNIV2_DAI_MKR_PAIR).balanceOf(pauseProxy) * reservesInDai / GemLike(UNIV2_DAI_MKR_PAIR).totalSupply();
@@ -450,10 +445,10 @@ contract LockstakeAutoMaxLineTest is DssTest {
         assertEqApprox(newMaxLineBefore, naiveMaxLineBefore, RAD / 1000); // Without manipulating naive pricing works
 
         // Buy MKR to inflate the MKR value
-        deal(dai, address(this), daiForManipulation);
-        GemLike(dai).approve(UNIV2_ROUTER, daiForManipulation);
+        deal(address(dss.dai), address(this), daiForManipulation);
+        GemLike(address(dss.dai)).approve(UNIV2_ROUTER, daiForManipulation);
         address[] memory path = new address[](2);
-        path[0] = dai;
+        path[0] = address(dss.dai);
         path[1] = mkr;
         RouterLike(UNIV2_ROUTER).swapExactTokensForTokens(daiForManipulation, 0, path, address(this), block.timestamp);
 

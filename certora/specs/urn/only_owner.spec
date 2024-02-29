@@ -1,8 +1,4 @@
-// https://vaas-stg.certora.com/output/20941/f85d86a50414439e8b74b3fcd02b901e?anonymousKey=84778d323dfef74d79e15c21b7c0772d079ed6c8 for LockstateEngine
-// https://vaas-stg.certora.com/output/20941/b5f39d29a2e94131b64e7d9c169ddc06?anonymousKey=9b1d9699d8f2cd5c81eb1e78c45c31b69ab372af for LockstateClipper
-// https://vaas-stg.certora.com/output/20941/2bae243e702b409784174ce2cb21c2f3?anonymousKey=cf3bf0b50c72561fafd1887bb23c0ef3aac5a48b for LockstateUrn
-
-use builtin rule sanity;
+// https://vaas-stg.certora.com/output/20941/06d5489e909f49f38ed2d4fe4c051e4f?anonymousKey=4e49e54a557731c1bf3983a57d7b1c595e44881d
 
 methods {
     function _.getReward(address,address) external => DISPATCHER(true);
@@ -25,4 +21,14 @@ methods {
     function _.ilk() external => DISPATCHER(true);
     function _.Ash() external => DISPATCHER(true);
     function _.kiss(uint) external => DISPATCHER(true);
+    function engine() external returns address envfree;
+}
+
+/* Property: only the contract's owner, i.e. [engine], does not revert, when calling [withdraw] */
+rule onlyOwnerNotRevert() {
+    env e;
+    address farm; uint256 wad;
+    withdraw@withrevert(e, farm, wad);
+    satisfy !lastReverted; // check we do not always revert
+    assert !lastReverted => e.msg.sender == engine();
 }

@@ -1,3 +1,7 @@
+// https://vaas-stg.certora.com/output/20941/2e795b9d31f64012bc650f08dff8661e?anonymousKey=25e64caed2fbcc46f4911ca86ac16f19fbb237a3
+
+using LockstakeClipper as lockstakeClipper;
+
 methods {
     function _.getReward(address,address) external => DISPATCHER(true);
     function _.withdraw(address,uint256) external => DISPATCHER(true);
@@ -19,27 +23,23 @@ methods {
     function _.ilk() external => DISPATCHER(true);
     function _.Ash() external => DISPATCHER(true);
     function _.kiss(uint) external => DISPATCHER(true);
+    function kicks() external returns uint256 envfree;
 }
 
-ghost bool isUrnOwnersStored;
+/* Invariant: [wards]'s values are always zero or one */
+invariant oneOrZero(address addr)
+    // using direct-storage access
+    lockstakeClipper.wards[addr] == 0 || lockstakeClipper.wards[addr] == 1;
 
-hook Sstore urnOwners[KEY address urn] address owner {
-  isUrnOwnersStored = true;
-}
+/* Property: [kicks] is monotonic */
+rule kicksIncrease(method f) filtered { f -> !f.isView } {
 
-ghost bool isUrnCanStored;
-
-hook Sstore urnCan[KEY address urn][KEY address candidate] uint256 isAuthorized {
-  isUrnCanStored = true;
-}
-
-/* Property: one can store into [urnOwners]/[urnCan] only via the [open], [hope]/[nope]
-functions (respectively) */
-rule updateGhostByCall(method f) {
+    uint before = kicks();
+    
     env e; calldataarg args;
-    require !isUrnOwnersStored && !isUrnCanStored;
     f(e, args);
-    assert isUrnOwnersStored => f.selector == sig:open(uint256).selector;
-    assert isUrnCanStored => f.selector == sig:hope(address,address).selector ||
-      f.selector == sig:nope(address,address).selector;
+
+    uint after = kicks();
+
+    assert before <= after;
 }

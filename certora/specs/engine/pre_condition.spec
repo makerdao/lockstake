@@ -1,8 +1,4 @@
-// https://vaas-stg.certora.com/output/20941/f85d86a50414439e8b74b3fcd02b901e?anonymousKey=84778d323dfef74d79e15c21b7c0772d079ed6c8 for LockstateEngine
-// https://vaas-stg.certora.com/output/20941/b5f39d29a2e94131b64e7d9c169ddc06?anonymousKey=9b1d9699d8f2cd5c81eb1e78c45c31b69ab372af for LockstateClipper
-// https://vaas-stg.certora.com/output/20941/2bae243e702b409784174ce2cb21c2f3?anonymousKey=cf3bf0b50c72561fafd1887bb23c0ef3aac5a48b for LockstateUrn
-
-use builtin rule sanity;
+// https://vaas-stg.certora.com/output/20941/f76ea4a736af4646876056c4147e7106?anonymousKey=6656ee0648f496fec9cfd4d17f87c969b1e8030b
 
 methods {
     function _.getReward(address,address) external => DISPATCHER(true);
@@ -25,4 +21,30 @@ methods {
     function _.ilk() external => DISPATCHER(true);
     function _.Ash() external => DISPATCHER(true);
     function _.kiss(uint) external => DISPATCHER(true);
+}
+
+ghost bool isUrnOwnersStored;
+
+hook Sstore urnOwners[KEY address urn] address owner {
+  isUrnOwnersStored = true;
+}
+
+ghost bool isUrnCanStored;
+
+hook Sstore urnCan[KEY address urn][KEY address candidate] uint256 isAuthorized {
+  isUrnCanStored = true;
+}
+
+/* Property: one can store into [urnOwners]/[urnCan] only via the [open], [hope]/[nope]
+functions (respectively) */
+rule updateGhostByCall(method f) filtered {
+    // resolving the delegate calls within the Multicall contract is a work in progress
+    f -> f.selector != sig:multicall(bytes[]).selector
+  } {
+    env e; calldataarg args;
+    require !isUrnOwnersStored && !isUrnCanStored;
+    f(e, args);
+    assert isUrnOwnersStored => f.selector == sig:open(uint256).selector;
+    assert isUrnCanStored => f.selector == sig:hope(address,address).selector ||
+      f.selector == sig:nope(address,address).selector;
 }

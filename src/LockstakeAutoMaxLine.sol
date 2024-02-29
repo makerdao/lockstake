@@ -149,7 +149,8 @@ contract LockstakeAutoMaxLine {
     // --- internals ---
 
     // Based on https://github.com/makerdao/univ2-lp-oracle/blob/874a59d74d847909cc4a31f0d38ee6b020f6525f/src/UNIV2LPOracle.sol#L261
-    function _seek(uint256 par) internal returns (uint256 quote) {
+    // Modified to return a price in DAI terms
+    function _seek() internal returns (uint256 quote) {
         // Sync up reserves of uniswap liquidity pool
         pair.sync();
 
@@ -157,12 +158,12 @@ contract LockstakeAutoMaxLine {
         (uint112 r0, uint112 r1,) = pair.getReserves();
         require(r0 > 0 && r1 > 0, "LockstakeAutoMaxLine/invalid-reserves");
 
-        // All Oracle prices are priced with 18 decimals against USD
-        uint256 pGem = pip.read();  // Query gem price from oracle (WAD)
+        uint256 pGem = pip.read() * RAY / spotter.par();  // Gem price from oracle converted to DAI reference (WAD)
         require(pGem != 0, "LockstakeAutoMaxLine/invalid-oracle-price");
 
-        uint256 p0 = daiFirst ? (par / BLN) : pGem;
-        uint256 p1 = daiFirst ? pGem : (par / BLN);
+        // Prices against DAI
+        uint256 p0 = daiFirst ? WAD : pGem;
+        uint256 p1 = daiFirst ? pGem : WAD;
 
         // This calculation should be overflow-resistant even for tokens with very high or very
         // low prices, as the dollar value of each reserve should lie in a fairly controlled range
@@ -184,10 +185,10 @@ contract LockstakeAutoMaxLine {
 
         uint256 uniswapLps = pair.balanceOf(lpOwner);
         if (uniswapLps > 0) {
-            uint256 par = spotter.par();
-            newMaxLine = ((uniswapLps * _seek(par) / WAD) * RAY / par) * lpFactor;
+            newMaxLine = (uniswapLps * _seek() / WAD) * lpFactor;
         } else {
-            newMaxLine = 0; // Also ensures we do not call _seek when pair.totalSupply() is 0
+            // Avoid the calculation (which also prevents calling _seek() when pair.totalSupply() is 0)
+            newMaxLine = 0;
         }
 
         // Due to the following validation maxLine can not be 0:

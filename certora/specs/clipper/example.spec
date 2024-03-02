@@ -23,7 +23,20 @@ methods {
     function _.ilk() external => DISPATCHER(true);
     function _.Ash() external => DISPATCHER(true);
     function _.kiss(uint) external => DISPATCHER(true);
+
+    /* When a function is not using the environment, it can be declared as envfree,
+    to omit the call’s env argument */
     function kicks() external returns uint256 envfree;
+
+    /* We can summarize some complex math operations if they are not relevant
+    for the property being checked, and we want to reduce some run-time of the Prover.
+    Below we use the summaries just for demonstration. */
+    function rmul(uint256,uint256) internal returns (uint256) => CONSTANT;
+    function rdiv(uint256 x, uint256 y) internal returns (uint256) => cvlRDiv(x, y);
+}
+
+function cvlRDiv(uint x, uint y) returns uint256 {
+    return 3;
 }
 
 /* Invariant: [wards]'s values are always zero or one */
@@ -31,7 +44,7 @@ invariant oneOrZero(address addr)
     // using direct-storage access
     lockstakeClipper.wards[addr] == 0 || lockstakeClipper.wards[addr] == 1;
 
-/* Property: [kicks] is monotonic */
+/* Property: [kicks] is monotonic increasing */
 rule kicksIncrease(method f) filtered { f -> !f.isView } {
 
     uint before = kicks();

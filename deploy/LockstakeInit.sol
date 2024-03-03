@@ -284,8 +284,8 @@ library LockstakeInit {
 
         // Configurations
         dss.jug.rely(autoMaxLine_);
-        PipLike(cfg.pip).kiss(autoMaxLine_);
         AutoLineLike(autoLine).rely(autoMaxLine_);
+        PipLike(cfg.pip).kiss(autoMaxLine_);
 
         autoMaxLine.file("duty",         cfg.duty);
         autoMaxLine.file("windDownDuty", cfg.windDownDuty);

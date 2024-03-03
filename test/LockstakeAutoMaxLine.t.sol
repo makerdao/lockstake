@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Dai Foundation <www.daifoundation.org>
+// SPDX-FileCopyrightText: © 2024 Dai Foundation <www.daifoundation.org>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // This program is free software: you can redistribute it and/or modify
@@ -34,20 +34,7 @@ interface VatLike {
     function frob(bytes32, address, address, address, int256, int256) external;
 }
 
-interface PipLike {
-    function read() external view returns (uint256);
-    function kiss(address) external;
-}
-
-interface JugLike {
-    function init(bytes32) external;
-    function file(bytes32, bytes32, uint256) external;
-    function rely(address) external;
-    function ilks(bytes32) external view returns (uint256, uint256);
-}
-
 interface SpotterLike {
-    function par() external view returns (uint256);
     function file(bytes32, bytes32, address) external;
     function file(bytes32, bytes32, uint256) external;
     function poke(bytes32) external;
@@ -61,7 +48,6 @@ interface GemLike {
     function balanceOf(address) external view returns (uint256);
     function totalSupply() external view returns (uint256);
     function approve(address, uint256) external;
-    function transfer(address, uint256) external;
 }
 
 interface AutoLineLike {
@@ -102,9 +88,9 @@ contract LockstakeAutoMaxLineTest is DssTest {
     address              link;
     address              pauseProxy;
     AutoLineLike         autoLine;
-    PipLike              pipEth;
-    PipLike              pipMkr;
-    PipLike              pipLink;
+    address             pipEth;
+    address             pipMkr;
+    address             pipLink;
     LockstakeAutoMaxLine autoMaxLine;
     LockstakeAutoMaxLine linkAutoMaxLine;
     
@@ -130,9 +116,9 @@ contract LockstakeAutoMaxLineTest is DssTest {
         link          = dss.chainlog.getAddress("LINK");
         pauseProxy    = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
         autoLine      = AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE"));
-        pipEth        = PipLike(dss.chainlog.getAddress("PIP_ETH"));
-        pipMkr        = PipLike(dss.chainlog.getAddress("PIP_MKR"));
-        pipLink       = PipLike(OsmLike(dss.chainlog.getAddress("PIP_LINK")).src()); // Compatability with MKR pip
+        pipEth        = dss.chainlog.getAddress("PIP_ETH");
+        pipMkr        = dss.chainlog.getAddress("PIP_MKR");
+        pipLink       = OsmLike(dss.chainlog.getAddress("PIP_LINK")).src(); // Compatibility with MKR pip
 
         vm.startPrank(pauseProxy);
         dss.vat.init(ILK);
@@ -152,7 +138,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         linkAutoMaxLine = setupAutoMaxLine(link, UNIV2_LINK_DAI_PAIR, pipLink, 727);
     }
 
-    function setupAutoMaxLine(address gem, address pair, PipLike pip, uint256 price)
+    function setupAutoMaxLine(address gem, address pair, address pip, uint256 price)
         internal
         returns (LockstakeAutoMaxLine autoMaxLine_)
     {
@@ -381,7 +367,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         assertEq(ttlAfter,     ttlBefore);
         assertEq(lastAfter,    lastBefore);
         assertEq(lastIncAfter, lastIncBefore);
-        (uint256 dutyAfter,)= dss.jug.ilks(ILK);
+        (uint256 dutyAfter,) = dss.jug.ilks(ILK);
         assertEq(dutyAfter, newDuty);
     }
 

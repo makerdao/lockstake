@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Dai Foundation <www.daifoundation.org>
+// SPDX-FileCopyrightText: © 2024 Dai Foundation <www.daifoundation.org>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // This program is free software: you can redistribute it and/or modify
@@ -65,10 +65,8 @@ contract LockstakeAutoMaxLine {
 
     // --- constants ---
 
-    uint256 constant BLN = 10**9;
     uint256 constant WAD = 10**18;
     uint256 constant RAY = 10**27;
-    uint256 constant RAD = 10**45;
 
     // --- immutables ---
 
@@ -212,6 +210,5 @@ contract LockstakeAutoMaxLine {
         }
 
         emit Exec(oldMaxLine, newMaxLine, debt, oldDuty, newDuty);
-        return (oldMaxLine, newMaxLine, debt, oldDuty, newDuty);
     }
 }

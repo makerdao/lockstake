@@ -22,6 +22,7 @@ import { LockstakeAutoMaxLine } from "src/LockstakeAutoMaxLine.sol";
 import { LockstakeDeploy } from "deploy/LockstakeDeploy.sol";
 import { LockstakeInit, AutoMaxLineConfig } from "deploy/LockstakeInit.sol";
 import { UniswapV2Library } from "test/helpers/UniswapV2Library.sol";
+import { PipMock } from "test/mocks/PipMock.sol";
 
 interface ChainlogLike {
     function getAddress(bytes32) external view returns (address);
@@ -339,6 +340,23 @@ contract LockstakeAutoMaxLineTest is DssTest {
         deal(mkr, UNIV2_DAI_MKR_PAIR, 0);
         vm.expectRevert("LockstakeAutoMaxLine/invalid-reserves");
         autoMaxLine.exec();
+    }
+
+    function testInvalidOraclePrice() public {
+        PipMock zeroPip = new PipMock();
+        zeroPip.setPrice(0);
+
+        LockstakeAutoMaxLine autoMaxLine_ = LockstakeAutoMaxLine(LockstakeDeploy.deployAutoMaxLine(
+            address(this),
+            pauseProxy,
+            ILK,
+            address(dss.dai),
+            UNIV2_DAI_MKR_PAIR,
+            address(zeroPip)
+        ));
+
+        vm.expectRevert("LockstakeAutoMaxLine/invalid-oracle-price");
+        autoMaxLine_.exec();
     }
 
     function checkExec(LockstakeAutoMaxLine autoMaxLine_, uint256 debtToCreate, uint256 expectedNewMaxLine, uint256 expectedNewDuty) internal {

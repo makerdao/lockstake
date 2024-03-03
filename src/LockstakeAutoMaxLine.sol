@@ -156,8 +156,10 @@ contract LockstakeAutoMaxLine {
         (uint112 r0, uint112 r1,) = pair.getReserves();
         require(r0 > 0 && r1 > 0, "LockstakeAutoMaxLine/invalid-reserves");
 
-        // Prices against DAI
         uint256 pGem = pip.read() * RAY / spotter.par();  // Gem price from oracle converted to DAI reference (WAD)
+        require(pGem != 0, "LockstakeAutoMaxLine/invalid-oracle-price");
+
+        // Prices against DAI
         uint256 p0 = daiFirst ? WAD : pGem;
         uint256 p1 = daiFirst ? pGem : WAD;
 

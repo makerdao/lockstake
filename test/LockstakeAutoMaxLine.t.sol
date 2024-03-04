@@ -154,7 +154,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
 
         AutoMaxLineConfig memory cfg = AutoMaxLineConfig({
             ilk          : ILK,
-            dai          : address(dss.dai),
+            nst          : address(dss.dai),
             pair         : pair,
             pip          : address(pip),
             duty         : RATE_5_PERCENT,
@@ -254,14 +254,14 @@ contract LockstakeAutoMaxLineTest is DssTest {
         assertEq(address(a.spotter()),   address(dss.spotter));
         assertEq(address(a.autoLine()),  address(autoLine));
         assertEq(a.ilk(),                ILK);
-        assertEq(a.dai(),                address(dss.dai));
+        assertEq(a.nst(),                address(dss.dai));
         assertEq(address(a.pair()),      UNIV2_DAI_MKR_PAIR);
         assertEq(address(a.pip()),       address(pipMkr));
         assertEq(a.lpOwner(),            pauseProxy);
-        assertEq(a.daiFirst(),           true);
+        assertEq(a.nstFirst(),           true);
         assertEq(a.wards(address(this)), 1);
 
-        // check also when dai is second
+        // check also when nst is second
         LockstakeAutoMaxLine b = new LockstakeAutoMaxLine(
             address(dss.vat),
             address(dss.jug),
@@ -278,11 +278,11 @@ contract LockstakeAutoMaxLineTest is DssTest {
         assertEq(address(b.spotter()),   address(dss.spotter));
         assertEq(address(b.autoLine()),  address(autoLine));
         assertEq(b.ilk(),                ILK);
-        assertEq(a.dai(),                address(dss.dai));
+        assertEq(a.nst(),                address(dss.dai));
         assertEq(address(b.pair()),      UNIV2_LINK_DAI_PAIR);
         assertEq(address(b.pip()),       address(pipLink));
         assertEq(a.lpOwner(),            pauseProxy);
-        assertEq(b.daiFirst(),           false);
+        assertEq(b.nstFirst(),           false);
         assertEq(b.wards(address(this)), 1);
     }
 
@@ -393,7 +393,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         checkExec(autoMaxLine, 31_000_000 * WAD, 32_000_000 * RAD, RATE_5_PERCENT); // 31m < max(0.4 * 80m, 1 wei)
     }
 
-    function testExecDebtLessThanNewMaxLineDaiSecond() public {
+    function testExecDebtLessThanNewMaxLineNstSecond() public {
         checkExec(linkAutoMaxLine, 31_000_000 * WAD, 32_000_000 * RAD, RATE_5_PERCENT); // 31m < max(0.4 * 80m, 1 wei)
     }
 
@@ -401,7 +401,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         checkExec(autoMaxLine, 33_000_000 * WAD, 32_000_000 * RAD, RATE_15_PERCENT); // 33m > max(0.4 * 80m, 1 wei)
     }
 
-    function testExecDebtMoreThanNewMaxLineDaiSecond() public {
+    function testExecDebtMoreThanNewMaxLineNstSecond() public {
         checkExec(linkAutoMaxLine, 33_000_000 * WAD, 32_000_000 * RAD, RATE_15_PERCENT); // 33m > max(0.4 * 80m, 1 wei)
     }
 
@@ -410,7 +410,7 @@ contract LockstakeAutoMaxLineTest is DssTest {
         checkExec(autoMaxLine, 1_000_000 * WAD, 1 wei, RATE_15_PERCENT); // 1m > max(0.4 * 0m, 1 wei)
     }
 
-    function testExecNoLpFundsDaiSecond() public {
+    function testExecNoLpFundsNstSecond() public {
         deal(UNIV2_LINK_DAI_PAIR, pauseProxy, 0);
         checkExec(linkAutoMaxLine, 1_000_000 * WAD, 1 wei, RATE_15_PERCENT); // 1m > max(0.4 * 0m, 1 wei)
     }

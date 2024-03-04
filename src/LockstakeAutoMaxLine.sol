@@ -75,11 +75,11 @@ contract LockstakeAutoMaxLine {
     SpotLike     public immutable spotter;
     AutoLineLike public immutable autoLine;
     bytes32      public immutable ilk;
-    address      public immutable dai;
+    address      public immutable nst;
     PairLike     public immutable pair;
     PipLike      public immutable pip;
     address      public immutable lpOwner;
-    bool         public immutable daiFirst;
+    bool         public immutable nstFirst;
 
     // --- events ---
 
@@ -101,7 +101,7 @@ contract LockstakeAutoMaxLine {
         address spotter_,
         address autoLine_,
         bytes32 ilk_,
-        address dai_,
+        address nst_,
         address pair_,
         address pip_,
         address lpOwner_
@@ -111,13 +111,13 @@ contract LockstakeAutoMaxLine {
         spotter  = SpotLike(spotter_);
         autoLine = AutoLineLike(autoLine_);
         ilk      = ilk_;
-        dai      = dai_;
+        nst      = nst_;
         pair     = PairLike(pair_);
         pip      = PipLike(pip_);
         lpOwner  = lpOwner_;
 
-        daiFirst = pair.token0() == dai;
-        address gem = daiFirst ? pair.token1() : pair.token0();
+        nstFirst = pair.token0() == nst;
+        address gem = nstFirst ? pair.token1() : pair.token0();
         require(GemLike(gem).decimals() == 18, "LockstakeAutoMaxLine/gem-decimals-not-18");
 
         wards[msg.sender] = 1;
@@ -147,7 +147,7 @@ contract LockstakeAutoMaxLine {
     // --- internals ---
 
     // Based on https://github.com/makerdao/univ2-lp-oracle/blob/874a59d74d847909cc4a31f0d38ee6b020f6525f/src/UNIV2LPOracle.sol#L261
-    // Modified to return a price in DAI terms
+    // Modified to return a price in NST terms
     function _seek() internal returns (uint256 quote) {
         // Sync up reserves of uniswap liquidity pool
         pair.sync();
@@ -156,12 +156,12 @@ contract LockstakeAutoMaxLine {
         (uint112 r0, uint112 r1,) = pair.getReserves();
         require(r0 > 0 && r1 > 0, "LockstakeAutoMaxLine/invalid-reserves");
 
-        uint256 pGem = pip.read() * RAY / spotter.par();  // Gem price from oracle converted to DAI reference (WAD)
+        uint256 pGem = pip.read() * RAY / spotter.par();  // Gem price from oracle converted to NST reference (WAD)
         require(pGem != 0, "LockstakeAutoMaxLine/invalid-oracle-price");
 
-        // Prices against DAI
-        uint256 p0 = daiFirst ? WAD : pGem;
-        uint256 p1 = daiFirst ? pGem : WAD;
+        // Prices against NST
+        uint256 p0 = nstFirst ? WAD : pGem;
+        uint256 p1 = nstFirst ? pGem : WAD;
 
         // This calculation should be overflow-resistant even for tokens with very high or very
         // low prices, as the dollar value of each reserve should lie in a fairly controlled range

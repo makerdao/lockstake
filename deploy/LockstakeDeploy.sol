@@ -55,7 +55,7 @@ library LockstakeDeploy {
         address deployer,
         address owner,
         bytes32 ilk,
-        address dai,
+        address nst,
         address pair,
         address pip
     ) internal returns (address autoMaxLine) {
@@ -67,7 +67,7 @@ library LockstakeDeploy {
             address(dss.spotter),
             dss.chainlog.getAddress("MCD_IAM_AUTO_LINE"),
             ilk,
-            dai,
+            nst,
             pair,
             pip,
             dss.chainlog.getAddress("MCD_PAUSE_PROXY")

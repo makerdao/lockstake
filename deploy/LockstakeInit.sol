@@ -89,7 +89,7 @@ interface AutoMaxLineLike {
     function autoLine() external view returns (address);
     function lpOwner() external view returns (address);
     function ilk() external view returns (bytes32);
-    function dai() external view returns (address);
+    function nst() external view returns (address);
     function pair() external view returns (address);
     function pip() external view returns (address);
     function file(bytes32, uint256) external;
@@ -131,7 +131,7 @@ struct LockstakeConfig {
 
 struct AutoMaxLineConfig {
     bytes32 ilk;
-    address dai;
+    address nst;
     address pair;
     address pip;
     uint256 duty;
@@ -274,7 +274,7 @@ library LockstakeInit {
         require(autoMaxLine.lpOwner() == dss.chainlog.getAddress("MCD_PAUSE_PROXY"),   "AutoMaxLine lp owner mismatch");
 
         require(autoMaxLine.ilk()           == cfg.ilk,  "AutoMaxLine ilk mismatch");
-        require(autoMaxLine.dai()           == cfg.dai,  "AutoMaxLine dai mismatch");
+        require(autoMaxLine.nst()           == cfg.nst,  "AutoMaxLine nst mismatch");
         require(address(autoMaxLine.pair()) == cfg.pair, "AutoMaxLine pair mismatch");
         require(address(autoMaxLine.pip())  == cfg.pip,  "AutoMaxLine pip mismatch");
 

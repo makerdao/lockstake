@@ -160,8 +160,7 @@ contract LockstakeAutoMaxLine {
         require(pGem != 0, "LockstakeAutoMaxLine/invalid-oracle-price");
 
         // Prices against NST
-        uint256 p0 = nstFirst ? WAD : pGem;
-        uint256 p1 = nstFirst ? pGem : WAD;
+        (uint256 p0, uint256 p1) = nstFirst ? (WAD, pGem) : (pGem, WAD);
 
         // This calculation should be overflow-resistant even for tokens with very high or very
         // low prices, as the dollar value of each reserve should lie in a fairly controlled range

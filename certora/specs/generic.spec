@@ -20,8 +20,7 @@ methods {
     function _.balanceOf(address) external => DISPATCHER(true);
     function _.transfer(address,uint256) external => DISPATCHER(true);
     function _.stake(uint256,uint16) external => DISPATCHER(true);
-    function _.peek() external => DISPATCHER(true);
-    function _.kick(uint256,uint256,address,address) external => DISPATCHER(true);
+    //function _.kick(uint256,uint256,address,address) external => DISPATCHER(true);
     function _.ilk() external => DISPATCHER(true);
     function _.Ash() external => DISPATCHER(true);
     function _.kiss(uint) external => DISPATCHER(true);

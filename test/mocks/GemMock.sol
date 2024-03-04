@@ -78,7 +78,7 @@ contract GemMock {
         }
     }
 
-    //[CERTORA] add concrete implementation to the abstract function defined in Flap.sol
+    //[CERTORA] (empty) concrete implementation to the abstract function defined in Flap.sol
     function move(address a, address b ,uint num) external {
 
     }

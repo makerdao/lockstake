@@ -1,4 +1,4 @@
-// https://vaas-stg.certora.com/output/20941/2e795b9d31f64012bc650f08dff8661e?anonymousKey=25e64caed2fbcc46f4911ca86ac16f19fbb237a3
+// https://vaas-stg.certora.com/output/20941/cc982826254d4b21bb962daa15a2ed9d?anonymousKey=5fca14b51d96b47eb967d21b1528c029eb69c4eb
 
 using LockstakeClipper as lockstakeClipper;
 
@@ -18,7 +18,6 @@ methods {
     function _.balanceOf(address) external => DISPATCHER(true);
     function _.transfer(address,uint256) external => DISPATCHER(true);
     function _.stake(uint256,uint16) external => DISPATCHER(true);
-    function _.peek() external => DISPATCHER(true);
     function _.kick(uint256,uint256,address,address) external => DISPATCHER(true);
     function _.ilk() external => DISPATCHER(true);
     function _.Ash() external => DISPATCHER(true);

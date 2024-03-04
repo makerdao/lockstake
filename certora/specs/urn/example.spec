@@ -1,4 +1,4 @@
-// https://vaas-stg.certora.com/output/20941/06d5489e909f49f38ed2d4fe4c051e4f?anonymousKey=4e49e54a557731c1bf3983a57d7b1c595e44881d
+// https://vaas-stg.certora.com/output/20941/fbbf5247044848c397703d2f2278dee0?anonymousKey=cca262c3024a07fa5299dc1e316d5a27018c8825
 
 methods {
     function _.getReward(address,address) external => DISPATCHER(true);
@@ -16,7 +16,6 @@ methods {
     function _.balanceOf(address) external => DISPATCHER(true);
     function _.transfer(address,uint256) external => DISPATCHER(true);
     function _.stake(uint256,uint16) external => DISPATCHER(true);
-    function _.peek() external => DISPATCHER(true);
     function _.kick(uint256,uint256,address,address) external => DISPATCHER(true);
     function _.ilk() external => DISPATCHER(true);
     function _.Ash() external => DISPATCHER(true);

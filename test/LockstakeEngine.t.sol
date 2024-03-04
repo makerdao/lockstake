@@ -1436,6 +1436,11 @@ contract LockstakeEngineTest is DssTest {
         vm.expectRevert("LockstakeEngine/urn-unsafe");
         engine.selectDelegate(urn, voterDelegate2);
 
+        engine.selectDelegate(urn, address(0));
+
+        vm.expectRevert("LockstakeEngine/urn-unsafe");
+        engine.selectDelegate(urn, voterDelegate2);
+
         vm.store(address(pip), bytes32(uint256(1)), bytes32(uint256(1_500 * 10**18))); // Back to safety
         dss.spotter.poke(ilk);
 

@@ -135,6 +135,9 @@ From ① and ② we get the requirement on `mat`:
 For the mentioned examples of `chop` and `fee` we get:
 `mat > 1.13 / 0.85 ~= 133%`
 
+**Trusted Farms and Reward Tokens**
+
+It is assumed that the farm owner is trusted, the reward token implementation is non-malicious, and that the reward token minter/s are not malicious. Therefore, theoretic attacks, in which for example the reward token supply is inflated to a point where the farm mechanics block liquidations, are assumed non-feasible.
 
 **Configurable Parameters (similar to a regular Clipper):**
 

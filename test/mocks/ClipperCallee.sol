@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+// taken from: ./LockstakeClipper.t.sol
+
 pragma solidity ^0.8.16;
 
 import { LockstakeClipper } from "src/LockstakeClipper.sol";

@@ -17,6 +17,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// taken from: https://github.com/Certora/makerTraining/tree/master/src
+
 pragma solidity ^0.8.16;
 
 interface VatLike {

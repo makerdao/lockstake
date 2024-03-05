@@ -1,4 +1,4 @@
-// https://vaas-stg.certora.com/output/20941/cc982826254d4b21bb962daa15a2ed9d?anonymousKey=5fca14b51d96b47eb967d21b1528c029eb69c4eb
+// https://vaas-stg.certora.com/output/20941/4ddbe16f40a04b7e90a42df91ebc36b4?anonymousKey=cfafabd0edbd5fd7f98b6014bea7ff4cf4048928
 
 using LockstakeClipper as lockstakeClipper;
 

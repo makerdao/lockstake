@@ -168,8 +168,8 @@ contract LockstakeAutoMaxLine {
         // This calculation should be overflow-resistant even for tokens with very high or very
         // low prices, as the nst value of each reserve should lie in a fairly controlled range
         // regardless of the token prices.
-        uint256 value0 = p0 * uint256(r0) / WAD;
-        uint256 value1 = p1 * uint256(r1) / WAD;
+        uint256 value0 = p0 * r0 / WAD;
+        uint256 value1 = p1 * r1 / WAD;
         quote = 2 * WAD * Babylonian.sqrt(value0 * value1) / pair.totalSupply();
     }
 

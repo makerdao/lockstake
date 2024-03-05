@@ -163,7 +163,7 @@ contract LockstakeAutoMaxLine {
         (uint256 p0, uint256 p1) = nstFirst ? (WAD, pGem) : (pGem, WAD);
 
         // This calculation should be overflow-resistant even for tokens with very high or very
-        // low prices, as the dollar value of each reserve should lie in a fairly controlled range
+        // low prices, as the nst value of each reserve should lie in a fairly controlled range
         // regardless of the token prices.
         uint256 value0 = p0 * uint256(r0) / WAD;
         uint256 value1 = p1 * uint256(r1) / WAD;
@@ -192,7 +192,7 @@ contract LockstakeAutoMaxLine {
         // https://github.com/makerdao/dss-auto-line/blob/bff7e6cc43dbd7d9a054dd359ef18a1b4d06b6f5/src/DssAutoLine.sol#L83
         // This also avoids hitting auto-line-not-enabled in case newMaxLine was calculated as 0 in a previous exec.
         if (newMaxLine == 0) newMaxLine = 1 wei;
-        autoLine.setIlk(ilk, newMaxLine, uint256(gap), uint256(ttl));
+        autoLine.setIlk(ilk, newMaxLine, gap, ttl);
 
         uint256 duty_         = duty;
         uint256 windDownDuty_ = windDownDuty;

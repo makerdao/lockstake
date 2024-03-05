@@ -236,6 +236,19 @@ contract LockstakeAutoMaxLineTest is DssTest {
             pauseProxy
         );
 
+        vm.expectRevert("LockstakeAutoMaxLine/wrong-nst");
+        new LockstakeAutoMaxLine(
+            address(dss.vat),
+            address(dss.jug),
+            address(dss.spotter),
+            address(autoLine),
+            ILK,
+            address(0x123),
+            UNIV2_DAI_USDC_PAIR,
+            address(pipMkr),
+            pauseProxy
+        );
+
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
         LockstakeAutoMaxLine a = new LockstakeAutoMaxLine(

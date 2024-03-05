@@ -116,9 +116,12 @@ contract LockstakeAutoMaxLine {
         pip      = PipLike(pip_);
         lpOwner  = lpOwner_;
 
-        nstFirst = pair.token0() == nst;
-        address gem = nstFirst ? pair.token1() : pair.token0();
-        require(GemLike(gem).decimals() == 18, "LockstakeAutoMaxLine/gem-decimals-not-18");
+        address token0 = pair.token0();
+        nstFirst = token0 == nst;
+
+        (address pairNst, address pairGem) = nstFirst ? (token0, pair.token1()) : (pair.token1(), token0);
+        require(pairNst == nst, "LockstakeAutoMaxLine/wrong-nst"); // implicitly checks decimals are 18
+        require(GemLike(pairGem).decimals() == 18, "LockstakeAutoMaxLine/gem-decimals-not-18");
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);

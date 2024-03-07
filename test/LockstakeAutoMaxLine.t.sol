@@ -89,9 +89,9 @@ contract LockstakeAutoMaxLineTest is DssTest {
     address              link;
     address              pauseProxy;
     AutoLineLike         autoLine;
-    address             pipEth;
-    address             pipMkr;
-    address             pipLink;
+    address              pipEth;
+    address              pipMkr;
+    address              pipLink;
     LockstakeAutoMaxLine autoMaxLine;
     LockstakeAutoMaxLine linkAutoMaxLine;
     

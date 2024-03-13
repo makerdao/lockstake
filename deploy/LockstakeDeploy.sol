@@ -28,7 +28,7 @@ library LockstakeDeploy {
     function deployLockstake(
         address deployer,
         address owner,
-        address delegateFactory,
+        address voteDelegateFactory,
         address nstJoin,
         bytes32 ilk,
         address stkMkr,
@@ -38,7 +38,7 @@ library LockstakeDeploy {
     ) internal returns (LockstakeInstance memory lockstakeInstance) {
         DssInstance memory dss = MCD.loadFromChainlog(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
 
-        lockstakeInstance.engine  = address(new LockstakeEngine(delegateFactory, nstJoin, ilk, mkrNgt, stkMkr, fee));
+        lockstakeInstance.engine  = address(new LockstakeEngine(voteDelegateFactory, nstJoin, ilk, mkrNgt, stkMkr, fee));
         lockstakeInstance.clipper = address(new LockstakeClipper(address(dss.vat), address(dss.spotter), address(dss.dog), lockstakeInstance.engine));
         (bool ok, bytes memory returnV) = dss.chainlog.getAddress("CALC_FAB").call(abi.encodeWithSelector(calcSig, owner));
         require(ok);

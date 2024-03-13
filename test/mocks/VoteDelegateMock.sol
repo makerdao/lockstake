@@ -7,22 +7,21 @@ interface GemLike {
     function transferFrom(address, address, uint256) external;
 }
 
-contract DelegateFactoryMock {
-    mapping(address => uint256) public isDelegate;
+contract VoteDelegateFactoryMock {
+    mapping(address => uint256) public created;
     address immutable private gov;
 
     constructor(address _gov) {
         gov = _gov;
     }
 
-    function create() external returns (address delegate) {
-        delegate = address(new DelegateMock(gov));
-        require(delegate != address(0), "DelegateFactory/creation-failed");
-        isDelegate[delegate] = 1;
+    function create() external returns (address voteDelegate) {
+        voteDelegate = address(new VoteDelegateMock(gov));
+        created[voteDelegate] = 1;
     }
 }
 
-contract DelegateMock {
+contract VoteDelegateMock {
     mapping(address => uint256) public stake;
 
     GemLike immutable public gov;

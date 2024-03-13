@@ -20,7 +20,7 @@ import { DssInstance } from "dss-test/MCD.sol";
 import { LockstakeInstance } from "./LockstakeInstance.sol";
 
 interface LockstakeEngineLike {
-    function delegateFactory() external view returns (address);
+    function voteDelegateFactory() external view returns (address);
     function vat() external view returns (address);
     function nstJoin() external view returns (address);
     function nst() external view returns (address);
@@ -83,7 +83,7 @@ interface IlkRegistryLike {
 
 struct LockstakeConfig {
     bytes32   ilk;
-    address   delegateFactory;
+    address   voteDelegateFactory;
     address   nstJoin;
     address   nst;
     address   mkr;
@@ -130,21 +130,21 @@ library LockstakeInit {
         CalcLike calc                = CalcLike(lockstakeInstance.clipperCalc);
 
         // Sanity checks
-        require(engine.delegateFactory() == cfg.delegateFactory,   "Engine delegateFactory mismatch");
-        require(engine.vat()             == address(dss.vat),      "Engine vat mismatch");
-        require(engine.nstJoin()         == cfg.nstJoin,           "Engine nstJoin mismatch");
-        require(engine.nst()             == cfg.nst,               "Engine nst mismatch");
-        require(engine.ilk()             == cfg.ilk,               "Engine ilk mismatch");
-        require(engine.mkr()             == cfg.mkr,               "Engine mkr mismatch");
-        require(engine.stkMkr()          == cfg.stkMkr,            "Engine stkMkr mismatch");
-        require(engine.fee()             == cfg.fee,               "Engine fee mismatch");
-        require(engine.mkrNgt()          == cfg.mkrNgt,            "Engine mkrNgt mismatch");
-        require(engine.ngt()             == cfg.ngt,               "Engine ngt mismatch");
-        require(clipper.ilk()            == cfg.ilk,               "Clipper ilk mismatch");
-        require(clipper.vat()            == address(dss.vat),      "Clipper vat mismatch");
-        require(clipper.engine()         == address(engine),       "Clipper engine mismatch");
-        require(clipper.dog()            == address(dss.dog),      "Clipper dog mismatch");
-        require(clipper.spotter()        == address(dss.spotter),  "Clipper spotter mismatch");
+        require(engine.voteDelegateFactory() == cfg.voteDelegateFactory,   "Engine voteDelegateFactory mismatch");
+        require(engine.vat()                 == address(dss.vat),          "Engine vat mismatch");
+        require(engine.nstJoin()             == cfg.nstJoin,               "Engine nstJoin mismatch");
+        require(engine.nst()                 == cfg.nst,                   "Engine nst mismatch");
+        require(engine.ilk()                 == cfg.ilk,                   "Engine ilk mismatch");
+        require(engine.mkr()                 == cfg.mkr,                   "Engine mkr mismatch");
+        require(engine.stkMkr()              == cfg.stkMkr,                "Engine stkMkr mismatch");
+        require(engine.fee()                 == cfg.fee,                   "Engine fee mismatch");
+        require(engine.mkrNgt()              == cfg.mkrNgt,                "Engine mkrNgt mismatch");
+        require(engine.ngt()                 == cfg.ngt,                   "Engine ngt mismatch");
+        require(clipper.ilk()                == cfg.ilk,                   "Clipper ilk mismatch");
+        require(clipper.vat()                == address(dss.vat),          "Clipper vat mismatch");
+        require(clipper.engine()             == address(engine),           "Clipper engine mismatch");
+        require(clipper.dog()                == address(dss.dog),          "Clipper dog mismatch");
+        require(clipper.spotter()            == address(dss.spotter),      "Clipper spotter mismatch");
 
         require(cfg.dust <= cfg.hole, "dust greater than hole");
         require(cfg.duty >= RAY && cfg.duty <= RATES_ONE_HUNDRED_PCT, "duty out of boundaries");

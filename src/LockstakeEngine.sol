@@ -19,11 +19,11 @@ pragma solidity ^0.8.16;
 import { LockstakeUrn } from "src/LockstakeUrn.sol";
 import { Multicall } from "src/Multicall.sol";
 
-interface DelegateFactoryLike {
-    function isDelegate(address) external returns (uint256);
+interface VoteDelegateFactoryLike {
+    function created(address) external returns (uint256);
 }
 
-interface DelegateLike {
+interface VoteDelegateLike {
     function lock(uint256) external;
     function free(uint256) external;
 }
@@ -66,14 +66,14 @@ interface MkrNgtLike {
 contract LockstakeEngine is Multicall {
     // --- storage variables ---
 
-    mapping(address => uint256)                     public wards;        // usr => 1 == access
-    mapping(address => FarmStatus)                  public farms;        // farm => FarmStatus
-    mapping(address => uint256)                     public usrAmts;      // usr => urns amount
-    mapping(address => address)                     public urnOwners;    // urn => owner
-    mapping(address => mapping(address => uint256)) public urnCan;       // urn => usr => allowed (1 = yes, 0 = no)
-    mapping(address => address)                     public urnDelegates; // urn => current associated delegate
-    mapping(address => address)                     public urnFarms;     // urn => current selected farm
-    mapping(address => uint256)                     public urnAuctions;  // urn => amount of ongoing liquidations
+    mapping(address => uint256)                     public wards;            // usr => 1 == access
+    mapping(address => FarmStatus)                  public farms;            // farm => FarmStatus
+    mapping(address => uint256)                     public usrAmts;          // usr => urns amount
+    mapping(address => address)                     public urnOwners;        // urn => owner
+    mapping(address => mapping(address => uint256)) public urnCan;           // urn => usr => allowed (1 = yes, 0 = no)
+    mapping(address => address)                     public urnVoteDelegates; // urn => current associated voteDelegate
+    mapping(address => address)                     public urnFarms;         // urn => current selected farm
+    mapping(address => uint256)                     public urnAuctions;      // urn => amount of ongoing liquidations
     JugLike                                         public jug;
 
     // --- constants and enums ---
@@ -85,18 +85,18 @@ contract LockstakeEngine is Multicall {
 
     // --- immutables ---
 
-    DelegateFactoryLike immutable public delegateFactory;
-    VatLike             immutable public vat;
-    NstJoinLike         immutable public nstJoin;
-    GemLike             immutable public nst;
-    bytes32             immutable public ilk;
-    GemLike             immutable public mkr;
-    GemLike             immutable public stkMkr;
-    uint256             immutable public fee;
-    MkrNgtLike          immutable public mkrNgt;
-    GemLike             immutable public ngt;
-    uint256             immutable public mkrNgtRate;
-    address             immutable public urnImplementation;
+    VoteDelegateFactoryLike immutable public voteDelegateFactory;
+    VatLike                 immutable public vat;
+    NstJoinLike             immutable public nstJoin;
+    GemLike                 immutable public nst;
+    bytes32                 immutable public ilk;
+    GemLike                 immutable public mkr;
+    GemLike                 immutable public stkMkr;
+    uint256                 immutable public fee;
+    MkrNgtLike              immutable public mkrNgt;
+    GemLike                 immutable public ngt;
+    uint256                 immutable public mkrNgtRate;
+    address                 immutable public urnImplementation;
 
     // --- events ---   
 
@@ -108,7 +108,7 @@ contract LockstakeEngine is Multicall {
     event Open(address indexed owner, uint256 indexed index, address urn);
     event Hope(address indexed urn, address indexed usr);
     event Nope(address indexed urn, address indexed usr);
-    event SelectDelegate(address indexed urn, address indexed delegate);
+    event SelectVoteDelegate(address indexed urn, address indexed voteDelegate);
     event SelectFarm(address indexed urn, address farm, uint16 ref);
     event Lock(address indexed urn, uint256 wad, uint16 ref);
     event LockNgt(address indexed urn, uint256 ngtWad, uint16 ref);
@@ -136,9 +136,9 @@ contract LockstakeEngine is Multicall {
 
     // --- constructor ---
 
-    constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address mkrNgt_, address stkMkr_, uint256 fee_) {
+    constructor(address voteDelegateFactory_, address nstJoin_, bytes32 ilk_, address mkrNgt_, address stkMkr_, uint256 fee_) {
         require(fee_ < WAD, "LockstakeEngine/fee-equal-or-greater-wad");
-        delegateFactory = DelegateFactoryLike(delegateFactory_);
+        voteDelegateFactory = VoteDelegateFactoryLike(voteDelegateFactory_);
         nstJoin = NstJoinLike(nstJoin_);
         vat = nstJoin.vat();
         nst = nstJoin.nst();
@@ -255,31 +255,31 @@ contract LockstakeEngine is Multicall {
 
     // --- delegation/staking functions ---
 
-    function selectDelegate(address urn, address delegate) external urnAuth(urn) {
+    function selectVoteDelegate(address urn, address voteDelegate) external urnAuth(urn) {
         require(urnAuctions[urn] == 0, "LockstakeEngine/urn-in-auction");
-        require(delegate == address(0) || delegateFactory.isDelegate(delegate) == 1, "LockstakeEngine/not-valid-delegate");
-        address prevDelegate = urnDelegates[urn];
-        require(prevDelegate != delegate, "LockstakeEngine/same-delegate");
+        require(voteDelegate == address(0) || voteDelegateFactory.created(voteDelegate) == 1, "LockstakeEngine/not-valid-voteDelegate");
+        address prevVoteDelegate = urnVoteDelegates[urn];
+        require(prevVoteDelegate != voteDelegate, "LockstakeEngine/same-voteDelegate");
         (uint256 ink, uint256 art) = vat.urns(ilk, urn);
-        if (art > 0 && delegate != address(0)) {
+        if (art > 0 && voteDelegate != address(0)) {
             (, uint256 rate, uint256 spot,,) = vat.ilks(ilk);
             require(ink * spot >= art * rate, "LockstakeEngine/urn-unsafe");
         }
-        _selectDelegate(urn, ink, prevDelegate, delegate);
-        emit SelectDelegate(urn, delegate);
+        _selectVoteDelegate(urn, ink, prevVoteDelegate, voteDelegate);
+        emit SelectVoteDelegate(urn, voteDelegate);
     }
 
-    function _selectDelegate(address urn, uint256 wad, address prevDelegate, address delegate) internal {
+    function _selectVoteDelegate(address urn, uint256 wad, address prevVoteDelegate, address voteDelegate) internal {
         if (wad > 0) {
-            if (prevDelegate != address(0)) {
-                DelegateLike(prevDelegate).free(wad);
+            if (prevVoteDelegate != address(0)) {
+                VoteDelegateLike(prevVoteDelegate).free(wad);
             }
-            if (delegate != address(0)) {
-                mkr.approve(delegate, wad);
-                DelegateLike(delegate).lock(wad);
+            if (voteDelegate != address(0)) {
+                mkr.approve(voteDelegate, wad);
+                VoteDelegateLike(voteDelegate).lock(wad);
             }
         }
-        urnDelegates[urn] = delegate;
+        urnVoteDelegates[urn] = voteDelegate;
     }
 
     function selectFarm(address urn, address farm, uint16 ref) external urnAuth(urn) {
@@ -319,10 +319,10 @@ contract LockstakeEngine is Multicall {
 
     function _lock(address urn, uint256 wad, uint16 ref) internal {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
-        address delegate = urnDelegates[urn];
-        if (delegate != address(0)) {
-            mkr.approve(delegate, wad);
-            DelegateLike(delegate).lock(wad);
+        address voteDelegate = urnVoteDelegates[urn];
+        if (voteDelegate != address(0)) {
+            mkr.approve(voteDelegate, wad);
+            VoteDelegateLike(voteDelegate).lock(wad);
         }
         vat.slip(ilk, urn, int256(wad));
         vat.frob(ilk, urn, urn, address(0), int256(wad), 0);
@@ -362,9 +362,9 @@ contract LockstakeEngine is Multicall {
         stkMkr.burn(urn, wad);
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
-        address delegate = urnDelegates[urn];
-        if (delegate != address(0)) {
-            DelegateLike(delegate).free(wad);
+        address voteDelegate = urnVoteDelegates[urn];
+        if (voteDelegate != address(0)) {
+            VoteDelegateLike(voteDelegate).free(wad);
         }
         uint256 burn = wad * fee_ / WAD;
         if (burn > 0) {
@@ -419,7 +419,7 @@ contract LockstakeEngine is Multicall {
         // Urn confiscation happens in Dog contract where ilk vat.gem is sent to the LockstakeClipper
         (uint256 ink,) = vat.urns(ilk, urn);
         uint256 inkBeforeKick = ink + wad;
-        _selectDelegate(urn, inkBeforeKick, urnDelegates[urn], address(0));
+        _selectVoteDelegate(urn, inkBeforeKick, urnVoteDelegates[urn], address(0));
         _selectFarm(urn, inkBeforeKick, urnFarms[urn], address(0), 0);
         stkMkr.burn(urn, wad);
         urnAuctions[urn]++;

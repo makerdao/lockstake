@@ -9,7 +9,7 @@ interface GemLike {
 
 contract DelegateFactoryMock {
     mapping(address => uint256) public isDelegate;
-    address immutable internal gov;
+    address immutable private gov;
 
     constructor(address _gov) {
         gov = _gov;

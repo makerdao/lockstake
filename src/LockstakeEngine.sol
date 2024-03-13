@@ -20,7 +20,6 @@ import { LockstakeUrn } from "src/LockstakeUrn.sol";
 import { Multicall } from "src/Multicall.sol";
 
 interface DelegateFactoryLike {
-    function gov() external view returns (GemLike);
     function isDelegate(address) external returns (uint256);
 }
 
@@ -58,6 +57,7 @@ interface JugLike {
 
 interface MkrNgtLike {
     function rate() external view returns (uint256);
+    function mkr() external view returns (address);
     function ngt() external view returns (address);
     function ngtToMkr(address, uint256) external;
     function mkrToNgt(address, uint256) external;
@@ -136,19 +136,19 @@ contract LockstakeEngine is Multicall {
 
     // --- constructor ---
 
-    constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address stkMkr_, uint256 fee_, address mkrNgt_) {
+    constructor(address delegateFactory_, address nstJoin_, bytes32 ilk_, address mkrNgt_, address stkMkr_, uint256 fee_) {
         require(fee_ < WAD, "LockstakeEngine/fee-equal-or-greater-wad");
         delegateFactory = DelegateFactoryLike(delegateFactory_);
         nstJoin = NstJoinLike(nstJoin_);
         vat = nstJoin.vat();
         nst = nstJoin.nst();
         ilk = ilk_;
-        mkr = delegateFactory.gov();
-        stkMkr = GemLike(stkMkr_);
-        fee = fee_;
         mkrNgt = MkrNgtLike(mkrNgt_);
+        mkr = GemLike(mkrNgt.mkr());
         ngt = GemLike(mkrNgt.ngt());
         mkrNgtRate = mkrNgt.rate();
+        stkMkr = GemLike(stkMkr_);
+        fee = fee_;
         urnImplementation = address(new LockstakeUrn(address(vat), stkMkr_));
         vat.hope(nstJoin_);
         nst.approve(nstJoin_, type(uint256).max);

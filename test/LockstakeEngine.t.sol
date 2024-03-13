@@ -330,10 +330,10 @@ contract LockstakeEngineTest is DssTest {
 
     function testConstructor() public {
         vm.expectRevert("LockstakeEngine/fee-equal-or-greater-wad");
-        new LockstakeEngine(address(delFactory), address(nstJoin), "aaa", address(stkMkr), WAD, address(mkrNgt));
+        new LockstakeEngine(address(delFactory), address(nstJoin), "aaa", address(mkrNgt), address(stkMkr), WAD);
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        LockstakeEngine e = new LockstakeEngine(address(delFactory), address(nstJoin), "aaa", address(stkMkr), 100, address(mkrNgt));
+        LockstakeEngine e = new LockstakeEngine(address(delFactory), address(nstJoin), "aaa", address(mkrNgt), address(stkMkr), 100);
         assertEq(address(e.delegateFactory()), address(delFactory));
         assertEq(address(e.nstJoin()), address(nstJoin));
         assertEq(address(e.vat()), address(dss.vat));

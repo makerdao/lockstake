@@ -257,9 +257,9 @@ contract LockstakeEngine is Multicall {
 
     function selectVoteDelegate(address urn, address voteDelegate) external urnAuth(urn) {
         require(urnAuctions[urn] == 0, "LockstakeEngine/urn-in-auction");
-        require(voteDelegate == address(0) || voteDelegateFactory.created(voteDelegate) == 1, "LockstakeEngine/not-valid-voteDelegate");
+        require(voteDelegate == address(0) || voteDelegateFactory.created(voteDelegate) == 1, "LockstakeEngine/not-valid-vote-delegate");
         address prevVoteDelegate = urnVoteDelegates[urn];
-        require(prevVoteDelegate != voteDelegate, "LockstakeEngine/same-voteDelegate");
+        require(prevVoteDelegate != voteDelegate, "LockstakeEngine/same-vote-delegate");
         (uint256 ink, uint256 art) = vat.urns(ilk, urn);
         if (art > 0 && voteDelegate != address(0)) {
             (, uint256 rate, uint256 spot,,) = vat.ilks(ilk);

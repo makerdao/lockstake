@@ -503,12 +503,12 @@ contract LockstakeEngineTest is DssTest {
 
     function testSelectVoteDelegate() public {
         address urn = engine.open(0);
-        vm.expectRevert("LockstakeEngine/not-valid-voteDelegate");
+        vm.expectRevert("LockstakeEngine/not-valid-vote-delegate");
         engine.selectVoteDelegate(urn, address(111));
         vm.expectEmit(true, true, true, true);
         emit SelectVoteDelegate(urn, voteDelegate);
         engine.selectVoteDelegate(urn, voteDelegate);
-        vm.expectRevert("LockstakeEngine/same-voteDelegate");
+        vm.expectRevert("LockstakeEngine/same-vote-delegate");
         engine.selectVoteDelegate(urn, voteDelegate);
         assertEq(engine.urnVoteDelegates(urn), voteDelegate);
         vm.prank(address(888)); address voteDelegate2 = voteDelegateFactory.create();

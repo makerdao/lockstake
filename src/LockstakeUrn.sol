@@ -37,7 +37,7 @@ contract LockstakeUrn {
     // --- immutables ---
 
     address immutable public engine;
-    GemLike immutable public stkMkr;
+    GemLike immutable public lsmkr;
     VatLike immutable public vat;
 
     // --- modifiers ---
@@ -49,21 +49,21 @@ contract LockstakeUrn {
 
     // --- constructor & init ---
 
-    constructor(address vat_, address stkMkr_) {
+    constructor(address vat_, address lsmkr_) {
         engine = msg.sender;
         vat = VatLike(vat_);
-        stkMkr = GemLike(stkMkr_);
+        lsmkr = GemLike(lsmkr_);
     }
 
     function init() external isEngine {
         vat.hope(msg.sender);
-        stkMkr.approve(msg.sender, type(uint256).max);
+        lsmkr.approve(msg.sender, type(uint256).max);
     }
 
     // --- staking functions ---
 
     function stake(address farm, uint256 wad, uint16 ref) external isEngine {
-        stkMkr.approve(farm, wad);
+        lsmkr.approve(farm, wad);
         StakingRewardsLike(farm).stake(wad, ref);
     }
 

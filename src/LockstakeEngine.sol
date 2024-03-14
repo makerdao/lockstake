@@ -91,7 +91,7 @@ contract LockstakeEngine is Multicall {
     GemLike                 immutable public nst;
     bytes32                 immutable public ilk;
     GemLike                 immutable public mkr;
-    GemLike                 immutable public stkMkr;
+    GemLike                 immutable public lsmkr;
     uint256                 immutable public fee;
     MkrNgtLike              immutable public mkrNgt;
     GemLike                 immutable public ngt;
@@ -136,7 +136,7 @@ contract LockstakeEngine is Multicall {
 
     // --- constructor ---
 
-    constructor(address voteDelegateFactory_, address nstJoin_, bytes32 ilk_, address mkrNgt_, address stkMkr_, uint256 fee_) {
+    constructor(address voteDelegateFactory_, address nstJoin_, bytes32 ilk_, address mkrNgt_, address lsmkr_, uint256 fee_) {
         require(fee_ < WAD, "LockstakeEngine/fee-equal-or-greater-wad");
         voteDelegateFactory = VoteDelegateFactoryLike(voteDelegateFactory_);
         nstJoin = NstJoinLike(nstJoin_);
@@ -147,9 +147,9 @@ contract LockstakeEngine is Multicall {
         mkr = GemLike(mkrNgt.mkr());
         ngt = GemLike(mkrNgt.ngt());
         mkrNgtRate = mkrNgt.rate();
-        stkMkr = GemLike(stkMkr_);
+        lsmkr = GemLike(lsmkr_);
         fee = fee_;
-        urnImplementation = address(new LockstakeUrn(address(vat), stkMkr_));
+        urnImplementation = address(new LockstakeUrn(address(vat), lsmkr_));
         vat.hope(nstJoin_);
         nst.approve(nstJoin_, type(uint256).max);
         ngt.approve(address(mkrNgt), type(uint256).max);
@@ -326,7 +326,7 @@ contract LockstakeEngine is Multicall {
         }
         vat.slip(ilk, urn, int256(wad));
         vat.frob(ilk, urn, urn, address(0), int256(wad), 0);
-        stkMkr.mint(urn, wad);
+        lsmkr.mint(urn, wad);
         address urnFarm = urnFarms[urn];
         if (urnFarm != address(0)) {
             require(farms[urnFarm] == FarmStatus.ACTIVE, "LockstakeEngine/farm-deleted");
@@ -359,7 +359,7 @@ contract LockstakeEngine is Multicall {
         if (urnFarm != address(0)) {
             LockstakeUrn(urn).withdraw(urnFarm, wad);
         }
-        stkMkr.burn(urn, wad);
+        lsmkr.burn(urn, wad);
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
         address voteDelegate = urnVoteDelegates[urn];
@@ -421,7 +421,7 @@ contract LockstakeEngine is Multicall {
         uint256 inkBeforeKick = ink + wad;
         _selectVoteDelegate(urn, inkBeforeKick, urnVoteDelegates[urn], address(0));
         _selectFarm(urn, inkBeforeKick, urnFarms[urn], address(0), 0);
-        stkMkr.burn(urn, wad);
+        lsmkr.burn(urn, wad);
         urnAuctions[urn]++;
         emit OnKick(urn, wad);
     }
@@ -443,7 +443,7 @@ contract LockstakeEngine is Multicall {
                 require(refund <= uint256(type(int256).max), "LockstakeEngine/refund-over-maxint");
                 vat.slip(ilk, urn, int256(refund));
                 vat.frob(ilk, urn, urn, address(0), int256(refund), 0);
-                stkMkr.mint(urn, refund);
+                lsmkr.mint(urn, refund);
             }
         }
         urnAuctions[urn]--;

@@ -1,8 +1,6 @@
-// https://vaas-stg.certora.com/output/20941/e887d30c21d94acbb75e0bbd6c712d60?anonymousKey=979896276276b19c54139d7d52e4db9fd1bc7a05 for LockstateEngine
-// https://vaas-stg.certora.com/output/20941/524d77322ba54d31b96a85d9352a27d0?anonymousKey=b85a1e63ef8c2080ca2908425e3df2ee45f2d1b9 for LockstateClipper
-// https://vaas-stg.certora.com/output/20941/c1e6db3c51374b51b427f70bd8e865e7?anonymousKey=eb049e6d25247fa32a08be5e7b7ac29a006fc211 for LockstateUrn
+/* A generic spec for checking reachability (sanity) */
 
-use builtin rule sanity;
+use builtin rule sanity;  // Checks for sanity on all functions
 
 methods {
     function _.getReward(address,address) external => DISPATCHER(true);

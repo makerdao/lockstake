@@ -1,3 +1,5 @@
+// Basic spec checking the `multicall` function
+
 using LockstakeEngine as _Engine;
 using MuticallTest as _MuticallTest;
 
@@ -36,6 +38,7 @@ rule testMulticallTwiceHope(address urn1, address urn2, address usr) {
 
     storage twoCalls = lastStorage;
 
+    // Uses the initial storage
     _MuticallTest.makeMulticallHope(urn1, urn2, usr) at init;
 
     assert twoCalls == lastStorage;

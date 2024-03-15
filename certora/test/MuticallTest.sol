@@ -26,4 +26,22 @@ contract MuticallTest {
         calls[1] = abi.encodeWithSignature("nope(address,address)", urn, usr);
         engine.multicall(calls);
     }
+
+    /// @dev Standard multicall sequence
+    function standardMulticall(
+        address urn,
+        address farm,
+        uint16 ref,
+        uint256 wad
+    ) public {
+
+        bytes[] memory calls = new bytes[](2);
+        calls[0] = abi.encodeWithSignature(
+            "selectFarm(address,address,uint16)", urn, farm, ref
+        );
+        calls[1] = abi.encodeWithSignature(
+            "lock(address,uint256,uint16)", urn, wad, ref
+        );
+        engine.multicall(calls);
+    }
 }

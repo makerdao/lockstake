@@ -113,7 +113,6 @@ contract LockstakeEngineTest is DssTest {
         engine = LockstakeEngine(instance.engine);
         clip = LockstakeClipper(instance.clipper);
         calc = instance.clipperCalc;
-
         lsmkr = LockstakeMkr(instance.lsmkr);
         farm = new StakingRewardsMock(address(rTok), address(lsmkr));
 

@@ -114,7 +114,7 @@ contract LockstakeEngineTest is DssTest {
         clip = LockstakeClipper(instance.clipper);
         calc = instance.clipperCalc;
 
-        lsmkr = LockstakeMkr(address(engine.lsmkr()));
+        lsmkr = LockstakeMkr(instance.lsmkr);
         farm = new StakingRewardsMock(address(rTok), address(lsmkr));
 
         address[] memory farms = new address[](2);

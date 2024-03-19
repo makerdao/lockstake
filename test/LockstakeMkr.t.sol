@@ -8,64 +8,11 @@ import { LockstakeMkr } from "src/LockstakeMkr.sol";
 contract LockstakeMkrTest is TokenChecks {
     address internal lockstakeMkr = address(new LockstakeMkr());
 
-    // ************************************************************************************************************
-    // Mint/Burn
-    // ************************************************************************************************************
-
-    function testTokenAuth() public {
-        checkTokenAuth(lockstakeMkr, "LockstakeMkr");
-    }
-    function testTokenModifiers() public {
-        checkTokenModifiers(lockstakeMkr, "LockstakeMkr");
-    }
-    function testMint() public {
-        checkMint(lockstakeMkr);
-    }
-    function testBurn() public {
-        checkBurn(lockstakeMkr);
-    }
-    function testBurnDifferentFrom() public {
-        checkBurnDifferentFrom(lockstakeMkr);
-    }
-    function testMintBadAddress() public {
-        checkMintBadAddress(lockstakeMkr, "LockstakeMkr");
-    }
-    function testBurnInsufficientBalance() public {
-        checkBurnInsufficientBalance(lockstakeMkr, "LockstakeMkr");
+    function testBulkMintBurn() public {
+        checkBulkMintBurn(lockstakeMkr, "LockstakeMkr");
     }
 
-    // ************************************************************************************************************
-    // ERC20
-    // ************************************************************************************************************
-
-    function testMetadata() public {
-        checkMetadata(lockstakeMkr, "LockstakeMkr", "LSMKR", "1", 18);
-    }
-    function testApprove() public {
-        checkApprove(lockstakeMkr);
-    }
-    function testTransfer() public {
-        checkTransfer(lockstakeMkr);
-    }
-    function testTransferBadAddress() public {
-        checkTransferBadAddress(lockstakeMkr, "LockstakeMkr");
-    }
-    function testTransferInsufficientBalance() public {
-        checkTransferInsufficientBalance(lockstakeMkr, "LockstakeMkr");
-    }
-    function testTransferFrom() public {
-        checkTransferFrom(lockstakeMkr);
-    }
-    function testInfiniteApproveTransferFrom() public {
-        checkInfiniteApproveTransferFrom(lockstakeMkr);
-    }
-    function testTransferFromBadAddress() public {
-        checkTransferFromBadAddress(lockstakeMkr, "LockstakeMkr");
-    }
-    function testTransferFromInsufficientAllowance() public {
-        checkTransferFromInsufficientAllowance(lockstakeMkr, "LockstakeMkr");
-    }
-    function testTransferFromInsufficientBalance() public {
-        checkTransferFromInsufficientBalance(lockstakeMkr, "LockstakeMkr");
+    function testBulkERC20() public {
+        checkBulkERC20(lockstakeMkr, "LockstakeMkr", "LockstakeMkr", "LSMKR", "1", 18);
     }
 }

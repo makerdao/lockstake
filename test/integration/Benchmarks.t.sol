@@ -125,7 +125,7 @@ contract LockstakeEngineBenchmarks is DssTest {
         LockstakeInit.initLockstake(dss, instance, cfg);
         vm.stopPrank();
 
-        deal(address(mkr), address(this), 100_000 * 10**18, true);
+        deal(address(mkr), address(this), 200_000 * 10**18, true);
         deal(address(ngt), address(this), 100_000 * 24_000 * 10**18, true);
 
         // Add some existing DAI assigned to nstJoin to avoid a particular error
@@ -150,6 +150,10 @@ contract LockstakeEngineBenchmarks is DssTest {
         address[] memory yays = new address[](numYays);
         for (uint256 i; i < numYays; i++) yays[i] = address(uint160(i + 1));
         vm.prank(voter); VoteDelegate(voteDelegate).vote(yays);
+
+        // make sure the chief holds more votes than the votes from the user about to be liquidated
+        mkr.approve(voteDelegate, 100_000 * 10**18);
+        VoteDelegate(voteDelegate).lock(100_000 * 10**18);
 
         address urn = _urnSetUp(withDelegate, withStaking);
         vm.roll(block.number + 1);

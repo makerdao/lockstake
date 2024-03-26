@@ -139,6 +139,17 @@ For the mentioned examples of `chop` and `fee` we get:
 
 It is assumed that the farm owner is trusted, the reward token implementation is non-malicious, and that the reward token minter/s are not malicious. Therefore, theoretic attacks, in which for example the reward token supply is inflated to a point where the farm mechanics block liquidations, are assumed non-feasible.
 
+**Liquidation Bark Gas Benchmarks**
+
+Delegate: N, Staking: N - 483492 gas  
+Delegate: Y, Staking: Y, Yays: 1 - 614242 gas  
+Delegate: Y, Staking: Y, Yays: 5 - 646522 gas  
+Measured on: https://github.com/makerdao/lockstake/pull/38/commits/046b1a3c684b178dbd4a8dd8b3fb6e036a485115
+
+For reference, a regular collateral bark cost is around 450K.  
+Source: https://docs.google.com/spreadsheets/d/1ifb9ePno6KHNNGQA8s6u8KG7BRWa7fhUYH3Z5JGOxag/edit#gid=0
+
+
 **Configurable Parameters (similar to a regular Clipper):**
 
 * `dog` - Liquidation module.

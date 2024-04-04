@@ -318,7 +318,7 @@ contract LockstakeEngine is Multicall {
     }
 
     function _lock(address urn, uint256 wad, uint16 ref) internal {
-        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
+        require(wad <= uint256(type(int256).max), "LockstakeEngine/overflow");
         address voteDelegate = urnVoteDelegates[urn];
         if (voteDelegate != address(0)) {
             mkr.approve(voteDelegate, wad);
@@ -354,7 +354,7 @@ contract LockstakeEngine is Multicall {
     }
 
     function _free(address urn, uint256 wad, uint256 fee_) internal returns (uint256 freed) {
-        require(wad <= uint256(type(int256).max), "LockstakeEngine/wad-overflow");
+        require(wad <= uint256(type(int256).max), "LockstakeEngine/overflow");
         address urnFarm = urnFarms[urn];
         if (urnFarm != address(0)) {
             LockstakeUrn(urn).withdraw(urnFarm, wad);

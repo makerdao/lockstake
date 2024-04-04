@@ -572,11 +572,11 @@ contract LockstakeEngineTest is DssTest {
         address urn = engine.open(0);
         deal(address(mkr), address(this), uint256(type(int256).max) + 1); // deal mkr to allow reaching the overflow revert
         mkr.approve(address(engine), uint256(type(int256).max) + 1);
-        vm.expectRevert("LockstakeEngine/wad-overflow");
+        vm.expectRevert("LockstakeEngine/overflow");
         engine.lock(urn, uint256(type(int256).max) + 1, 5);
         deal(address(mkr), address(this), 100_000 * 10**18); // back to normal mkr balance and allowance
         mkr.approve(address(engine), 100_000 * 10**18);
-        vm.expectRevert("LockstakeEngine/wad-overflow");
+        vm.expectRevert("LockstakeEngine/overflow");
         engine.free(urn, address(this), uint256(type(int256).max) + 1);
         if (withDelegate) {
             engine.selectVoteDelegate(urn, voteDelegate);
@@ -667,7 +667,7 @@ contract LockstakeEngineTest is DssTest {
     function _testLockFreeNgt(bool withDelegate, bool withStaking) internal {
         uint256 initialNgtSupply = ngt.totalSupply();
         address urn = engine.open(0);
-        // Note: wad-overflow cannot be reached for lockNgt and freeNgt as with these functions and the value of rate (>=3) the MKR amount will be always lower
+        // Note: overflow cannot be reached for lockNgt and freeNgt as with these functions and the value of rate (>=3) the MKR amount will be always lower
         if (withDelegate) {
             engine.selectVoteDelegate(urn, voteDelegate);
         }
@@ -760,7 +760,7 @@ contract LockstakeEngineTest is DssTest {
         address urn = engine.open(0);
         deal(address(mkr), address(this), 100_000 * 10**18);
         mkr.approve(address(engine), 100_000 * 10**18);
-        vm.expectRevert("LockstakeEngine/wad-overflow");
+        vm.expectRevert("LockstakeEngine/overflow");
         engine.freeNoFee(urn, address(this), uint256(type(int256).max) + 1);
         if (withDelegate) {
             engine.selectVoteDelegate(urn, voteDelegate);

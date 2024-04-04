@@ -57,8 +57,8 @@ interface JugLike {
 
 interface MkrNgtLike {
     function rate() external view returns (uint256);
-    function mkr() external view returns (address);
-    function ngt() external view returns (address);
+    function mkr() external view returns (GemLike);
+    function ngt() external view returns (GemLike);
     function ngtToMkr(address, uint256) external;
     function mkrToNgt(address, uint256) external;
 }
@@ -144,8 +144,8 @@ contract LockstakeEngine is Multicall {
         nst = nstJoin.nst();
         ilk = ilk_;
         mkrNgt = MkrNgtLike(mkrNgt_);
-        mkr = GemLike(mkrNgt.mkr());
-        ngt = GemLike(mkrNgt.ngt());
+        mkr = mkrNgt.mkr();
+        ngt = mkrNgt.ngt();
         mkrNgtRate = mkrNgt.rate();
         lsmkr = GemLike(lsmkr_);
         fee = fee_;

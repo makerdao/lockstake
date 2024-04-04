@@ -25,7 +25,7 @@ contract LockstakeMkr {
 
     // --- ERC20 Data ---
     string  public constant name     = "LockstakeMkr";
-    string  public constant symbol   = "LSMKR";
+    string  public constant symbol   = "lsMKR";
     string  public constant version  = "1";
     uint8   public constant decimals = 18;
     uint256 public totalSupply;

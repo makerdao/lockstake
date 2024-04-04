@@ -13,6 +13,6 @@ contract LockstakeMkrTest is TokenChecks {
     }
 
     function testBulkERC20() public {
-        checkBulkERC20(lockstakeMkr, "LockstakeMkr", "LockstakeMkr", "LSMKR", "1", 18);
+        checkBulkERC20(lockstakeMkr, "LockstakeMkr", "LockstakeMkr", "lsMKR", "1", 18);
     }
 }

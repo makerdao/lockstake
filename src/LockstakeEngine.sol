@@ -166,6 +166,7 @@ contract LockstakeEngine is Multicall {
     }
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require(y > 0, "LockstakeEngine/division-by-zero");
         unchecked {
             z = x != 0 ? ((x - 1) / y) + 1 : 0;
         }

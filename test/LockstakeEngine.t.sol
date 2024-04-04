@@ -73,6 +73,7 @@ contract LockstakeEngineTest is DssTest {
     event OnRemove(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require(y > 0);
         unchecked {
             z = x != 0 ? ((x - 1) / y) + 1 : 0;
         }
@@ -897,6 +898,10 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_art(ilk, urn), uint256(type(int256).max) + 1);
         vm.expectRevert("LockstakeEngine/overflow");
         engine.wipeAll(urn);
+        stdstore.target(address(dss.vat)).sig("ilks(bytes32)").with_key(ilk).depth(1).checked_write(uint256(0));
+        assertEq(_rate(ilk), 0);
+        vm.expectRevert("LockstakeEngine/division-by-zero");
+        engine.draw(urn, address(this), 50 * 10**18);
     }
 
     function testOpenLockStakeMulticall() public {

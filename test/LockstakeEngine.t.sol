@@ -3,13 +3,13 @@
 pragma solidity ^0.8.16;
 
 import "dss-test/DssTest.sol";
+import "dss-interfaces/Interfaces.sol";
 import { LockstakeDeploy } from "deploy/LockstakeDeploy.sol";
 import { LockstakeInit, LockstakeConfig, LockstakeInstance } from "deploy/LockstakeInit.sol";
 import { LockstakeMkr } from "src/LockstakeMkr.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
 import { LockstakeUrn } from "src/LockstakeUrn.sol";
-import "dss-interfaces/Interfaces.sol";
 import { VoteDelegateFactoryMock, VoteDelegateMock } from "test/mocks/VoteDelegateMock.sol";
 import { GemMock } from "test/mocks/GemMock.sol";
 import { NstMock } from "test/mocks/NstMock.sol";

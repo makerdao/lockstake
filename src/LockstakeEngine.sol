@@ -371,7 +371,7 @@ contract LockstakeEngine is Multicall {
         if (burn > 0) {
             mkr.burn(address(this), burn);
         }
-        unchecked { freed = wad - burn; } // burn <= WAD always
+        unchecked { freed = wad - burn; } // burn <= wad always
     }
 
     // --- loan functions ---

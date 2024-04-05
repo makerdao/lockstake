@@ -206,7 +206,7 @@ contract LockstakeClipper {
 
     // --- Auction ---
 
-    // get the price directly from the OSM
+    // get the price directly from the pip
     // Could get this from rmul(Vat.ilks(ilk).spot, Spotter.mat()) instead, but
     // if mat has changed since the last poke, the resulting value will be
     // incorrect.

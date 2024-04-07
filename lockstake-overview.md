@@ -187,6 +187,7 @@ In general participating in MKR liquidations should be pretty straightforward us
 Current Makerdao ecosystem keepers expect receiving collateral in the form of `vat.gem` (usually to a keeper arbitrage callee contract), which they then need to `exit` to ERC20 from. However the SLE liquidation mechanism sends the MKR directly in the form of ERC20, which requires a slight change in the keepers mode of operation.
 
 For example, keepers using the Maker supplied [exchange-callee for Uniswap V2](https://github.com/makerdao/exchange-callees/blob/3b080ecd4169fe09a59be51e2f85ddcea3242461/src/UniswapV2Callee.sol#L109) would need to use a version that gets the `gem` instead of the `gemJoin` and does not call `gemJoin.exit`.
+Additionaly, the callee might need to convert the MKR to NGT, in case it interacts with the NST/NGT Uniswap pool.
 
 ## 5. Splitter
 
@@ -249,33 +250,22 @@ Up to date implementation: https://github.com/makerdao/dss-flappers/commit/ce797
 
 
 ## 8. Maximal Debt Ceiling Instant Access Module
-### 8.a. LockstakeMaxAutoLine
 
-An instant access module which adjusts the SLE's maximal debt ceiling (`autoLine[ilk].line`) according to the protocol owned liquidity, and also adjusts the rate (`jug[ilk].duty`) to incentivise wind-down in case the maximal debt ceiling is exceeded.
+### Note - Implementation details are still TBD
 
-#### Maximal Debt ceiling
+### Requirements:
 
-The maximal debt ceiling is determined based on the reserves owned by the Maker Protocol. It is adjusted automatically through an algorithm, and set in the regular DC-IAM (`autoLine`).
-For the first version (before the SubDaos launch) this contract permissionlessly sets the max debt ceiling of the autoline to 40% of the DAI value of the Uniswap MKR/DAI LP position owned by the Pause Proxy.
+The maximal debt ceiling is determined based on the reserves owned by the Maker Protocol.
+For the first version (before the SubDaos launch) this contract permissionlessly sets the max debt ceiling to 40% of the DAI value of the Uniswap MKR/DAI LP position owned by the Pause Proxy.
 The Uniswap owned DAI calculation needs to be resistent to manipulation. For that we use the fair token prices, as in the [Uniswap V2 LP oracle](https://github.com/makerdao/univ2-lp-oracle/blob/874a59d74d847909cc4a31f0d38ee6b020f6525f/src/UNIV2LPOracle.sol#L22).
-
-#### Rate
 
 Upon setting a new max debt ceiling, the rate (`jug[ilk].duty`) is adjusted either to its regular value, or to a wind-down value (expected to incentivize debt repayment).
 
-**Configurable Parameters:**
-* `duty` - Regular rate.
-* `windDownDuty` - Repayment incetivizing rate.
-* `lpFactor` - Percentage of LP value to take into account in the maximal debt ceiling calculation (planned as 40%).
-
-Up to date implementation:
-https://github.com/makerdao/lockstake/commit/f837c5ef3967654b313b2dbb28d4b8cc09c25094
-
-### 8.b. Cron Keeper Job
-
-For triggering the LockstakeMaxAutoLine a keeper job contract will be added. It should hold sensitivity thresholds, similarly to how the current autoline job [does](https://github.com/makerdao/dss-cron/blob/ae1300023b5db04851b1e8f926e5b7a59ffd18b0/src/AutoLineJob.sol#L47).
 
 ## 9. Sticky Oracle
+
+### Note - Not included in the first version of the SLE
+
 ### 9.a. StickyOracle 
 
 The MKR oracle for the SLE vaults has sticky upwards price movement. It works by operating both on a market price measured from the MKR underlying oracle, and a Sticky Price. The Sticky Price is what is actually used for calculating the Liquidation Ratio.

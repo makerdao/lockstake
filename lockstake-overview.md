@@ -106,7 +106,7 @@ The following functions are called from the LockstakeClipper (see below) through
 * `jug` - The Dai lending rate calculation module.
 
 
-Up to date implementation: https://github.com/makerdao/lockstake/commit/bbe569d6b8a5a6944592109b9a8a94c1092be117
+Up to date implementation: https://github.com/makerdao/lockstake/commit/5cc4fa34b053bd0c470c3dcd2eebb920d25161fc
 
 ## 2. LockstakeClipper
 
@@ -149,6 +149,7 @@ Measured on: https://github.com/makerdao/lockstake/pull/38/commits/046b1a3c684b1
 For reference, a regular collateral bark cost is around 450K.  
 Source: https://docs.google.com/spreadsheets/d/1ifb9ePno6KHNNGQA8s6u8KG7BRWa7fhUYH3Z5JGOxag/edit#gid=0
 
+Note that the increased gas cost should be taken into consideration when determining liquidation incentives, along with the dust amount.
 
 **Configurable Parameters (similar to a regular Clipper):**
 
@@ -163,7 +164,7 @@ Source: https://docs.google.com/spreadsheets/d/1ifb9ePno6KHNNGQA8s6u8KG7BRWa7fhU
 * `tip` - Flat fee to suck from vow to incentivize keepers.
 * `chost` - Cache the ilk dust times the ilk chop to prevent excessive SLOADs.
 
-Up to date implementation: https://github.com/makerdao/lockstake/commit/bbe569d6b8a5a6944592109b9a8a94c1092be117
+Up to date implementation: https://github.com/makerdao/lockstake/commit/5cc4fa34b053bd0c470c3dcd2eebb920d25161fc
 
 ## 3. Vote Delegation
 ### 3.a. VoteDelegate

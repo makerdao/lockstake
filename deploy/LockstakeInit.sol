@@ -19,14 +19,18 @@ pragma solidity >=0.8.0;
 import { DssInstance } from "dss-test/MCD.sol";
 import { LockstakeInstance } from "./LockstakeInstance.sol";
 
+interface LockstakeMkrLike {
+    function rely(address) external;
+}
+
 interface LockstakeEngineLike {
-    function delegateFactory() external view returns (address);
+    function voteDelegateFactory() external view returns (address);
     function vat() external view returns (address);
     function nstJoin() external view returns (address);
     function nst() external view returns (address);
     function ilk() external view returns (bytes32);
     function mkr() external view returns (address);
-    function stkMkr() external view returns (address);
+    function lsmkr() external view returns (address);
     function fee() external view returns (uint256);
     function mkrNgt() external view returns (address);
     function ngt() external view returns (address);
@@ -83,11 +87,10 @@ interface IlkRegistryLike {
 
 struct LockstakeConfig {
     bytes32   ilk;
-    address   delegateFactory;
+    address   voteDelegateFactory;
     address   nstJoin;
     address   nst;
     address   mkr;
-    address   stkMkr;
     address   mkrNgt;
     address   ngt;
     address[] farms;
@@ -130,21 +133,21 @@ library LockstakeInit {
         CalcLike calc                = CalcLike(lockstakeInstance.clipperCalc);
 
         // Sanity checks
-        require(engine.delegateFactory() == cfg.delegateFactory,   "Engine delegateFactory mismatch");
-        require(engine.vat()             == address(dss.vat),      "Engine vat mismatch");
-        require(engine.nstJoin()         == cfg.nstJoin,           "Engine nstJoin mismatch");
-        require(engine.nst()             == cfg.nst,               "Engine nst mismatch");
-        require(engine.ilk()             == cfg.ilk,               "Engine ilk mismatch");
-        require(engine.mkr()             == cfg.mkr,               "Engine mkr mismatch");
-        require(engine.stkMkr()          == cfg.stkMkr,            "Engine stkMkr mismatch");
-        require(engine.fee()             == cfg.fee,               "Engine fee mismatch");
-        require(engine.mkrNgt()          == cfg.mkrNgt,            "Engine mkrNgt mismatch");
-        require(engine.ngt()             == cfg.ngt,               "Engine ngt mismatch");
-        require(clipper.ilk()            == cfg.ilk,               "Clipper ilk mismatch");
-        require(clipper.vat()            == address(dss.vat),      "Clipper vat mismatch");
-        require(clipper.engine()         == address(engine),       "Clipper engine mismatch");
-        require(clipper.dog()            == address(dss.dog),      "Clipper dog mismatch");
-        require(clipper.spotter()        == address(dss.spotter),  "Clipper spotter mismatch");
+        require(engine.voteDelegateFactory() == cfg.voteDelegateFactory,   "Engine voteDelegateFactory mismatch");
+        require(engine.vat()                 == address(dss.vat),          "Engine vat mismatch");
+        require(engine.nstJoin()             == cfg.nstJoin,               "Engine nstJoin mismatch");
+        require(engine.nst()                 == cfg.nst,                   "Engine nst mismatch");
+        require(engine.ilk()                 == cfg.ilk,                   "Engine ilk mismatch");
+        require(engine.mkr()                 == cfg.mkr,                   "Engine mkr mismatch");
+        require(engine.lsmkr()               == lockstakeInstance.lsmkr,   "Engine lsmkr mismatch");
+        require(engine.fee()                 == cfg.fee,                   "Engine fee mismatch");
+        require(engine.mkrNgt()              == cfg.mkrNgt,                "Engine mkrNgt mismatch");
+        require(engine.ngt()                 == cfg.ngt,                   "Engine ngt mismatch");
+        require(clipper.ilk()                == cfg.ilk,                   "Clipper ilk mismatch");
+        require(clipper.vat()                == address(dss.vat),          "Clipper vat mismatch");
+        require(clipper.engine()             == address(engine),           "Clipper engine mismatch");
+        require(clipper.dog()                == address(dss.dog),          "Clipper dog mismatch");
+        require(clipper.spotter()            == address(dss.spotter),      "Clipper spotter mismatch");
 
         require(cfg.dust <= cfg.hole, "dust greater than hole");
         require(cfg.duty >= RAY && cfg.duty <= RATES_ONE_HUNDRED_PCT, "duty out of boundaries");
@@ -184,6 +187,8 @@ library LockstakeInit {
         dss.dog.file(cfg.ilk, "chop", cfg.chop);
         dss.dog.file(cfg.ilk, "hole", cfg.hole);
         dss.dog.rely(address(clipper));
+
+        LockstakeMkrLike(lockstakeInstance.lsmkr).rely(address(engine));
 
         engine.file("jug", address(dss.jug));
         for (uint256 i = 0; i < cfg.farms.length; i++) {
@@ -228,6 +233,7 @@ library LockstakeInit {
             cfg.symbol
         );
 
+        dss.chainlog.setAddress("LOCKSTAKE_MKR",       lockstakeInstance.lsmkr);
         dss.chainlog.setAddress("LOCKSTAKE_ENGINE",    address(engine));
         dss.chainlog.setAddress("LOCKSTAKE_CLIP",      address(clipper));
         dss.chainlog.setAddress("LOCKSTAKE_CLIP_CALC", address(calc));

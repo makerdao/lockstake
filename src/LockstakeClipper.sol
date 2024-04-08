@@ -53,7 +53,7 @@ interface LockstakeEngineLike {
     function onRemove(address, uint256, uint256) external;
 }
 
-// Clipper for use with the manager / proxy paradigm
+// Clipper for use with the Lockstake Engine
 contract LockstakeClipper {
     // --- Auth ---
     mapping (address => uint256) public wards;
@@ -88,7 +88,7 @@ contract LockstakeClipper {
         uint256 pos;  // Index in active array
         uint256 tab;  // Dai to raise       [rad]
         uint256 lot;  // collateral to sell [wad]
-        uint256 tot;  // static registry of tot collateral to sell [wad]
+        uint256 tot;  // static registry of total collateral to sell [wad]
         address usr;  // Liquidated CDP
         uint96  tic;  // Auction start time
         uint256 top;  // Starting price     [ray]
@@ -206,7 +206,7 @@ contract LockstakeClipper {
 
     // --- Auction ---
 
-    // get the price directly from the OSM
+    // get the price directly from the pip
     // Could get this from rmul(Vat.ilks(ilk).spot, Spotter.mat()) instead, but
     // if mat has changed since the last poke, the resulting value will be
     // incorrect.
@@ -264,7 +264,7 @@ contract LockstakeClipper {
             vat.suck(vow, kpr, coin);
         }
 
-        // Trigger proxy manager liquidation call-back
+        // Trigger engine liquidation call-back
         engine.onKick(usr, lot);
 
         emit Kick(id, top, tab, lot, usr, kpr, coin);

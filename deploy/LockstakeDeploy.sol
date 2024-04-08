@@ -19,6 +19,7 @@ pragma solidity ^0.8.16;
 import { ScriptTools } from "dss-test/ScriptTools.sol";
 import { MCD, DssInstance } from "dss-test/MCD.sol";
 import { LockstakeInstance } from "./LockstakeInstance.sol";
+import { LockstakeMkr } from "src/LockstakeMkr.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
 
@@ -28,22 +29,23 @@ library LockstakeDeploy {
     function deployLockstake(
         address deployer,
         address owner,
-        address delegateFactory,
+        address voteDelegateFactory,
         address nstJoin,
         bytes32 ilk,
-        address stkMkr,
         uint256 fee,
         address mkrNgt,
         bytes4  calcSig
     ) internal returns (LockstakeInstance memory lockstakeInstance) {
         DssInstance memory dss = MCD.loadFromChainlog(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
 
-        lockstakeInstance.engine  = address(new LockstakeEngine(delegateFactory, nstJoin, ilk, stkMkr, fee, mkrNgt));
+        lockstakeInstance.lsmkr   = address(new LockstakeMkr());
+        lockstakeInstance.engine  = address(new LockstakeEngine(voteDelegateFactory, nstJoin, ilk, mkrNgt, lockstakeInstance.lsmkr, fee));
         lockstakeInstance.clipper = address(new LockstakeClipper(address(dss.vat), address(dss.spotter), address(dss.dog), lockstakeInstance.engine));
         (bool ok, bytes memory returnV) = dss.chainlog.getAddress("CALC_FAB").call(abi.encodeWithSelector(calcSig, owner));
         require(ok);
         lockstakeInstance.clipperCalc = abi.decode(returnV, (address));
 
+        ScriptTools.switchOwner(lockstakeInstance.lsmkr, deployer, owner);
         ScriptTools.switchOwner(lockstakeInstance.engine, deployer, owner);
         ScriptTools.switchOwner(lockstakeInstance.clipper, deployer, owner);
     }

@@ -23,7 +23,7 @@ There is also support for locking and freeing NGT instead of MKR.
 * Staking rewards are not part of the collateral, and are still claimable after freeing from the engine, changing a farm or being liquidated.
 * The entire locked MKR amount is also credited as collateral for the user. However, the user itself decides if and how much NST to borrow, and should be aware of liquidation risk.
 * A user can delegate control of an `urn` that it controls to another EOA/contract. This is helpful for supporting manager-type contracts that can be built on top of the engine.
-* Once a vault goes into liquidation, it's MKR is undelegated and unstaked. It and can only be re-delegated or re-staked once there are no more auctions for it.
+* Once a vault goes into liquidation, its MKR is undelegated and unstaked. It and can only be re-delegated or re-staked once there are no more auctions for it.
 
 **User Functions:**
 
@@ -32,9 +32,9 @@ There is also support for locking and freeing NGT instead of MKR.
 * `nope(address urn, address usr)` - Disallow `usr` from managing the sender's controlled `urn`.
 * `lock(address urn, uint256 wad, uint16 ref)` - Deposit `wad` amount of MKR into the `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
 * `lockNgt(address urn, uint256 ngtWad, uint16 ref)` - Deposit `ngtWad` amount of NGT. The NGT is first converted to MKR, which then gets deposited into the `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
-* `free(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed.
-* `freeNgt(address urn, address to, uint256 ngtWad)` - Withdraw `ngtWad` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed. Note that freeing NGT is possible even if regular locking (using MKR) was done, and vice-vera.
-* `freeNoFee(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address without paying any fee. This will undelegate the requested amount of MKR (if delegation is done) and unstake it (if staking is done). It will require the user to pay down debt beforehand if needed. This function can only be called by an address which was both authorized on the contract by governance and for which the urn owner has called `hope` for. It is useful for implementing a migration contract that will move the funds to another engine contract (if ever needed).
+* `free(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed.
+* `freeNgt(address urn, address to, uint256 ngtWad)` - Withdraw `ngtWad - ngtWad % mkrNgtRate` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. Note that freeing NGT is possible even if the position was previously entered via regular locking (using MKR), and vice-vera.
+* `freeNoFee(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address without paying any fee. This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. This function can only be called by an address which was both authorized on the contract by governance and for which the urn owner has called `hope`. It is useful for implementing a migration contract that will move the funds to another engine contract (if ever needed).
 * `selectDelegate(address urn, address delegate)` - Choose which delegate contract to delegate the `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
 * `selectFarm(address urn, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
 * `draw(address urn, address to, uint256 wad)` - Generate `wad` amount of NST using the `urn`’s MKR as collateral and send it to the `to` address.
@@ -84,7 +84,7 @@ For example, a typical flow for a user (or an app/front-end) would be to first q
 
 This way, locking and farm-staking can be achieved in only 2 transactions (including the token approval).
 
-Note that since the `index` is first fetched off-chain and there is no support for passing return values between batched calls, there could be race conditions for calling `open`. For example,`open` can be called twice by the user (e.g. in two different contexts) with the second `usrAmts` query happening before the first `open` call has been confirmed. This would lead to both calls using the same `urn` for `selectFarm`, `lock` and `stake`.
+Note that since the `index` is first fetched off-chain and there is no support for passing return values between batched calls, there could be race conditions for calling `open`. For example, `open` can be called twice by the user (e.g. in two different contexts) with the second `usrAmts` query happening before the first `open` call has been confirmed. This would lead to both calls using the same `urn` for `selectFarm`, `lock` and `stake`.
 
 To mitigate this, the `index` parameter for `open` is used to make sure the multicall transaction creates the intended `urn`.
 
@@ -137,7 +137,7 @@ For the mentioned examples of `chop` and `fee` we get:
 
 **Trusted Farms and Reward Tokens**
 
-It is assumed that the farm owner is trusted, the reward token implementation is non-malicious, and that the reward token minter/s are not malicious. Therefore, theoretic attacks, in which for example the reward token supply is inflated to a point where the farm mechanics block liquidations, are assumed non-feasible.
+It is assumed that the farm owner is trusted, the reward token implementation is non-malicious, and that the reward token minter/s are not malicious. Therefore, theoretic attacks, in which for example the reward rate is inflated to a point where the farm mechanics block liquidations, are assumed non-feasible.
 
 **Liquidation Bark Gas Benchmarks**
 
@@ -194,7 +194,7 @@ Additionaly, the callee might need to convert the MKR to NGT, in case it interac
 
 The Splitter contract is in charge of distributing the Surplus Buffer funds on each `vow.flap` to the Smart Burn Engine (SBE) and the SLE's NST farm. The total amount sent each time is `vow.bump`.
 
-To accomplish this, it exposes a `kick` operation to be triggered periodically. Its logic withdraws DAI from the `vow` and splits it in two parts. The first part (`burn`) is sent to the underlying `flapper` contract to be processed by the SBE. The second part (`WAD - burn`) is distributed as reward to a `farm` contract. Note that`burn == 1 WAD` indicates funneling 100% of the DAI to the SBE without sending any rewards to the farm.
+To accomplish this, it exposes a `kick` operation to be triggered periodically. Its logic withdraws DAI from the `vow` and splits it in two parts. The first part (`burn`) is sent to the underlying `flapper` contract to be processed by the SBE. The second part (`WAD - burn`) is distributed as reward to a `farm` contract. Note that `burn == 1 WAD` indicates funneling 100% of the DAI to the SBE without sending any rewards to the farm.
 
 When sending DAI to the farm, the splitter also calls `farm.notifyRewardAmount` to update the farm contract on the new rewards distribution. This resets the farming distribution period to the governance configured duration and sets the rewards rate according to the sent reward amount and rewards leftovers from the previous distribution (in case there are any).
 
@@ -205,7 +205,7 @@ The Splitter implements rate-limiting using a `hop` parameter.
 * `burn` - The percentage of the `vow.bump` to be moved to the underlying `flapper`. For example, a value of 0.70 \* `WAD` corresponds to a funneling 70% of the DAI to the burn engine.
 * `hop` - Minimal time between kicks.
 
-Up to date implementation: https://github.com/makerdao/dss-flappers/commit/ce7978eaba86c8110d9cf5c04aa50f8f7af83197
+Up to date implementation: https://github.com/makerdao/dss-flappers/commit/c946c39ec94bff29c6a118cd702ffaa0f23f3d4a```
 
 ## 6. StakingRewards
 
@@ -237,7 +237,7 @@ The calculations of how much DAI to sell out of `lot` so that the exact proporti
 * `pip` - A reference price oracle, used for bounding the exchange rate of the swap.
 * `want` - Relative multiplier of the reference price to insist on in the swap. For example, a value of 0.98 * `WAD` allows for a 2% worse price than the reference.
 
-Up to date implementation: https://github.com/makerdao/dss-flappers/commit/ce7978eaba86c8110d9cf5c04aa50f8f7af83197
+Up to date implementation: https://github.com/makerdao/dss-flappers/commit/c946c39ec94bff29c6a118cd702ffaa0f23f3d4a
 
 ### 7.b. FlapperUniV2SwapOnly
 
@@ -247,7 +247,7 @@ Exposes an `exec` operation to be triggered periodically. Its logic withdraws DA
 * `pip` - A reference price oracle, used for bounding the exchange rate of the swap.
 * `want` - Relative multiplier of the reference price to insist on in the swap. For example, a value of 0.98 * `WAD` allows for a 2% worse price than the reference.
 
-Up to date implementation: https://github.com/makerdao/dss-flappers/commit/ce7978eaba86c8110d9cf5c04aa50f8f7af83197
+Up to date implementation: https://github.com/makerdao/dss-flappers/commit/c946c39ec94bff29c6a118cd702ffaa0f23f3d4a ```
 
 ## General Notes
 * In many of the modules, such as the splitter and the flappers, NST can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.

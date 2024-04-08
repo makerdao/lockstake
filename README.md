@@ -217,34 +217,6 @@ The StakingRewards contract `setRewardsDuration` function was modified to enable
 
 Up to date implementation: https://github.com/makerdao/endgame-toolkit/commit/1a857ee888d859b3b08e52ee12f721d1f3ce80c6
 
-## 7. Flappers
-
-The system supports the following burn engine implementations and can switch between them through a governance spell.
-
-### 7.a. FlapperUniV2
-
-Exposes an `exec` operation to be triggered periodically. Its logic withdraws DAI from the `vow` and buys `gem` tokens on Uniswap v2. The acquired tokens, along with a proportional amount of DAI (saved from the initial withdrawal) are deposited back into the liquidity pool. Finally, the minted LP tokens are sent to a predefined `receiver` address.
-
-Note that as opposed to the first version of FlapperUniV2, the SLE aligned version was changed so that the `lot` parameter it receives on `kick` indicates the total amount the flapper should consume (and not just the amount to sell).
-
-The calculations of how much DAI to sell out of `lot` so that the exact proportion of deposit amount remains afterwards can be seen in the code [comments](https://github.com/makerdao/dss-flappers/blob/78f2ec664ba5ad6de45195ff6fdd68771145a56a/src/FlapperUniV2.sol#L150).
-
-**Configurable Parameters:**
-* `pip` - A reference price oracle, used for bounding the exchange rate of the swap.
-* `want` - Relative multiplier of the reference price to insist on in the swap. For example, a value of 0.98 * `WAD` allows for a 2% worse price than the reference.
-
-Up to date implementation: https://github.com/makerdao/dss-flappers/commit/c946c39ec94bff29c6a118cd702ffaa0f23f3d4a
-
-### 7.b. FlapperUniV2SwapOnly
-
-Exposes an `exec` operation to be triggered periodically. Its logic withdraws DAI from the `vow` and buys `gem` tokens on Uniswap v2. The acquired tokens are sent to a predefined `receiver` address.
-
-**Configurable Parameters:**
-* `pip` - A reference price oracle, used for bounding the exchange rate of the swap.
-* `want` - Relative multiplier of the reference price to insist on in the swap. For example, a value of 0.98 * `WAD` allows for a 2% worse price than the reference.
-
-Up to date implementation: https://github.com/makerdao/dss-flappers/commit/c946c39ec94bff29c6a118cd702ffaa0f23f3d4a ```
-
 ## General Notes
 * In many of the modules, such as the splitter and the flappers, NST can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.
 * The SLE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.

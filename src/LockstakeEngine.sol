@@ -442,7 +442,7 @@ contract LockstakeEngine is Multicall {
             unchecked { refund = left - burn; }
             if (refund > 0) {
                 // The following is ensured by the dog and clip but we still prefer to be explicit
-                require(refund <= uint256(type(int256).max), "LockstakeEngine/refund-over-maxint");
+                require(refund <= uint256(type(int256).max), "LockstakeEngine/overflow");
                 vat.slip(ilk, urn, int256(refund));
                 vat.frob(ilk, urn, urn, address(0), int256(refund), 0);
                 lsmkr.mint(urn, refund);

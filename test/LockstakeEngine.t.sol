@@ -1450,7 +1450,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testOnRemoveOverflow() public {
-        vm.expectRevert("LockstakeEngine/refund-over-maxint");
+        vm.expectRevert("LockstakeEngine/overflow");
         vm.prank(pauseProxy); engine.onRemove(address(1), 0, uint256(type(int256).max) + 1);
     }
 

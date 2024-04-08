@@ -252,6 +252,3 @@ Up to date implementation: https://github.com/makerdao/dss-flappers/commit/ce797
 ## General Notes
 * In many of the modules, such as the splitter and the flappers, NST can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.
 * The SLE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.
-
-
-

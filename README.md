@@ -1,11 +1,10 @@
-# Sagittarius Lockstake Engine
+# Lockstake Engine
 
-A technical description of the components of the Sagittarius LockStake Engine (SLE).
-
+A technical description of the components of the LockStake Engine (LSE).
 
 ## 1. LockstakeEngine
 
-The LockstakeEngine is the main contract in the set of contracts that implement and support the SLE. On a high level, it supports locking MKR in the contract, and using it to:
+The LockstakeEngine is the main contract in the set of contracts that implement and support the LSE. On a high level, it supports locking MKR in the contract, and using it to:
 * Vote through a delegate contract.
 * Farm NST or SDAO tokens.
 * Borrow NST through a vault.
@@ -44,7 +43,7 @@ There is also support for locking and freeing NGT instead of MKR.
 
 **Sequence Diagram:**
 
-Below is a diagram of a typical user sequence for winding up an SLE position.
+Below is a diagram of a typical user sequence for winding up an LSE position.
 
 For simplicity it does not include all external messages, internal operations or token interactions.
 
@@ -112,7 +111,7 @@ A modified version of the Liquidations 2.0 Clipper contract, which uses specific
 
 Specifically, the LockstakeEngine is called upon a beginning of an auction (`onKick`), a sell of collateral (`onTake`), and when the auction is concluded (`onRemove`).
 
-The SLE liquidation process differs from the usual liquidations by the fact that it sends the taker callee the collateral (MKR) in the form of ERC20 tokens and not `vat.gem`.
+The LSE liquidation process differs from the usual liquidations by the fact that it sends the taker callee the collateral (MKR) in the form of ERC20 tokens and not `vat.gem`.
 
 **Exit Fee on Liquidation**
 
@@ -165,7 +164,7 @@ Note that the increased gas cost should be taken into consideration when determi
 ## 3. Vote Delegation
 ### 3.a. VoteDelegate
 
-The SLE integrates with the current [VoteDelegate](https://github.com/makerdao/vote-delegate/blob/c2345b78376d5b0bb24749a97f82fe9171b53394/src/VoteDelegate.sol) contracts almost as is. However, there are two changes done:
+The LSE integrates with the current [VoteDelegate](https://github.com/makerdao/vote-delegate/blob/c2345b78376d5b0bb24749a97f82fe9171b53394/src/VoteDelegate.sol) contracts almost as is. However, there are two changes done:
 * In order to support long-term locking the delegate's expiration functionality needs to be removed.
 * In order to protect against an attack vector of delaying liquidations or blocking freeing of MKR, an on-demand window where locking MKR is blocked is introduced. The need for this stems from the Chief's flash loan protection, which doesn't allow to free MKR from a delegate in case MKR locking was already done in the same block.
 
@@ -173,7 +172,7 @@ The SLE integrates with the current [VoteDelegate](https://github.com/makerdao/v
 
 Since the VoteDelegate code is being modified (as described above), the factory also needs to be re-deployed.
 
-Note that it is important for the SLE to only allow using VoteDelegate contracts from the factory, so it can be made sure that liquidations can not be blocked.
+Note that it is important for the LSE to only allow using VoteDelegate contracts from the factory, so it can be made sure that liquidations can not be blocked.
 
 Up to date implementation: https://github.com/makerdao/vote-delegate/tree/v2/src
 
@@ -181,14 +180,14 @@ Up to date implementation: https://github.com/makerdao/vote-delegate/tree/v2/src
 
 In general participating in MKR liquidations should be pretty straightforward using the existing on-chain liquidity. However there is a small caveat:
 
-Current Makerdao ecosystem keepers expect receiving collateral in the form of `vat.gem` (usually to a keeper arbitrage callee contract), which they then need to `exit` to ERC20 from. However the SLE liquidation mechanism sends the MKR directly in the form of ERC20, which requires a slight change in the keepers mode of operation.
+Current Makerdao ecosystem keepers expect receiving collateral in the form of `vat.gem` (usually to a keeper arbitrage callee contract), which they then need to `exit` to ERC20 from. However the LSE liquidation mechanism sends the MKR directly in the form of ERC20, which requires a slight change in the keepers mode of operation.
 
 For example, keepers using the Maker supplied [exchange-callee for Uniswap V2](https://github.com/makerdao/exchange-callees/blob/3b080ecd4169fe09a59be51e2f85ddcea3242461/src/UniswapV2Callee.sol#L109) would need to use a version that gets the `gem` instead of the `gemJoin` and does not call `gemJoin.exit`.
 Additionaly, the callee might need to convert the MKR to NGT, in case it interacts with the NST/NGT Uniswap pool.
 
 ## 5. Splitter
 
-The Splitter contract is in charge of distributing the Surplus Buffer funds on each `vow.flap` to the Smart Burn Engine (SBE) and the SLE's NST farm. The total amount sent each time is `vow.bump`.
+The Splitter contract is in charge of distributing the Surplus Buffer funds on each `vow.flap` to the Smart Burn Engine (SBE) and the LSE's NST farm. The total amount sent each time is `vow.bump`.
 
 To accomplish this, it exposes a `kick` operation to be triggered periodically. Its logic withdraws DAI from the `vow` and splits it in two parts. The first part (`burn`) is sent to the underlying `flapper` contract to be processed by the SBE. The second part (`WAD - burn`) is distributed as reward to a `farm` contract. Note that `burn == 1 WAD` indicates funneling 100% of the DAI to the SBE without sending any rewards to the farm.
 
@@ -205,7 +204,7 @@ Up to date implementation: https://github.com/makerdao/dss-flappers/commit/c946c
 
 ## 6. StakingRewards
 
-The SLE uses a Maker modified [version](https://github.com/makerdao/endgame-toolkit/blob/master/README.md#stakingrewards) of the Synthetix Staking Reward as the farm for distributing NST to stakers.
+The LSE uses a Maker modified [version](https://github.com/makerdao/endgame-toolkit/blob/master/README.md#stakingrewards) of the Synthetix Staking Reward as the farm for distributing NST to stakers.
 
 For compatibility with the SBE, the assumption is that the duration of each farming distribution (`farm.rewardsDuration`) is similar to the flapper's cooldown period (`flap.hop`). This in practice divides the overall farming reward distribution to a set of smaller non overlapping distributions. It also allows for periods where there is no distribution at all.
 
@@ -219,5 +218,5 @@ Up to date implementation: https://github.com/makerdao/endgame-toolkit/commit/1a
 
 ## General Notes
 * In many of the modules, such as the splitter and the flappers, NST can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.
-* The SLE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.
-* Freeing very small amounts could bypass the exit fees (due to the rounding down) but since the SLE is meant to only be deployed on Ethereum, this is assumed to not be economically viable.
+* The LSE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.
+* Freeing very small amounts could bypass the exit fees (due to the rounding down) but since the LSE is meant to only be deployed on Ethereum, this is assumed to not be economically viable.

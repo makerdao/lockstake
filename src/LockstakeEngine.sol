@@ -112,8 +112,8 @@ contract LockstakeEngine is Multicall {
     event SelectFarm(address indexed urn, address farm, uint16 ref);
     event Lock(address indexed urn, uint256 wad, uint16 ref);
     event LockNgt(address indexed urn, uint256 ngtWad, uint16 ref);
-    event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
-    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
+    event Free(address indexed urn, address indexed to, uint256 wad, uint256 freed);
+    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 ngtFreed);
     event FreeNoFee(address indexed urn, address indexed to, uint256 wad);
     event Draw(address indexed urn, address indexed to, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
@@ -335,17 +335,18 @@ contract LockstakeEngine is Multicall {
         }
     }
 
-    function free(address urn, address to, uint256 wad) external urnAuth(urn) {
-        uint256 freed = _free(urn, wad, fee);
+    function free(address urn, address to, uint256 wad) external urnAuth(urn) returns (uint256 freed) {
+        freed = _free(urn, wad, fee);
         mkr.transfer(to, freed);
-        emit Free(urn, to, wad, wad - freed);
+        emit Free(urn, to, wad, freed);
     }
 
-    function freeNgt(address urn, address to, uint256 ngtWad) external urnAuth(urn) {
+    function freeNgt(address urn, address to, uint256 ngtWad) external urnAuth(urn) returns (uint256 ngtFreed) {
         uint256 wad = ngtWad / mkrNgtRate;
         uint256 freed = _free(urn, wad, fee);
+        ngtFreed = freed * mkrNgtRate;
         mkrNgt.mkrToNgt(to, freed);
-        emit FreeNgt(urn, to, ngtWad, wad - freed);
+        emit FreeNgt(urn, to, ngtWad, ngtFreed);
     }
 
     function freeNoFee(address urn, address to, uint256 wad) external auth urnAuth(urn) {

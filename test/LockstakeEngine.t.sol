@@ -62,8 +62,8 @@ contract LockstakeEngineTest is DssTest {
     event SelectFarm(address indexed urn, address farm, uint16 ref);
     event Lock(address indexed urn, uint256 wad, uint16 ref);
     event LockNgt(address indexed urn, uint256 ngtWad, uint16 ref);
-    event Free(address indexed urn, address indexed to, uint256 wad, uint256 burn);
-    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 burn);
+    event Free(address indexed urn, address indexed to, uint256 wad, uint256 freed);
+    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 ngtFreed);
     event FreeNoFee(address indexed urn, address indexed to, uint256 wad);
     event Draw(address indexed urn, address indexed to, uint256 wad);
     event Wipe(address indexed urn, uint256 wad);
@@ -607,8 +607,8 @@ contract LockstakeEngineTest is DssTest {
         }
         assertEq(mkr.totalSupply(), initialMkrSupply);
         vm.expectEmit(true, true, true, true);
-        emit Free(urn, address(this), 40_000 * 10**18, 40_000 * 10**18 * 15 / 100);
-        engine.free(urn, address(this), 40_000 * 10**18);
+        emit Free(urn, address(this), 40_000 * 10**18, 40_000 * 10**18 * 85 / 100);
+        assertEq(engine.free(urn, address(this), 40_000 * 10**18), 40_000 * 10**18 * 85 / 100);
         assertEq(_ink(ilk, urn), 60_000 * 10**18);
         if (withStaking) {
             assertEq(lsmkr.balanceOf(address(farm)), 60_000 * 10**18);
@@ -624,8 +624,8 @@ contract LockstakeEngineTest is DssTest {
             assertEq(mkr.balanceOf(address(engine)), 60_000 * 10**18);
         }
         vm.expectEmit(true, true, true, true);
-        emit Free(urn, address(123), 10_000 * 10**18, 10_000 * 10**18 * 15 / 100);
-        engine.free(urn, address(123), 10_000 * 10**18);
+        emit Free(urn, address(123), 10_000 * 10**18, 10_000 * 10**18 * 85 / 100);
+        assertEq(engine.free(urn, address(123), 10_000 * 10**18), 10_000 * 10**18 * 85 / 100);
         assertEq(_ink(ilk, urn), 50_000 * 10**18);
         if (withStaking) {
             assertEq(lsmkr.balanceOf(address(farm)), 50_000 * 10**18);
@@ -697,8 +697,8 @@ contract LockstakeEngineTest is DssTest {
         }
         assertEq(ngt.totalSupply(), initialNgtSupply - 100_000 * 24_000 * 10**18);
         vm.expectEmit(true, true, true, true);
-        emit FreeNgt(urn, address(this), 40_000 * 24_000 * 10**18, 40_000 * 10**18 * 15 / 100);
-        engine.freeNgt(urn, address(this), 40_000 * 24_000 * 10**18);
+        emit FreeNgt(urn, address(this), 40_000 * 24_000 * 10**18, 40_000 * 24_000 * 10**18 * 85 / 100);
+        assertEq(engine.freeNgt(urn, address(this), 40_000 * 24_000 * 10**18), 40_000 * 24_000 * 10**18 * 85 / 100);
         assertEq(_ink(ilk, urn), 60_000 * 10**18);
         if (withStaking) {
             assertEq(lsmkr.balanceOf(address(farm)), 60_000 * 10**18);
@@ -714,8 +714,8 @@ contract LockstakeEngineTest is DssTest {
             assertEq(mkr.balanceOf(address(engine)), 60_000 * 10**18);
         }
         vm.expectEmit(true, true, true, true);
-        emit FreeNgt(urn, address(123), 10_000 * 24_000 * 10**18, 10_000 * 10**18 * 15 / 100);
-        engine.freeNgt(urn, address(123), 10_000 * 24_000 * 10**18);
+        emit FreeNgt(urn, address(123), 10_000 * 24_000 * 10**18, 10_000 * 24_000 * 10**18 * 85 / 100);
+        assertEq(engine.freeNgt(urn, address(123), 10_000 * 24_000 * 10**18), 10_000 * 24_000 * 10**18 * 85 / 100);
         assertEq(_ink(ilk, urn), 50_000 * 10**18);
         if (withStaking) {
             assertEq(lsmkr.balanceOf(address(farm)), 50_000 * 10**18);

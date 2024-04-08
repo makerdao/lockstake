@@ -78,7 +78,7 @@ sequenceDiagram
 
 **Multicall:**
 
-LockstakeEngine implements a [multicall](https://github.com/makerdao/lockstake/blob/ecb993c79e92ee20c79a41b7f28b56f71c584cb9/src/Multicall.sol#L9) function, which allows batching several function calls.
+LockstakeEngine implements a function, which allows batching several function calls.
 
 For example, a typical flow for a user (or an app/front-end) would be to first query `index=usrAmts(usr)` and `urn=getUrn(usr, index)` off-chain to retrieve the expected `index` and `urn` address, then use these to perform a multicall sequence that includes `open`, `selectFarm`, `lock` and `stake`.
 
@@ -105,8 +105,6 @@ The following functions are called from the LockstakeClipper (see below) through
 * `farms` - Whitelisted set of farms to choose from.
 * `jug` - The Dai lending rate calculation module.
 
-
-Up to date implementation: https://github.com/makerdao/lockstake/commit/5cc4fa34b053bd0c470c3dcd2eebb920d25161fc
 
 ## 2. LockstakeClipper
 
@@ -163,8 +161,6 @@ Note that the increased gas cost should be taken into consideration when determi
 * `chip` - Percentage of tab to suck from vow to incentivize keepers.
 * `tip` - Flat fee to suck from vow to incentivize keepers.
 * `chost` - Cache the ilk dust times the ilk chop to prevent excessive SLOADs.
-
-Up to date implementation: https://github.com/makerdao/lockstake/commit/5cc4fa34b053bd0c470c3dcd2eebb920d25161fc
 
 ## 3. Vote Delegation
 ### 3.a. VoteDelegate

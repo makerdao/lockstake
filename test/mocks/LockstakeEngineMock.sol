@@ -25,7 +25,4 @@ contract LockstakeEngineMock {
     function onRemove(address urn, uint256, uint256 left) external {
         VatLike(vat).slip(ilk, urn, int256(left));
     }
-
-    function onYank(address, uint256) external {
-    }
 }

@@ -51,10 +51,9 @@ interface LockstakeEngineLike {
     function onKick(address, uint256) external;
     function onTake(address, address, uint256) external;
     function onRemove(address, uint256, uint256) external;
-    function onYank(address, uint256) external;
 }
 
-// Clipper for use with the manager / proxy paradigm
+// Clipper for use with the Lockstake Engine
 contract LockstakeClipper {
     // --- Auth ---
     mapping (address => uint256) public wards;
@@ -89,7 +88,7 @@ contract LockstakeClipper {
         uint256 pos;  // Index in active array
         uint256 tab;  // Dai to raise       [rad]
         uint256 lot;  // collateral to sell [wad]
-        uint256 tot;  // static registry of tot collateral to sell [wad]
+        uint256 tot;  // static registry of total collateral to sell [wad]
         address usr;  // Liquidated CDP
         uint96  tic;  // Auction start time
         uint256 top;  // Starting price     [ray]
@@ -207,7 +206,7 @@ contract LockstakeClipper {
 
     // --- Auction ---
 
-    // get the price directly from the OSM
+    // get the price directly from the pip
     // Could get this from rmul(Vat.ilks(ilk).spot, Spotter.mat()) instead, but
     // if mat has changed since the last poke, the resulting value will be
     // incorrect.
@@ -265,7 +264,7 @@ contract LockstakeClipper {
             vat.suck(vow, kpr, coin);
         }
 
-        // Trigger proxy manager liquidation call-back
+        // Trigger engine liquidation call-back
         engine.onKick(usr, lot);
 
         emit Kick(id, top, tab, lot, usr, kpr, coin);
@@ -473,13 +472,13 @@ contract LockstakeClipper {
         chost = wmul(_dust, dog.chop(ilk));
     }
 
-    // Cancel an auction during ES or via governance action.
+    // Cancel an auction during End.cage or via other governance action.
     function yank(uint256 id) external auth lock {
         require(sales[id].usr != address(0), "LockstakeClipper/not-running-auction");
         dog.digs(ilk, sales[id].tab);
         uint256 lot = sales[id].lot;
-        vat.slip(ilk, address(this), -int256(lot));
-        engine.onYank(sales[id].usr, lot);
+        vat.flux(ilk, address(this), msg.sender, lot);
+        engine.onRemove(sales[id].usr, 0, 0);
         _remove(id);
         emit Yank(id);
     }

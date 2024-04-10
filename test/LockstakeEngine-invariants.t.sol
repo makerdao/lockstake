@@ -19,20 +19,15 @@ interface ChainlogLike {
 }
 
 interface VatLike {
-    function dai(address) external view returns (uint256);
     function gem(bytes32, address) external view returns (uint256);
-    function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
     function urns(bytes32, address) external view returns (uint256, uint256);
     function rely(address) external;
     function file(bytes32, bytes32, uint256) external;
     function file(bytes32, uint256) external;
     function init(bytes32) external;
-    function hope(address) external;
-    function suck(address, address, uint256) external;
 }
 
 interface SpotterLike {
-    function ilks(bytes32) external view returns (address, uint256);
     function file(bytes32, bytes32, address) external;
     function file(bytes32, bytes32, uint256) external;
     function poke(bytes32) external;
@@ -47,11 +42,9 @@ interface DogLike {
     function rely(address) external;
     function file(bytes32, bytes32, address) external;
     function file(bytes32, bytes32, uint256) external;
-    function bark(bytes32, address, address) external returns (uint256);
 }
 
 interface CalcFabLike {
-    function newLinearDecrease(address) external returns (address);
     function newStairstepExponentialDecrease(address) external returns (address);
 }
 
@@ -60,7 +53,6 @@ interface CalcLike {
 }
 
 contract LockstakeEngineIntegrationTest is DssTest {
-
     using stdStorage for StdStorage;
 
     address             public pauseProxy;
@@ -70,6 +62,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
     GemMock             public mkr;
     address             public jug;
     LockstakeEngine     public engine;
+    address             public urn;
     LockstakeClipper    public clip;
     PipMock             public pip;
     DelegateFactoryMock public delFactory;
@@ -185,25 +178,25 @@ contract LockstakeEngineIntegrationTest is DssTest {
         farms[0] = address(farm0);
         farms[1] = address(farm1);
 
+        urn = engine.open(0);
         handler = new LockstakeHandler(
             address(engine),
+            urn,
             address(spot),
             address(dog),
             pauseProxy,
             address(this),
-            1,
             delegates,
             farms
         );
 
         // uncomment and fill to only call specific functions
-//        bytes4[] memory selectors = new bytes4[](6);
-//        selectors[0] = LockstakeHandler.open.selector;
-//        selectors[1] = LockstakeHandler.lock.selector;
-//        selectors[2] = LockstakeHandler.draw.selector;
-//        selectors[3] = LockstakeHandler.selectDelegate.selector;
-//        selectors[4] = LockstakeHandler.dropPriceAndBark.selector;
-//        selectors[5] = LockstakeHandler.yank.selector;
+//        bytes4[] memory selectors = new bytes4[](5);
+//        selectors[0] = LockstakeHandler.lock.selector;
+//        selectors[1] = LockstakeHandler.draw.selector;
+//        selectors[2] = LockstakeHandler.selectDelegate.selector;
+//        selectors[3] = LockstakeHandler.dropPriceAndBark.selector;
+//        selectors[4] = LockstakeHandler.yank.selector;
 //
 //        targetSelector(FuzzSelector({
 //            addr: address(handler),
@@ -215,26 +208,20 @@ contract LockstakeEngineIntegrationTest is DssTest {
         // targetSender(address(this));   // not needed anymore since we have `useSender` in the handler
     }
 
-    function invariant_system_mkr_equals_sum_of_ink() public {
-        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)), handler.sumInk());
+    function invariant_system_mkr_equals_ink() public {
+        (uint256 ink,) = vat.urns(ilk, urn);
+        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)), ink);
     }
 
     function invariant_system_mkr_equals_stkMkr_total_supply() public {
         assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)), stkMkr.totalSupply());
     }
 
-    // Note: relies on having only one urn (i.e. 1 passed to handler ctr)
     function invariant_delegation_exclusiveness() public {
-        assert(handler.numUrns() == 1);
-
         assertLe(handler.numDelegated(), 1);
     }
 
-    // Note: relies on having only one urn (i.e. 1 passed to handler ctr)
     function invariant_delegation_all_or_nothing() public {
-        assert(handler.numUrns() == 1);
-
-        address urn = handler.urns(0);
         address urnDelegate = engine.urnDelegates(urn);
         (uint256 ink,) = vat.urns(ilk, urn);
 
@@ -247,41 +234,33 @@ contract LockstakeEngineIntegrationTest is DssTest {
     }
 
     function invariant_staking_exclusiveness() public {
-        for (uint256 i = 0; i < handler.numUrns(); i++) {
-            assertLe(handler.numStakedForUrn(handler.urns(i)), 1);
-        }
+        assertLe(handler.numStakedForUrn(handler.urn()), 1);
     }
 
     function invariant_staking_all_or_nothing() public {
-        for (uint256 i = 0; i < handler.numUrns(); i++) {
-            address urn = handler.urns(i);
-            address urnFarm = engine.urnFarms(urn);
-            (uint256 ink,) = vat.urns(ilk, urn);
+        address urnFarm = engine.urnFarms(urn);
+        (uint256 ink,) = vat.urns(ilk, urn);
 
-            if (urnFarm == address(0)) {
-                assertEq(stkMkr.balanceOf(urn), ink);
-            } else {
-                assertEq(stkMkr.balanceOf(urn), 0);
-                assertEq(GemMock(urnFarm).balanceOf(urn), ink);
-            }
+        if (urnFarm == address(0)) {
+            assertEq(stkMkr.balanceOf(urn), ink);
+        } else {
+            assertEq(stkMkr.balanceOf(urn), 0);
+            assertEq(GemMock(urnFarm).balanceOf(urn), ink);
         }
     }
 
     function invariant_no_delegation_or_staking_during_auction() public {
-        for (uint256 i = 0; i < handler.numUrns(); i++) {
-            assert(
-                engine.urnAuctions(handler.urns(i)) == 0 ||
-                engine.urnDelegates(handler.urns(i)) == address(0) && engine.urnFarms(handler.urns(i)) == address(0)
-            );
-        }
+        assert(
+            engine.urnAuctions(urn) == 0 ||
+            engine.urnDelegates(urn) == address(0) && engine.urnFarms(urn) == address(0)
+        );
     }
 
-    function invariant_call_summary() external view {
+    function invariant_call_summary() external view { // TODO: make private by default
         console.log("------------------");
 
         console.log("\nCall Summary\n");
         console.log("addFarm", handler.numCalls("addFarm"));
-        console.log("open", handler.numCalls("open"));
         console.log("selectFarm", handler.numCalls("selectFarm"));
         console.log("selectDelegate", handler.numCalls("selectDelegate"));
         console.log("lock", handler.numCalls("lock"));

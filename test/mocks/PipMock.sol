@@ -14,7 +14,7 @@ contract PipMock {
     }
 
     function peek() external view returns (uint256 price_, bool ok) {
-        ok = true;
+        ok = price > 0;
         price_ = price;
     }
 }

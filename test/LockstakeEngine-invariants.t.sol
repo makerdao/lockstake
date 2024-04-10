@@ -5,8 +5,9 @@ pragma solidity ^0.8.16;
 import "dss-test/DssTest.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
+import { LockstakeMkr } from "src/LockstakeMkr.sol";
 import { PipMock } from "test/mocks/PipMock.sol";
-import { DelegateFactoryMock, DelegateMock } from "test/mocks/DelegateMock.sol";
+import { VoteDelegateFactoryMock, VoteDelegateMock } from "test/mocks/VoteDelegateMock.sol";
 import { GemMock } from "test/mocks/GemMock.sol";
 import { NstMock } from "test/mocks/NstMock.sol";
 import { NstJoinMock } from "test/mocks/NstJoinMock.sol";
@@ -65,10 +66,10 @@ contract LockstakeEngineIntegrationTest is DssTest {
     address             public urn;
     LockstakeClipper    public clip;
     PipMock             public pip;
-    DelegateFactoryMock public delFactory;
+    VoteDelegateFactoryMock public delFactory;
     NstMock             public nst;
     NstJoinMock         public nstJoin;
-    GemMock             public stkMkr;
+    LockstakeMkr        public lsmkr;
     GemMock             public rTok;
     StakingRewardsMock  public farm0;
     StakingRewardsMock  public farm1;
@@ -79,6 +80,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
     address             public voter1;
     address             public voterDelegate0;
     address             public voterDelegate1;
+    address             public yankCaller;
 
     LockstakeHandler    public handler;
 
@@ -109,22 +111,23 @@ contract LockstakeEngineIntegrationTest is DssTest {
         jug = ChainlogLike(LOG).getAddress("MCD_JUG");
         nst = new NstMock();
         nstJoin = new NstJoinMock(address(vat), address(nst));
-        stkMkr = new GemMock(0);
+        lsmkr = new LockstakeMkr();
         rTok = new GemMock(0);
-        farm0 = new StakingRewardsMock(address(rTok), address(stkMkr));
-        farm1 = new StakingRewardsMock(address(rTok), address(stkMkr));
+        farm0 = new StakingRewardsMock(address(rTok), address(lsmkr));
+        farm1 = new StakingRewardsMock(address(rTok), address(lsmkr));
         ngt = new GemMock(0);
         mkrNgt = new MkrNgtMock(address(mkr), address(ngt), 25_000);
+        yankCaller = address(789);
 
         pip = new PipMock();
-        delFactory = new DelegateFactoryMock(address(mkr));
+        delFactory = new VoteDelegateFactoryMock(address(mkr));
         voter0 = address(123);
         voter1 = address(456);
         vm.prank(voter0); voterDelegate0 = delFactory.create();
         vm.prank(voter1); voterDelegate1 = delFactory.create();
 
         vm.startPrank(pauseProxy);
-        engine = new LockstakeEngine(address(delFactory), address(nstJoin), ilk, address(stkMkr), 15 * WAD / 100, address(mkrNgt));
+        engine = new LockstakeEngine(address(delFactory), address(nstJoin), ilk, address(mkrNgt), address(lsmkr), 15 * WAD / 100);
         engine.file("jug", jug);
         vat.rely(address(engine));
         vat.init(ilk);
@@ -147,6 +150,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
         clip = new LockstakeClipper(address(vat), spot, address(dog), address(engine));
         clip.upchost();
         clip.rely(address(dog));
+        clip.rely(yankCaller);
 
         dog.file(ilk, "clip", address(clip));
         dog.rely(address(clip));
@@ -164,15 +168,17 @@ contract LockstakeEngineIntegrationTest is DssTest {
         clip.file("tail", 3600);              // 1 hour before reset
         vm.stopPrank();
 
+        lsmkr.rely(address(engine));
+
         deal(address(mkr), address(this), 100_000 * 10**18, true);
         deal(address(ngt), address(this), 100_000 * 25_000 * 10**18, true);
 
         // Add some existing DAI assigned to nstJoin to avoid a particular error
         stdstore.target(address(vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(100_000 * RAD);
 
-        address[] memory delegates = new address[](2);
-        delegates[0] = voterDelegate0;
-        delegates[1] = voterDelegate1;
+        address[] memory voteDelegates = new address[](2);
+        voteDelegates[0] = voterDelegate0;
+        voteDelegates[1] = voterDelegate1;
 
         address[] memory farms = new address[](2);
         farms[0] = address(farm0);
@@ -186,35 +192,35 @@ contract LockstakeEngineIntegrationTest is DssTest {
             address(dog),
             pauseProxy,
             address(this),
-            delegates,
-            farms
+            voteDelegates,
+            farms,
+            yankCaller
         );
 
         // uncomment and fill to only call specific functions
-//        bytes4[] memory selectors = new bytes4[](5);
-//        selectors[0] = LockstakeHandler.lock.selector;
-//        selectors[1] = LockstakeHandler.draw.selector;
-//        selectors[2] = LockstakeHandler.selectDelegate.selector;
-//        selectors[3] = LockstakeHandler.dropPriceAndBark.selector;
-//        selectors[4] = LockstakeHandler.yank.selector;
+//      bytes4[] memory selectors = new bytes4[](5);
+//      selectors[0] = LockstakeHandler.lock.selector;
+//      selectors[1] = LockstakeHandler.draw.selector;
+//      selectors[2] = LockstakeHandler.selectVoteDelegate.selector;
+//      selectors[3] = LockstakeHandler.dropPriceAndBark.selector;
+//      selectors[4] = LockstakeHandler.yank.selector;
 //
-//        targetSelector(FuzzSelector({
-//            addr: address(handler),
-//            selectors: selectors
-//        }));
+//      targetSelector(FuzzSelector({
+//          addr: address(handler),
+//          selectors: selectors
+//      }));
 
         targetContract(address(handler)); // invariant tests should fuzz only handler functions
         excludeArtifact("LockstakeUrn");  // excluding since it seems to also be fuzzed
-        // targetSender(address(this));   // not needed anymore since we have `useSender` in the handler
     }
 
     function invariant_system_mkr_equals_ink() public {
         (uint256 ink,) = vat.urns(ilk, urn);
-        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)), ink);
+        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, yankCaller), ink);
     }
 
-    function invariant_system_mkr_equals_stkMkr_total_supply() public {
-        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)), stkMkr.totalSupply());
+    function invariant_system_mkr_equals_lsmkr_total_supply() public {
+        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, yankCaller), lsmkr.totalSupply());
     }
 
     function invariant_delegation_exclusiveness() public {
@@ -222,13 +228,13 @@ contract LockstakeEngineIntegrationTest is DssTest {
     }
 
     function invariant_delegation_all_or_nothing() public {
-        address urnDelegate = engine.urnDelegates(urn);
+        address urnDelegate = engine.urnVoteDelegates(urn);
         (uint256 ink,) = vat.urns(ilk, urn);
 
         if (urnDelegate == address(0)) {
-            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)), ink);
+            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, yankCaller), ink);
         } else {
-            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)), 0);
+            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, yankCaller), 0);
             assertEq(mkr.balanceOf(urnDelegate), ink);
         }
     }
@@ -242,9 +248,9 @@ contract LockstakeEngineIntegrationTest is DssTest {
         (uint256 ink,) = vat.urns(ilk, urn);
 
         if (urnFarm == address(0)) {
-            assertEq(stkMkr.balanceOf(urn), ink);
+            assertEq(lsmkr.balanceOf(urn), ink);
         } else {
-            assertEq(stkMkr.balanceOf(urn), 0);
+            assertEq(lsmkr.balanceOf(urn), 0);
             assertEq(GemMock(urnFarm).balanceOf(urn), ink);
         }
     }
@@ -252,17 +258,17 @@ contract LockstakeEngineIntegrationTest is DssTest {
     function invariant_no_delegation_or_staking_during_auction() public {
         assert(
             engine.urnAuctions(urn) == 0 ||
-            engine.urnDelegates(urn) == address(0) && engine.urnFarms(urn) == address(0)
+            engine.urnVoteDelegates(urn) == address(0) && engine.urnFarms(urn) == address(0)
         );
     }
 
-    function invariant_call_summary() external view { // TODO: make private by default
+    function invariant_call_summary() private view { // make external to enable
         console.log("------------------");
 
         console.log("\nCall Summary\n");
         console.log("addFarm", handler.numCalls("addFarm"));
         console.log("selectFarm", handler.numCalls("selectFarm"));
-        console.log("selectDelegate", handler.numCalls("selectDelegate"));
+        console.log("selectVoteDelegate", handler.numCalls("selectVoteDelegate"));
         console.log("lock", handler.numCalls("lock"));
         console.log("lockNgt", handler.numCalls("lockNgt"));
         console.log("free", handler.numCalls("free"));
@@ -274,4 +280,3 @@ contract LockstakeEngineIntegrationTest is DssTest {
         console.log("yank", handler.numCalls("yank"));
     }
 }
-

@@ -40,11 +40,12 @@ contract LockstakeHandler is DssTest {
     address   public  pauseProxy;
     address   public  sender;
     address   public  urn;
-    address[] public  delegates;
-    address   public  currentDelegate;
+    address[] public  voteDelegates;
+    address   public  currentVoteDelegate;
     address[] public  farms;
     address   public  currentFarm;
     uint256   public  currentAuctionId;
+    address   public  yankCaller;
 
     mapping(bytes32 => uint256) public numCalls;
 
@@ -60,8 +61,8 @@ contract LockstakeHandler is DssTest {
         vm.stopPrank();
     }
 
-    modifier useRandomDelegate(uint256 delegateIndex) {
-        currentDelegate = delegates[bound(delegateIndex, 0, delegates.length - 1)];
+    modifier useRandomVoteDelegate(uint256 voteDelegateIndex) {
+        currentVoteDelegate = voteDelegates[bound(voteDelegateIndex, 0, voteDelegates.length - 1)];
         _;
     }
 
@@ -83,8 +84,9 @@ contract LockstakeHandler is DssTest {
         address dog_,
         address pauseProxy_,
         address sender_,
-        address[] memory delegates_,
-        address[] memory farms_
+        address[] memory voteDelegates_,
+        address[] memory farms_,
+        address yankCaller_
     ) {
         engine     = LockstakeEngine(engine_);
         mkr        = GemMock(address(engine.mkr()));
@@ -100,13 +102,14 @@ contract LockstakeHandler is DssTest {
         clip   = LockstakeClipper(clip_);
         sender = sender_;
         urn    = urn_;
+        yankCaller = yankCaller_;
 
         vat.hope(address(clip));
 
-        for (uint i = 0; i < delegates_.length ; i++) {
-            delegates.push(delegates_[i]);
+        for (uint i = 0; i < voteDelegates_.length ; i++) {
+            voteDelegates.push(voteDelegates_[i]);
         }
-        delegates.push(address(0));
+        voteDelegates.push(address(0));
 
         for (uint i = 0; i < farms_.length ; i++) {
             farms.push(farms_[i]);
@@ -115,19 +118,19 @@ contract LockstakeHandler is DssTest {
     }
 
     function sumDelegated() external view returns (uint256 sum) {
-        for (uint256 i = 0; i < delegates.length; i++) {
-            if (delegates[i] == address(0)) continue;
-            sum += mkr.balanceOf(delegates[i]);
+        for (uint256 i = 0; i < voteDelegates.length; i++) {
+            if (voteDelegates[i] == address(0)) continue;
+            sum += mkr.balanceOf(voteDelegates[i]);
         }
     }
 
-    // note: There is no way to get the amount delegated per urn from the actual unmodified delegate contract,
-    //       so we currently just return the total num of delegates that anyone delegated to.
+    // note: There is no way to get the amount delegated per urn from the actual unmodified vote delegate contract,
+    //       so we currently just return the total num of voteDelegates that anyone delegated to.
     //       In practice it means that invariant_delegation_unique can only work when there is one urn.
     function numDelegated() external view returns (uint256 num) {
-        for (uint256 i = 0; i < delegates.length; i++) {
-            if (delegates[i] == address(0)) continue;
-            if (mkr.balanceOf(delegates[i]) > 0) num++;
+        for (uint256 i = 0; i < voteDelegates.length; i++) {
+            if (voteDelegates[i] == address(0)) continue;
+            if (mkr.balanceOf(voteDelegates[i]) > 0) num++;
         }
     }
 
@@ -150,9 +153,9 @@ contract LockstakeHandler is DssTest {
         engine.selectFarm(urn, currentFarm, ref);
     }
 
-    function selectDelegate(uint256 delegateIndex) useSender() useRandomDelegate(delegateIndex) external {
-        numCalls["selectDelegate"]++;
-        engine.selectDelegate(urn, currentDelegate);
+    function selectVoteDelegate(uint256 voteDelegateIndex) useSender() useRandomVoteDelegate(voteDelegateIndex) external {
+        numCalls["selectVoteDelegate"]++;
+        engine.selectVoteDelegate(urn, currentVoteDelegate);
     }
 
     function lock(uint256 wad, uint16 ref) useSender() external {
@@ -234,6 +237,6 @@ contract LockstakeHandler is DssTest {
 
     function yank(uint256 auctionIndex) external useRandomAuctionId(auctionIndex) {
         numCalls["yank"]++;
-        vm.prank(pauseProxy); clip.yank(currentAuctionId);
+        vm.prank(yankCaller); clip.yank(currentAuctionId);
     }
 }

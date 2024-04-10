@@ -1380,7 +1380,7 @@ contract LockstakeClipperTest is DssTest {
         clip.redo(1, address(345));
         assertEq(dss.vat.dai(address(345)), clip.chip() * tab / WAD);
 
-        clip.file("chip", 0);              // No more linear increase
+        clip.file("chip", 0);              // No more incentive
         vm.warp(block.timestamp + 300);
         clip.redo(1, address(456));
         assertEq(dss.vat.dai(address(456)), 0);
@@ -1389,9 +1389,10 @@ contract LockstakeClipperTest is DssTest {
         clip.upchost();
         assertEq(clip.chost(), 110 * RAD + 1);
 
+        clip.file("tip",  rad(100 ether)); // Flat fee of 100 DAI
         vm.warp(block.timestamp + 300);
-        clip.redo(1, address(456));
-        assertEq(dss.vat.dai(address(456)), 0);
+        clip.redo(1, address(567));
+        assertEq(dss.vat.dai(address(567)), 0);
 
         // Set dust so that wmul(dust, chop) is well below tab to check the dusty lot case.
         vm.prank(pauseProxy); dss.vat.file(ilk, "dust", rad(20 ether)); // $20 dust
@@ -1470,6 +1471,14 @@ contract LockstakeClipperTest is DssTest {
         assertEq(dss.vat.gem(ilk, address(usr)), prevUsrGemBalance);
         assertEq(dss.vat.gem(ilk, address(caller)), prevCallerGemBalance + lot);
         assertEq(dss.vat.gem(ilk, address(clip)), prevClipperGemBalance - lot);
+    }
+
+    function testRevertsYankZeroUsr() public takeSetup {
+        // Auction id 2 is unpopulated.
+        (,,,, address usr,,) = clip.sales(2);
+        assertEq(usr, address(0));
+        vm.expectRevert("LockstakeClipper/not-running-auction");
+        clip.yank(2);
     }
 
     function testRemoveId() public {

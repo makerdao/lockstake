@@ -364,13 +364,13 @@ contract LockstakeClipperTest is DssTest {
         assertEq(art, 0 ether);
 
         pip.setPrice(price); // Spot = $2.5
-        dss.spotter.poke(ilk);          // Now safe
+        dss.spotter.poke(ilk); // Now safe
 
         vm.warp(startTime + 100);
         dss.vat.frob(ilk, address(this), address(this), address(this), 40 ether, 100 ether);
 
         pip.setPrice(4 ether); // Spot = $2
-        dss.spotter.poke(ilk);          // Now unsafe
+        dss.spotter.poke(ilk); // Now unsafe
 
         (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(2);
         assertEq(sale.pos, 0);

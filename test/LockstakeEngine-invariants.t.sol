@@ -92,9 +92,9 @@ contract LockstakeEngineIntegrationTest is DssTest {
     address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
-    unchecked {
-        z = x != 0 ? ((x - 1) / y) + 1 : 0;
-    }
+        unchecked {
+            z = x != 0 ? ((x - 1) / y) + 1 : 0;
+        }
     }
 
     function ray(uint256 wad) internal pure returns (uint256) {
@@ -275,8 +275,6 @@ contract LockstakeEngineIntegrationTest is DssTest {
             );
         }
     }
-
-    // TODO: invariant that no delegation and no stake during an auction
 
     function invariant_call_summary() external view {
         console.log("------------------");

@@ -5,7 +5,7 @@ import "dss-test/DssTest.sol";
 
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
-import { GemMock }         from "test/mocks/GemMock.sol";
+import { GemMock } from "test/mocks/GemMock.sol";
 import { PipMock } from "test/mocks/PipMock.sol";
 
 interface VatLike {
@@ -181,8 +181,6 @@ contract LockstakeHandler is DssTest {
         return engine.open(currentIndex);
     }
 
-    // TODO: support hope + nope once we support more than one sender
-
     function selectFarm(uint16 ref, uint256 urnIndex, uint256 farmIndex) useSender() useRandomUrn(urnIndex) useRandomFarm(farmIndex) external {
         numCalls["selectFarm"]++;
         engine.selectFarm(currentUrn, currentFarm, ref);
@@ -238,8 +236,6 @@ contract LockstakeHandler is DssTest {
 
         engine.wipe(currentUrn, wad);
     }
-
-    // TODO: support getReward
 
     function dropPriceAndBark(uint256 urnIndex) external useRandomUrn(urnIndex) {
         numCalls["dropPriceAndBark"]++;

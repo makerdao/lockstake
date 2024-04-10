@@ -168,6 +168,8 @@ interface VowLike {
 }
 
 contract LockstakeClipperTest is DssTest {
+    using stdStorage for StdStorage;
+
     DssInstance dss;
     address     pauseProxy;
     PipMock     pip;
@@ -448,6 +450,12 @@ contract LockstakeClipperTest is DssTest {
     function testRevertsKickZeroUsr() public {
         vm.expectRevert("LockstakeClipper/zero-usr");
         clip.kick(1 ether, 2 ether, address(0), address(this));
+    }
+
+    function testRevertsKickKicksOverflow() public {
+        stdstore.target(address(clip)).sig("kicks()").checked_write(type(uint256).max);
+        vm.expectRevert("LockstakeClipper/overflow");
+        clip.kick(1 ether, 2 ether, address(1), address(this));
     }
 
     function testBarkNotLeavingDust() public {

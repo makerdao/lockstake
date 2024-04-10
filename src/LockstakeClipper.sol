@@ -237,7 +237,7 @@ contract LockstakeClipper {
         require(lot  >                         0, "LockstakeClipper/zero-lot");
         require(lot <= uint256(type(int256).max), "LockstakeClipper/over-maxint-lot"); // This is ensured by the dog but we still prefer to be explicit
         require(usr !=                address(0), "LockstakeClipper/zero-usr");
-        id = ++kicks;
+        unchecked { id = ++kicks; }
         require(id   >                         0, "LockstakeClipper/overflow");
 
         active.push(id);

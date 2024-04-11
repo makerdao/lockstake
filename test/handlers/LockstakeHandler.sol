@@ -130,6 +130,10 @@ contract LockstakeHandler is DssTest {
         }
     }
 
+    function delegatedTo(address voteDelegate) external view returns (uint256) {
+        return VoteDelegateLike(voteDelegate).stake(address(engine));
+    }
+
     function sumDelegated() external view returns (uint256 sum) {
         for (uint256 i = 0; i < voteDelegates.length; i++) {
             if (voteDelegates[i] == address(0)) continue;

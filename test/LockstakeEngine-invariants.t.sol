@@ -235,7 +235,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
             assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, yankCaller), ink);
         } else {
             assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, yankCaller), 0);
-            assertEq(mkr.balanceOf(urnDelegate), ink);
+            assertEq(handler.delegatedTo(urnDelegate), ink);
         }
     }
 

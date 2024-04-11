@@ -20,6 +20,10 @@ interface SpotterLike {
     function poke(bytes32) external;
 }
 
+interface VoteDelegateLike {
+    function stake(address) external view returns (uint256);
+}
+
 interface DogLike {
     function bark(bytes32, address, address) external returns (uint256);
     function ilks(bytes32) external view returns (address, uint256, uint256, uint256);
@@ -120,7 +124,7 @@ contract LockstakeHandler is DssTest {
     function sumDelegated() external view returns (uint256 sum) {
         for (uint256 i = 0; i < voteDelegates.length; i++) {
             if (voteDelegates[i] == address(0)) continue;
-            sum += mkr.balanceOf(voteDelegates[i]);
+            sum += VoteDelegateLike(voteDelegates[i]).stake(address(engine));
         }
     }
 
@@ -130,7 +134,7 @@ contract LockstakeHandler is DssTest {
     function numDelegated() external view returns (uint256 num) {
         for (uint256 i = 0; i < voteDelegates.length; i++) {
             if (voteDelegates[i] == address(0)) continue;
-            if (mkr.balanceOf(voteDelegates[i]) > 0) num++;
+            if (VoteDelegateLike(voteDelegates[i]).stake(address(engine)) > 0) num++;
         }
     }
 

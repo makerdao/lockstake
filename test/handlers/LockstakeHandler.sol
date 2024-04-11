@@ -31,7 +31,7 @@ interface DogLike {
 
 contract LockstakeHandler is DssTest {
 
-    LockstakeEngine public engine;
+    LockstakeEngine  public engine;
     GemMock          public mkr;
     GemMock          public ngt;
     GemMock          public nst;
@@ -110,12 +110,12 @@ contract LockstakeHandler is DssTest {
 
         vat.hope(address(clip));
 
-        for (uint i = 0; i < voteDelegates_.length ; i++) {
+        for (uint256 i = 0; i < voteDelegates_.length ; i++) {
             voteDelegates.push(voteDelegates_[i]);
         }
         voteDelegates.push(address(0));
 
-        for (uint i = 0; i < farms_.length ; i++) {
+        for (uint256 i = 0; i < farms_.length ; i++) {
             farms.push(farms_[i]);
         }
         farms.push(address(0));
@@ -140,9 +140,7 @@ contract LockstakeHandler is DssTest {
 
     function numStakedForUrn(address urn_) external view returns (uint256 num) {
         for (uint256 i = 0; i < farms.length; i++) {
-            address farm = farms[i];
-
-            if (farm == address(0)) continue;
+            if (farms[i] == address(0)) continue;
             if (GemMock(farms[i]).balanceOf(urn_) > 0) num++;
         }
     }

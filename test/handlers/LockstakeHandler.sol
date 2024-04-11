@@ -139,7 +139,7 @@ contract LockstakeHandler is DssTest {
 
     // note: There is no way to get the amount delegated per urn from the actual unmodified vote delegate contract,
     //       so we currently just return the total num of voteDelegates that anyone delegated to.
-    //       In practice it means that invariant_delegation_unique can only work when there is one urn.
+    //       In practice it means that invariant_delegation_exclusiveness can only work when there is one urn.
     function numDelegated() external view returns (uint256 num) {
         for (uint256 i = 0; i < voteDelegates.length; i++) {
             if (voteDelegates[i] == address(0)) continue;

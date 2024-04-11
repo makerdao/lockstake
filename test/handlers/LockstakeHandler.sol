@@ -29,7 +29,8 @@ interface DogLike {
     function ilks(bytes32) external view returns (address, uint256, uint256, uint256);
 }
 
-contract LockstakeHandler is DssTest {
+contract LockstakeHandler is StdUtils, StdCheats {
+    Vm vm;
 
     LockstakeEngine  public engine;
     GemMock          public mkr;
@@ -53,6 +54,8 @@ contract LockstakeHandler is DssTest {
     uint256   public  mkrNgtRate;
 
     mapping(bytes32 => uint256) public numCalls;
+
+    uint256 constant RAY = 10 ** 27;
 
     modifier useSender() {
         vm.startPrank(sender);
@@ -83,6 +86,7 @@ contract LockstakeHandler is DssTest {
     }
 
     constructor(
+        Vm vm_,
         address engine_,
         address urn_,
         address spot_,
@@ -93,6 +97,7 @@ contract LockstakeHandler is DssTest {
         address[] memory farms_,
         address yankCaller_
     ) {
+        vm         = vm_;
         engine     = LockstakeEngine(engine_);
         mkr        = GemMock(address(engine.mkr()));
         ngt        = GemMock(address(engine.ngt()));

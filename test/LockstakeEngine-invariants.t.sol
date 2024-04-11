@@ -256,7 +256,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
     }
 
     function invariant_no_delegation_or_staking_during_auction() public {
-        assert(
+        assertTrue(
             engine.urnAuctions(urn) == 0 ||
             engine.urnVoteDelegates(urn) == address(0) && engine.urnFarms(urn) == address(0)
         );

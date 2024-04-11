@@ -319,11 +319,14 @@ contract LockstakeClipperTest is DssTest {
     function testConstructor() public {
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        LockstakeClipper c = new LockstakeClipper(address(111), address(222), address(333), address(new LockstakeEngineMock(address(111), "ILK")));
+        address eng = address(new LockstakeEngineMock(address(111), "ILK"));
+        LockstakeClipper c = new LockstakeClipper(address(111), address(222), address(333), eng);
         assertEq(address(c.vat()), address(111));
         assertEq(address(c.spotter()), address(222));
         assertEq(address(c.dog()), address(333));
+        assertEq(address(c.engine()), eng);
         assertEq(c.ilk(), "ILK");
+        assertEq(c.buf(), RAY);
         assertEq(c.wards(address(this)), 1);
     }
 

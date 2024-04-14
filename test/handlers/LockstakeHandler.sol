@@ -199,8 +199,9 @@ contract LockstakeHandler is StdUtils, StdCheats {
     function free(address to, uint256 wad) external useSender() {
         numCalls["free"]++;
 
-        (uint256 ink,) = vat.urns(ilk, urn);
-        wad = bound(wad, 0, ink);
+        (uint256 ink, uint256 art) = vat.urns(ilk, urn);
+        (, uint256 rate,,,) = vat.ilks(ilk);
+        wad = bound(wad, 0, ink - art * rate / RAY);
 
         engine.free(urn, to, wad);
     }
@@ -208,8 +209,9 @@ contract LockstakeHandler is StdUtils, StdCheats {
     function freeNgt(address to, uint256 ngtWad) external useSender() {
         numCalls["freeNgt"]++;
 
-        (uint256 ink,) = vat.urns(ilk, urn);
-        ngtWad = bound(ngtWad, 0, ink * mkrNgtRate);
+        (uint256 ink,uint256 art ) = vat.urns(ilk, urn);
+        (, uint256 rate,,,) = vat.ilks(ilk);
+        ngtWad = bound(ngtWad, 0, (ink - art * rate / RAY) * mkrNgtRate);
 
         engine.freeNgt(urn, to, ngtWad);
     }

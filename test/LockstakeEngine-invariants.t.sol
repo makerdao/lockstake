@@ -212,7 +212,6 @@ contract LockstakeEngineIntegrationTest is DssTest {
 //      }));
 
         targetContract(address(handler)); // invariant tests should fuzz only handler functions
-        excludeArtifact("LockstakeUrn");  // excluding since it seems to also be fuzzed
     }
 
     function invariant_system_mkr_equals_ink() public {

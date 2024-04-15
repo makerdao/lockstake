@@ -377,17 +377,15 @@ contract LockstakeEngineTest is DssTest {
         checkModifier(address(engine), "LockstakeEngine/not-authorized", authedMethods);
         vm.stopPrank();
 
-        bytes4[] memory urnOwnersMethods = new bytes4[](10);
+        bytes4[] memory urnOwnersMethods = new bytes4[](8);
         urnOwnersMethods[0]  = engine.hope.selector;
         urnOwnersMethods[1]  = engine.nope.selector;
         urnOwnersMethods[2]  = engine.selectVoteDelegate.selector;
         urnOwnersMethods[3]  = engine.selectFarm.selector;
-        urnOwnersMethods[4]  = engine.lock.selector;
-        urnOwnersMethods[5]  = engine.lockNgt.selector;
-        urnOwnersMethods[6]  = engine.free.selector;
-        urnOwnersMethods[7]  = engine.freeNgt.selector;
-        urnOwnersMethods[8]  = engine.draw.selector;
-        urnOwnersMethods[9] = engine.getReward.selector;
+        urnOwnersMethods[4]  = engine.free.selector;
+        urnOwnersMethods[5]  = engine.freeNgt.selector;
+        urnOwnersMethods[6]  = engine.draw.selector;
+        urnOwnersMethods[7] = engine.getReward.selector;
 
         // this checks the case when sender is not the urn owner and not hoped, the hoped case is checked in testHopeNope and the urn owner case in the specific tests
         vm.startPrank(address(0xBEEF));
@@ -587,10 +585,13 @@ contract LockstakeEngineTest is DssTest {
         }
         assertEq(_ink(ilk, urn), 0);
         assertEq(lsmkr.balanceOf(urn), 0);
-        mkr.approve(address(engine), 100_000 * 10**18);
+        mkr.transfer(address(123), 100_000 * 10**18);
+        vm.prank(address(123)); mkr.approve(address(engine), 100_000 * 10**18);
+        vm.expectRevert("LockstakeEngine/invalid-urn");
+        vm.prank(address(123)); engine.lock(address(456), 100_000 * 10**18, 5);
         vm.expectEmit(true, true, true, true);
         emit Lock(urn, 100_000 * 10**18, 5);
-        engine.lock(urn, 100_000 * 10**18, 5);
+        vm.prank(address(123)); engine.lock(urn, 100_000 * 10**18, 5);
         assertEq(_ink(ilk, urn), 100_000 * 10**18);
         if (withStaking) {
             assertEq(lsmkr.balanceOf(address(farm)), 100_000 * 10**18);

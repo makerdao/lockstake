@@ -38,6 +38,7 @@ There is also support for locking and freeing NGT instead of MKR.
 * `selectFarm(address urn, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
 * `draw(address urn, address to, uint256 wad)` - Generate `wad` amount of NST using the `urn`’s MKR as collateral and send it to the `to` address.
 * `wipe(address urn, uint256 wad)` - Repay `wad` amount of NST backed by the `urn`’s MKR.
+* `wipeAll(address urn)` - Repay the amount of NST that is needed to wipe the `urn`s entire debt. 
 * `getReward(address urn, address farm, address to)` - Claim the reward generated from a farm on behalf of the `urn` and send it to the specified `to` address.
 * `multicall(bytes[] calldata data)` - Batch multiple methods in a single call to the contract.
 
@@ -159,7 +160,8 @@ Note that the increased gas cost should be taken into consideration when determi
 * `cusp` - Percentage drop before auction reset.
 * `chip` - Percentage of tab to suck from vow to incentivize keepers.
 * `tip` - Flat fee to suck from vow to incentivize keepers.
-* `chost` - Cache the ilk dust times the ilk chop to prevent excessive SLOADs.
+* `stopped` - Level used to disable various types of functionality.
+* `chost` - Cached value of the ilk dust times the ilk chop. Set through `upchost()`.
 
 ## 3. Vote Delegation
 ### 3.a. VoteDelegate

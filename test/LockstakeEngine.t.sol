@@ -378,13 +378,13 @@ contract LockstakeEngineTest is DssTest {
         vm.stopPrank();
 
         bytes4[] memory urnOwnersMethods = new bytes4[](8);
-        urnOwnersMethods[0]  = engine.hope.selector;
-        urnOwnersMethods[1]  = engine.nope.selector;
-        urnOwnersMethods[2]  = engine.selectVoteDelegate.selector;
-        urnOwnersMethods[3]  = engine.selectFarm.selector;
-        urnOwnersMethods[4]  = engine.free.selector;
-        urnOwnersMethods[5]  = engine.freeNgt.selector;
-        urnOwnersMethods[6]  = engine.draw.selector;
+        urnOwnersMethods[0] = engine.hope.selector;
+        urnOwnersMethods[1] = engine.nope.selector;
+        urnOwnersMethods[2] = engine.selectVoteDelegate.selector;
+        urnOwnersMethods[3] = engine.selectFarm.selector;
+        urnOwnersMethods[4] = engine.free.selector;
+        urnOwnersMethods[5] = engine.freeNgt.selector;
+        urnOwnersMethods[6] = engine.draw.selector;
         urnOwnersMethods[7] = engine.getReward.selector;
 
         // this checks the case when sender is not the urn owner and not hoped, the hoped case is checked in testHopeNope and the urn owner case in the specific tests

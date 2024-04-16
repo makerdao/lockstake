@@ -176,8 +176,6 @@ library LockstakeInit {
         PipLike(pip).kiss(address(clipper));
         PipLike(pip).kiss(clipperMom);
         PipLike(pip).kiss(address(dss.end));
-        // TODO: If a sticky oracle wrapper is implemented we will need to also kiss the source to it
-        // If an osm is implemented instead we also need the source to kiss the osm and add the OsmMom permissions
 
         dss.spotter.file(cfg.ilk, "mat", cfg.mat);
         dss.spotter.file(cfg.ilk, "pip", pip);

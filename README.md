@@ -34,10 +34,11 @@ There is also support for locking and freeing NGT instead of MKR.
 * `free(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed.
 * `freeNgt(address urn, address to, uint256 ngtWad)` - Withdraw `ngtWad - ngtWad % mkrNgtRate` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. Note that freeing NGT is possible even if the position was previously entered via regular locking (using MKR), and vice-vera.
 * `freeNoFee(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address without paying any fee. This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. This function can only be called by an address which was both authorized on the contract by governance and for which the urn owner has called `hope`. It is useful for implementing a migration contract that will move the funds to another engine contract (if ever needed).
-* `selectDelegate(address urn, address delegate)` - Choose which delegate contract to delegate the `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
+* `selectVoteDelegate(address urn, address voteDelegate)` - Choose which delegate contract to delegate the `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
 * `selectFarm(address urn, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
 * `draw(address urn, address to, uint256 wad)` - Generate `wad` amount of NST using the `urn`’s MKR as collateral and send it to the `to` address.
 * `wipe(address urn, uint256 wad)` - Repay `wad` amount of NST backed by the `urn`’s MKR.
+* `wipeAll(address urn)` - Repay the amount of NST that is needed to wipe the `urn`s entire debt. 
 * `getReward(address urn, address farm, address to)` - Claim the reward generated from a farm on behalf of the `urn` and send it to the specified `to` address.
 * `multicall(bytes[] calldata data)` - Batch multiple methods in a single call to the contract.
 
@@ -63,7 +64,7 @@ sequenceDiagram
     user->>engine: lock(`urn0`, 10, 0)
     engine-->>vat: vat.frob(ilk, `urn0`, `urn0`, address(0), 10, 0) // lock collateral
     
-    user->>engine: selectDelegate(`urn0`, `delegate0`)
+    user->>engine: selectVoteDelegate(`urn0`, `delegate0`)
     engine-->>delegate0: lock(10)
     
     user->>engine: selectFarm(`urn0`, `farm0`, `ref`)
@@ -159,7 +160,8 @@ Note that the increased gas cost should be taken into consideration when determi
 * `cusp` - Percentage drop before auction reset.
 * `chip` - Percentage of tab to suck from vow to incentivize keepers.
 * `tip` - Flat fee to suck from vow to incentivize keepers.
-* `chost` - Cache the ilk dust times the ilk chop to prevent excessive SLOADs.
+* `stopped` - Level used to disable various types of functionality.
+* `chost` - Cached value of the ilk dust times the ilk chop. Set through `upchost()`.
 
 ## 3. Vote Delegation
 ### 3.a. VoteDelegate

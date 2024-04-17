@@ -168,6 +168,8 @@ interface VowLike {
 }
 
 contract LockstakeClipperTest is DssTest {
+    using stdStorage for StdStorage;
+
     DssInstance dss;
     address     pauseProxy;
     PipMock     pip;
@@ -297,7 +299,7 @@ contract LockstakeClipperTest is DssTest {
         assertEq(dss.vat.dai(address(this)), rad(100 ether));
 
         pip.setPrice(4 ether); // Spot = $2
-        dss.spotter.poke(ilk);          // Now unsafe
+        dss.spotter.poke(ilk); // Now unsafe
 
         ali = address(111);
         bob = address(222);
@@ -311,6 +313,41 @@ contract LockstakeClipperTest is DssTest {
         dss.vat.suck(address(0), address(this), rad(1000 ether));
         dss.vat.suck(address(0), address(ali),  rad(1000 ether));
         dss.vat.suck(address(0), address(bob),  rad(1000 ether));
+        vm.stopPrank();
+    }
+
+    function testConstructor() public {
+        vm.expectEmit(true, true, true, true);
+        emit Rely(address(this));
+        LockstakeClipper c = new LockstakeClipper(address(111), address(222), address(333), address(engine));
+        assertEq(address(c.vat()), address(111));
+        assertEq(address(c.spotter()), address(222));
+        assertEq(address(c.dog()), address(333));
+        assertEq(address(c.engine()), address(engine));
+        assertEq(c.ilk(), ilk);
+        assertEq(c.buf(), RAY);
+        assertEq(c.wards(address(this)), 1);
+    }
+
+    function testAuth() public {
+        checkAuth(address(clip), "LockstakeClipper");
+    }
+
+    function testFileUint() public {
+        checkFileUint(address(clip), "LockstakeClipper", ["buf", "tail", "cusp", "chip", "tip", "stopped"]);
+    }
+
+    function testFileAddress() public {
+        checkFileAddress(address(clip), "LockstakeClipper", ["spotter", "dog", "vow", "calc"]);
+    }
+
+    function testAuthModifiers() public {
+        bytes4[] memory authedMethods = new bytes4[](2);
+        authedMethods[0] = clip.kick.selector;
+        authedMethods[1] = clip.yank.selector;
+
+        vm.startPrank(address(0xBEEF));
+        checkModifier(address(clip), "LockstakeClipper/not-authorized", authedMethods);
         vm.stopPrank();
     }
 
@@ -363,14 +400,14 @@ contract LockstakeClipperTest is DssTest {
         assertEq(ink, 0 ether);
         assertEq(art, 0 ether);
 
-        pip.setPrice(price); // Spot = $2.5
-        dss.spotter.poke(ilk);          // Now safe
+        pip.setPrice(price);   // Spot = $2.5
+        dss.spotter.poke(ilk); // Now safe
 
         vm.warp(startTime + 100);
         dss.vat.frob(ilk, address(this), address(this), address(this), 40 ether, 100 ether);
 
         pip.setPrice(4 ether); // Spot = $2
-        dss.spotter.poke(ilk);          // Now unsafe
+        dss.spotter.poke(ilk); // Now unsafe
 
         (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(2);
         assertEq(sale.pos, 0);
@@ -405,11 +442,28 @@ contract LockstakeClipperTest is DssTest {
         assertEq(ink, 0 ether);
         assertEq(art, 0 ether);
 
-        assertEq(dss.vat.dai(bob), rad(1000 ether) + rad(100 ether) + sale.tab * 0.02 ether / WAD); // Paid (tip + due * chip) amount of DAI for calling bark()
+        uint256 bobVatDai = rad(1000 ether) + rad(100 ether) + sale.tab * 0.02 ether / WAD;
+        assertEq(dss.vat.dai(bob), bobVatDai); // Paid (tip + due * chip) amount of DAI for calling bark()
+
+        pip.setPrice(price);   // Spot = $2.5
+        dss.spotter.poke(ilk); // Now safe
+
+        dss.vat.frob(ilk, address(this), address(this), address(this), 40 ether, 100 ether);
+
+        pip.setPrice(4 ether); // Spot = $2
+        dss.spotter.poke(ilk); // Now unsafe
+
+        clip.file("tip",  0);
+        clip.file("chip", 0);
+
+        vm.prank(bob); dss.dog.bark(ilk, address(this), address(bob));
+
+        assertEq(clip.kicks(), 3);
+        assertEq(dss.vat.dai(bob), bobVatDai); // no incentive received
     }
 
     function testRevertsKickZeroPrice() public {
-        pip.setPrice(0);
+        clip.file("buf", 0);
         vm.expectRevert("LockstakeClipper/zero-top-price");
         dss.dog.bark(ilk, address(this), address(this));
     }
@@ -417,7 +471,7 @@ contract LockstakeClipperTest is DssTest {
     function testRevertsRedoZeroPrice() public {
         _auctionResetSetup(1 hours);
 
-        pip.setPrice(0);
+        clip.file("buf", 0);
 
         vm.warp(startTime + 1801 seconds);
         (bool needsRedo,,,) = clip.getStatus(1);
@@ -448,6 +502,18 @@ contract LockstakeClipperTest is DssTest {
     function testRevertsKickZeroUsr() public {
         vm.expectRevert("LockstakeClipper/zero-usr");
         clip.kick(1 ether, 2 ether, address(0), address(this));
+    }
+
+    function testRevertsKickKicksOverflow() public {
+        stdstore.target(address(clip)).sig("kicks()").checked_write(type(uint256).max);
+        vm.expectRevert("LockstakeClipper/overflow");
+        clip.kick(1 ether, 2 ether, address(1), address(this));
+    }
+
+    function testRevertsKickInvalidPrice() public {
+        pip.setPrice(0);
+        vm.expectRevert("LockstakeClipper/invalid-price");
+        clip.kick(1 ether, 2 ether, address(1), address(this));
     }
 
     function testBarkNotLeavingDust() public {
@@ -720,7 +786,7 @@ contract LockstakeClipperTest is DssTest {
         assertEq(dirt, sale.tab);
     }
 
-    function testTakeZeroUsr() public takeSetup {
+    function testRevertsTakeZeroUsr() public takeSetup {
         // Auction id 2 is unpopulated.
         (,,,, address usr,,) = clip.sales(2);
         assertEq(usr, address(0));
@@ -894,6 +960,18 @@ contract LockstakeClipperTest is DssTest {
         assertEq(dss.dog.Dirt(), 0);
         (,,, uint256 dirt) = dss.dog.ilks(ilk);
         assertEq(dirt, 0);
+    }
+
+    function testRevertsTakeNeedsReset() public takeSetup {
+        vm.warp(block.timestamp + 3601);
+        vm.expectRevert("LockstakeClipper/needs-reset");
+        vm.prank(ali); clip.take({
+            id:  1,
+            amt: 22 ether,
+            max: ray(5 ether),
+            who: address(ali),
+            data: ""
+        });
     }
 
     function testRevertsTakeBidTooLow() public takeSetup {
@@ -1136,9 +1214,18 @@ contract LockstakeClipperTest is DssTest {
         clip.redo(1, address(this));
     }
 
-    function testRedoZeroUsr() public {
+    function testRevertsRedoZeroUsr() public {
         // Can't reset a non-existent auction.
         vm.expectRevert("LockstakeClipper/not-running-auction");
+        clip.redo(1, address(this));
+    }
+
+    function testRevertsRedoInvalidPrice() public {
+        _auctionResetSetup(1 hours);
+        vm.warp(startTime + 3601 seconds);
+        pip.setPrice(0);
+
+        vm.expectRevert("LockstakeClipper/invalid-price");
         clip.redo(1, address(this));
     }
 
@@ -1301,18 +1388,24 @@ contract LockstakeClipperTest is DssTest {
         clip.redo(1, address(234));
         assertEq(dss.vat.dai(address(234)), clip.tip() + clip.chip() * tab / WAD);
 
-        clip.file("tip", 0); // No more flat fee
+        clip.file("tip", 0);               // No more flat fee
         vm.warp(block.timestamp + 300);
         clip.redo(1, address(345));
         assertEq(dss.vat.dai(address(345)), clip.chip() * tab / WAD);
+
+        clip.file("chip", 0);              // No more incentive
+        vm.warp(block.timestamp + 300);
+        clip.redo(1, address(456));
+        assertEq(dss.vat.dai(address(456)), 0);
 
         vm.prank(pauseProxy); dss.vat.file(ilk, "dust", rad(100 ether) + 1); // ensure wmul(dust, chop) > 110 DAI (tab)
         clip.upchost();
         assertEq(clip.chost(), 110 * RAD + 1);
 
+        clip.file("tip",  rad(100 ether)); // Flat fee of 100 DAI
         vm.warp(block.timestamp + 300);
-        clip.redo(1, address(456));
-        assertEq(dss.vat.dai(address(456)), 0);
+        clip.redo(1, address(567));
+        assertEq(dss.vat.dai(address(567)), 0);
 
         // Set dust so that wmul(dust, chop) is well below tab to check the dusty lot case.
         vm.prank(pauseProxy); dss.vat.file(ilk, "dust", rad(20 ether)); // $20 dust
@@ -1393,6 +1486,14 @@ contract LockstakeClipperTest is DssTest {
         assertEq(dss.vat.gem(ilk, address(clip)), prevClipperGemBalance - lot);
     }
 
+    function testRevertsYankZeroUsr() public takeSetup {
+        // Auction id 2 is unpopulated.
+        (,,,, address usr,,) = clip.sales(2);
+        assertEq(usr, address(0));
+        vm.expectRevert("LockstakeClipper/not-running-auction");
+        clip.yank(2);
+    }
+
     function testRemoveId() public {
         LockstakeEngineMock engine2 = new LockstakeEngineMock(address(dss.vat), "random");
         PublicClip pclip = new PublicClip(address(dss.vat), address(dss.spotter), address(dss.dog), address(engine2));
@@ -1411,6 +1512,12 @@ contract LockstakeClipperTest is DssTest {
         assertEq(pclip.active(2), 3);
         assertEq(pclip.active(3), 4);
         assertEq(pclip.active(4), 5);
+        uint256[] memory list = pclip.list();
+        assertEq(list[0], 1);
+        assertEq(list[1], 2);
+        assertEq(list[2], 3);
+        assertEq(list[3], 4);
+        assertEq(list[4], 5);
 
         pclip.remove(id);
 

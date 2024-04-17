@@ -305,13 +305,13 @@ contract LockstakeEngine is Multicall {
         urnFarms[urn] = farm;
     }
 
-    function lock(address urn, uint256 wad, uint16 ref) external urnAuth(urn) {
+    function lock(address urn, uint256 wad, uint16 ref) external {
         mkr.transferFrom(msg.sender, address(this), wad);
         _lock(urn, wad, ref);
         emit Lock(urn, wad, ref);
     }
 
-    function lockNgt(address urn, uint256 ngtWad, uint16 ref) external urnAuth(urn) {
+    function lockNgt(address urn, uint256 ngtWad, uint16 ref) external {
         ngt.transferFrom(msg.sender, address(this), ngtWad);
         mkrNgt.ngtToMkr(address(this), ngtWad);
         _lock(urn, ngtWad / mkrNgtRate, ref);
@@ -319,6 +319,7 @@ contract LockstakeEngine is Multicall {
     }
 
     function _lock(address urn, uint256 wad, uint16 ref) internal {
+        require(urnOwners[urn] != address(0), "LockstakeEngine/invalid-urn");
         require(wad <= uint256(type(int256).max), "LockstakeEngine/overflow");
         address voteDelegate = urnVoteDelegates[urn];
         if (voteDelegate != address(0)) {

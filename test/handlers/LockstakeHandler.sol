@@ -200,8 +200,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
         numCalls["free"]++;
 
         (uint256 ink, uint256 art) = vat.urns(ilk, urn);
-        (, uint256 rate,,,) = vat.ilks(ilk);
-        wad = bound(wad, 0, ink - art * rate / RAY);
+        (, uint256 rate, uint256 spotPrice,,) = vat.ilks(ilk);
+        wad = bound(wad, 0, ink - art * rate / spotPrice);
 
         engine.free(urn, to, wad);
     }
@@ -209,9 +209,9 @@ contract LockstakeHandler is StdUtils, StdCheats {
     function freeNgt(address to, uint256 ngtWad) external useSender() {
         numCalls["freeNgt"]++;
 
-        (uint256 ink,uint256 art ) = vat.urns(ilk, urn);
-        (, uint256 rate,,,) = vat.ilks(ilk);
-        ngtWad = bound(ngtWad, 0, (ink - art * rate / RAY) * mkrNgtRate);
+        (uint256 ink, uint256 art ) = vat.urns(ilk, urn);
+        (, uint256 rate, uint256 spotPrice,,) = vat.ilks(ilk);
+        ngtWad = bound(ngtWad, 0, (ink - art * rate / spotPrice) * mkrNgtRate);
 
         engine.freeNgt(urn, to, ngtWad);
     }
@@ -219,9 +219,9 @@ contract LockstakeHandler is StdUtils, StdCheats {
     function draw(uint256 wad) external useSender() {
         numCalls["draw"]++;
 
-        (uint256 ink,) = vat.urns(ilk, urn);
-        (,, uint256 spotPrice,, uint256 dust) = vat.ilks(ilk);
-        wad = bound(wad, dust / RAY, ink * spotPrice / RAY);
+        (uint256 ink, uint256 art) = vat.urns(ilk, urn);
+        (, uint256 rate, uint256 spotPrice,, uint256 dust) = vat.ilks(ilk);
+        wad = bound(wad, dust / RAY, (ink * spotPrice - art * rate) / RAY);
 
         engine.draw(urn, address(this), wad);
     }

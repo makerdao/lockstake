@@ -178,19 +178,19 @@ contract LockstakeHandler is StdUtils, StdCheats {
         engine.selectVoteDelegate(urn, currentVoteDelegate);
     }
 
-    function lock(uint256 wad, uint16 ref) useSender() external {
+    function lock(uint256 wad, uint16 ref) external {
         numCalls["lock"]++;
         wad = bound(wad, 0, uint256(type(int256).max));
 
-        deal(address(mkr), sender, wad);
+        deal(address(mkr), address(this), wad);
         mkr.approve(address(engine), wad);
 
         engine.lock(urn, wad, ref);
     }
 
-    function lockNgt(uint256 ngtWad, uint16 ref) external useSender() {
+    function lockNgt(uint256 ngtWad, uint16 ref) external {
         numCalls["lockNgt"]++;
-        deal(address(ngt), sender, ngtWad);
+        deal(address(ngt), address(this), ngtWad);
         ngt.approve(address(engine), ngtWad);
 
         engine.lockNgt(urn, ngtWad, ref);

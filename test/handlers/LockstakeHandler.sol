@@ -226,14 +226,14 @@ contract LockstakeHandler is StdUtils, StdCheats {
         engine.draw(urn, address(this), wad);
     }
 
-    function wipe(uint256 wad) external useSender() {
+    function wipe(uint256 wad) external {
         numCalls["wipe"]++;
 
         (, uint256 art) = vat.urns(ilk, urn);
         (, uint256 rate,,,) = vat.ilks(ilk);
         wad = bound(wad, 0, _divup(art * rate, RAY));
 
-        deal(address(nst), sender, wad);
+        deal(address(nst), address(this), wad);
         nst.approve(address(engine), wad);
 
         engine.wipe(urn, wad);

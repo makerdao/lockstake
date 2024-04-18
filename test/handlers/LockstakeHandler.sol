@@ -15,6 +15,10 @@ interface VatLike {
     function suck(address, address, uint256) external;
 }
 
+interface JugLike {
+    function ilks(bytes32) external view returns (uint256, uint256);
+}
+
 interface SpotterLike {
     function ilks(bytes32) external view returns (address, uint256);
     function poke(bytes32) external;
@@ -38,27 +42,35 @@ contract LockstakeHandler is StdUtils, StdCheats {
     GemMock          public nst;
     bytes32          public ilk;
     VatLike          public vat;
+    JugLike          public jug;
     SpotterLike      public spot;
     DogLike          public dog;
     LockstakeClipper public clip;
 
-    address   public  pauseProxy;
-    address   public  sender;
-    address   public  urn;
-    address[] public  voteDelegates;
-    address   public  currentVoteDelegate;
-    address[] public  farms;
-    address   public  currentFarm;
-    uint256   public  currentAuctionId;
-    address   public  yankCaller;
-    uint256   public  mkrNgtRate;
+    address   public pauseProxy;
+    address   public urn;
+    address   public urnOwner;
+    address[] public voteDelegates;
+    address   public currentVoteDelegate;
+    address[] public farms;
+    address   public currentFarm;
+    uint256   public currentAuctionId;
+    address   public yankCaller;
+    uint256   public mkrNgtRate;
+    address   public anyone = address(123);
 
     mapping(bytes32 => uint256) public numCalls;
 
     uint256 constant RAY = 10 ** 27;
 
-    modifier useSender() {
-        vm.startPrank(sender);
+    modifier useAnyone() {
+        vm.startPrank(anyone);
+        _;
+        vm.stopPrank();
+    }
+
+    modifier useUrnOnwer() {
+        vm.startPrank(urnOwner);
         _;
         vm.stopPrank();
     }
@@ -92,7 +104,6 @@ contract LockstakeHandler is StdUtils, StdCheats {
         address spot_,
         address dog_,
         address pauseProxy_,
-        address sender_,
         address[] memory voteDelegates_,
         address[] memory farms_,
         address yankCaller_
@@ -105,13 +116,14 @@ contract LockstakeHandler is StdUtils, StdCheats {
         pauseProxy = pauseProxy_;
         ilk        = engine.ilk();
         vat        = VatLike(address(engine.vat()));
+        jug        = JugLike(address(engine.jug()));
         spot       = SpotterLike(spot_);
         dog        = DogLike(dog_);
 
         (address clip_, , , ) = dog.ilks(ilk);
-        clip   = LockstakeClipper(clip_);
-        sender = sender_;
-        urn    = urn_;
+        clip       = LockstakeClipper(clip_);
+        urn        = urn_;
+        urnOwner   = engine.urnOwners(urn);
         yankCaller = yankCaller_;
         mkrNgtRate = engine.mkrNgtRate();
 
@@ -120,12 +132,36 @@ contract LockstakeHandler is StdUtils, StdCheats {
         for (uint256 i = 0; i < voteDelegates_.length ; i++) {
             voteDelegates.push(voteDelegates_[i]);
         }
-        voteDelegates.push(address(0));
+        // voteDelegates.push(address(0));
 
         for (uint256 i = 0; i < farms_.length ; i++) {
             farms.push(farms_[i]);
         }
-        farms.push(address(0));
+        // farms.push(address(0));
+    }
+
+    function _rpow(uint256 x, uint256 n, uint256 b) internal pure returns (uint256 z) {
+        assembly {
+            switch x case 0 {switch n case 0 {z := b} default {z := 0}}
+            default {
+                switch mod(n, 2) case 0 { z := b } default { z := x }
+                let half := div(b, 2)  // for rounding.
+                for { n := div(n, 2) } n { n := div(n,2) } {
+                    let xx := mul(x, x)
+                    if iszero(eq(div(xx, x), x)) { revert(0,0) }
+                    let xxRound := add(xx, half)
+                    if lt(xxRound, xx) { revert(0,0) }
+                    x := div(xxRound, b)
+                    if mod(n,2) {
+                        let zx := mul(z, x)
+                        if and(iszero(iszero(x)), iszero(eq(div(zx, x), z))) { revert(0,0) }
+                        let zxRound := add(zx, half)
+                        if lt(zxRound, zx) { revert(0,0) }
+                        z := div(zxRound, b)
+                    }
+                }
+            }
+        }
     }
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
@@ -133,6 +169,10 @@ contract LockstakeHandler is StdUtils, StdCheats {
         unchecked {
             z = x != 0 ? ((x - 1) / y) + 1 : 0;
         }
+    }
+
+    function _min(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x < y ? x : y;
     }
 
     function delegatedTo(address voteDelegate) external view returns (uint256) {
@@ -168,72 +208,98 @@ contract LockstakeHandler is StdUtils, StdCheats {
         engine.addFarm(currentFarm);
     }
 
-    function selectFarm(uint16 ref, uint256 farmIndex) useSender() useRandomFarm(farmIndex) external {
+    function selectFarm(uint16 ref, uint256 farmIndex) useUrnOnwer() useRandomFarm(farmIndex) external {
         numCalls["selectFarm"]++;
         engine.selectFarm(urn, currentFarm, ref);
     }
 
-    function selectVoteDelegate(uint256 voteDelegateIndex) useSender() useRandomVoteDelegate(voteDelegateIndex) external {
+    function selectVoteDelegate(uint256 voteDelegateIndex) useUrnOnwer() useRandomVoteDelegate(voteDelegateIndex) external {
         numCalls["selectVoteDelegate"]++;
         engine.selectVoteDelegate(urn, currentVoteDelegate);
     }
 
-    function lock(uint256 wad, uint16 ref) external {
+    function lock(uint256 amt, uint16 ref) external useAnyone {
         numCalls["lock"]++;
-        wad = bound(wad, 0, uint256(type(int256).max));
 
-        deal(address(mkr), address(this), wad);
-        mkr.approve(address(engine), wad);
+        // amt = bound(amt, 0, uint256(type(int256).max) / 10**18) * 10**18;
+        (uint256 ink,) = vat.urns(ilk, urn);
+        (,, uint256 spotPrice,,) = vat.ilks(ilk);
+        amt = bound(amt, 0, _min(
+                                uint256(type(int256).max),
+                                type(uint256).max / spotPrice - ink
+                            ) / 10**18
+                    ) * 10**18;
 
-        engine.lock(urn, wad, ref);
+        deal(address(mkr), anyone, amt);
+        mkr.approve(address(engine), amt);
+
+        engine.lock(urn, amt, ref);
     }
 
-    function lockNgt(uint256 ngtWad, uint16 ref) external {
+    function lockNgt(uint256 ngtAmt, uint16 ref) external useAnyone {
         numCalls["lockNgt"]++;
-        deal(address(ngt), address(this), ngtWad);
-        ngt.approve(address(engine), ngtWad);
 
-        engine.lockNgt(urn, ngtWad, ref);
+        // ngtAmt = bound(ngtAmt, 0, uint256(type(int256).max) / 10**18) * 10**18;
+        (uint256 ink,) = vat.urns(ilk, urn);
+        (,, uint256 spotPrice,,) = vat.ilks(ilk);
+        ngtAmt = bound(ngtAmt, 0, _min(
+                                    uint256(type(int256).max),
+                                    _min(
+                                        type(uint256).max / spotPrice - ink,
+                                        type(uint256).max / mkrNgtRate
+                                    )
+                                ) / 10**18
+                      ) * 10**18 * mkrNgtRate;
+
+        deal(address(ngt), anyone, ngtAmt);
+        ngt.approve(address(engine), ngtAmt);
+
+        engine.lockNgt(urn, ngtAmt, ref);
     }
 
-    function free(address to, uint256 wad) external useSender() {
+    function free(address to, uint256 wad) external useUrnOnwer() {
         numCalls["free"]++;
 
         (uint256 ink, uint256 art) = vat.urns(ilk, urn);
         (, uint256 rate, uint256 spotPrice,,) = vat.ilks(ilk);
-        wad = bound(wad, 0, ink - art * rate / spotPrice);
+        wad = bound(wad, 0, ink - _divup(art * rate, spotPrice));
 
         engine.free(urn, to, wad);
     }
 
-    function freeNgt(address to, uint256 ngtWad) external useSender() {
+    function freeNgt(address to, uint256 ngtWad) external useUrnOnwer() {
         numCalls["freeNgt"]++;
 
         (uint256 ink, uint256 art ) = vat.urns(ilk, urn);
         (, uint256 rate, uint256 spotPrice,,) = vat.ilks(ilk);
-        ngtWad = bound(ngtWad, 0, (ink - art * rate / spotPrice) * mkrNgtRate);
+        ngtWad = bound(ngtWad, 0, (ink - _divup(art * rate, spotPrice)) * mkrNgtRate);
 
         engine.freeNgt(urn, to, ngtWad);
     }
 
-    function draw(uint256 wad) external useSender() {
+    function draw(uint256 wad) external useUrnOnwer() {
         numCalls["draw"]++;
 
         (uint256 ink, uint256 art) = vat.urns(ilk, urn);
         (, uint256 rate, uint256 spotPrice,, uint256 dust) = vat.ilks(ilk);
-        wad = bound(wad, dust / RAY, (ink * spotPrice - art * rate) / RAY);
+        (uint256 duty, uint256 rho) = jug.ilks(ilk);
+        rate = _rpow(duty, block.timestamp - rho, RAY) * rate / RAY;
+        wad = bound(wad, art > 0 ? 0 : dust / RAY, _min(
+                                                        (ink * spotPrice - art * rate) / rate,
+                                                        uint256(type(int256).max)
+                                                    ));
 
         engine.draw(urn, address(this), wad);
     }
 
-    function wipe(uint256 wad) external {
+    function wipe(uint256 wad) external useAnyone {
         numCalls["wipe"]++;
 
         (, uint256 art) = vat.urns(ilk, urn);
-        (, uint256 rate,,,) = vat.ilks(ilk);
-        wad = bound(wad, 0, _divup(art * rate, RAY));
+        (, uint256 rate,,, uint256 dust) = vat.ilks(ilk);
+        wad = bound(wad, 0, art > 0 ? _divup(art * rate, RAY) - dust / RAY : 0);
 
-        deal(address(nst), address(this), wad);
+        deal(address(nst), anyone, wad);
         nst.approve(address(engine), wad);
 
         engine.wipe(urn, wad);
@@ -272,6 +338,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
 
     function yank(uint256 auctionIndex) external useRandomAuctionId(auctionIndex) {
         numCalls["yank"]++;
-        vm.prank(yankCaller); clip.yank(currentAuctionId);
+        vm.startPrank(yankCaller);
+        clip.yank(currentAuctionId);
+        vm.stopPrank();
     }
 }

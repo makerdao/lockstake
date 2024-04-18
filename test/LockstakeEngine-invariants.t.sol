@@ -192,7 +192,6 @@ contract LockstakeEngineIntegrationTest is DssTest {
             address(spot),
             address(dog),
             pauseProxy,
-            address(this),
             voteDelegates,
             farms,
             yankCaller

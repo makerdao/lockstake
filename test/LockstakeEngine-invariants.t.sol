@@ -80,7 +80,6 @@ contract LockstakeEngineIntegrationTest is DssTest {
     address             public voter1;
     address             public voterDelegate0;
     address             public voterDelegate1;
-    address             public yankCaller;
 
     LockstakeHandler    public handler;
 
@@ -117,7 +116,6 @@ contract LockstakeEngineIntegrationTest is DssTest {
         farm1 = new StakingRewardsMock(address(rTok), address(lsmkr));
         ngt = new GemMock(0);
         mkrNgt = new MkrNgtMock(address(mkr), address(ngt), 25_000);
-        yankCaller = address(789);
 
         pip = new PipMock();
         delFactory = new VoteDelegateFactoryMock(address(mkr));
@@ -150,7 +148,6 @@ contract LockstakeEngineIntegrationTest is DssTest {
         clip = new LockstakeClipper(address(vat), spot, address(dog), address(engine));
         clip.upchost();
         clip.rely(address(dog));
-        clip.rely(yankCaller);
 
         dog.file(ilk, "clip", address(clip));
         dog.rely(address(clip));
@@ -193,8 +190,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
             address(dog),
             pauseProxy,
             voteDelegates,
-            farms,
-            yankCaller
+            farms
         );
 
         // uncomment and fill to only call specific functions
@@ -215,11 +211,11 @@ contract LockstakeEngineIntegrationTest is DssTest {
 
     function invariant_system_mkr_equals_ink() public {
         (uint256 ink,) = vat.urns(ilk, urn);
-        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, yankCaller), ink);
+        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), ink);
     }
 
     function invariant_system_mkr_equals_lsmkr_total_supply() public {
-        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, yankCaller), lsmkr.totalSupply());
+        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), lsmkr.totalSupply());
     }
 
     function invariant_delegation_exclusiveness() public {
@@ -231,9 +227,9 @@ contract LockstakeEngineIntegrationTest is DssTest {
         (uint256 ink,) = vat.urns(ilk, urn);
 
         if (urnDelegate == address(0)) {
-            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, yankCaller), ink);
+            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), ink);
         } else {
-            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, yankCaller), 0);
+            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), 0);
             assertEq(handler.delegatedTo(urnDelegate), ink);
         }
     }

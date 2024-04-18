@@ -51,11 +51,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
     address   public urn;
     address   public urnOwner;
     address[] public voteDelegates;
-    address   public currentVoteDelegate;
     address[] public farms;
-    address   public currentFarm;
-    uint256   public currentAuctionId;
-    address   public yankCaller;
     uint256   public mkrNgtRate;
     address   public anyone = address(123);
 
@@ -81,22 +77,6 @@ contract LockstakeHandler is StdUtils, StdCheats {
         vm.stopPrank();
     }
 
-    modifier useRandomVoteDelegate(uint256 voteDelegateIndex) {
-        currentVoteDelegate = voteDelegates[bound(voteDelegateIndex, 0, voteDelegates.length - 1)];
-        _;
-    }
-
-    modifier useRandomFarm(uint256 farmIndex) {
-        currentFarm = farms[bound(farmIndex, 0, farms.length - 1)];
-        _;
-    }
-
-    modifier useRandomAuctionId(uint256 auctionIndex) {
-        uint256[] memory active = clip.list();
-        currentAuctionId = active[bound(auctionIndex, 0, active.length - 1)];
-        _;
-    }
-
     constructor(
         Vm vm_,
         address engine_,
@@ -105,8 +85,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         address dog_,
         address pauseProxy_,
         address[] memory voteDelegates_,
-        address[] memory farms_,
-        address yankCaller_
+        address[] memory farms_
     ) {
         vm         = vm_;
         engine     = LockstakeEngine(engine_);
@@ -124,7 +103,6 @@ contract LockstakeHandler is StdUtils, StdCheats {
         clip       = LockstakeClipper(clip_);
         urn        = urn_;
         urnOwner   = engine.urnOwners(urn);
-        yankCaller = yankCaller_;
         mkrNgtRate = engine.mkrNgtRate();
 
         vat.hope(address(clip));
@@ -175,6 +153,19 @@ contract LockstakeHandler is StdUtils, StdCheats {
         z = x < y ? x : y;
     }
 
+    function _getRandomVoteDelegate(uint256 voteDelegateIndex) internal view returns (address) {
+        return voteDelegates[bound(voteDelegateIndex, 0, voteDelegates.length - 1)];
+    }
+
+    function _getRandomFarm(uint256 farmIndex) internal view returns (address) {
+        return farms[bound(farmIndex, 0, farms.length - 1)];
+    }
+
+    function _getRandomAuctionId(uint256 auctionIndex) internal view returns (uint256) {
+        uint256[] memory active = clip.list();
+        return active[bound(auctionIndex, 0, active.length - 1)];
+    }
+
     function delegatedTo(address voteDelegate) external view returns (uint256) {
         return VoteDelegateLike(voteDelegate).stake(address(engine));
     }
@@ -203,19 +194,19 @@ contract LockstakeHandler is StdUtils, StdCheats {
         }
     }
 
-    function addFarm(uint256 farmIndex) callAsPauseProxy() useRandomFarm(farmIndex) external {
+    function addFarm(uint256 farmIndex) callAsPauseProxy() external {
         numCalls["addFarm"]++;
-        engine.addFarm(currentFarm);
+        engine.addFarm(_getRandomFarm(farmIndex));
     }
 
-    function selectFarm(uint16 ref, uint256 farmIndex) callAsUrnOwner() useRandomFarm(farmIndex) external {
+    function selectFarm(uint16 ref, uint256 farmIndex) callAsUrnOwner() external {
         numCalls["selectFarm"]++;
-        engine.selectFarm(urn, currentFarm, ref);
+        engine.selectFarm(urn, _getRandomFarm(farmIndex), ref);
     }
 
-    function selectVoteDelegate(uint256 voteDelegateIndex) callAsUrnOwner() useRandomVoteDelegate(voteDelegateIndex) external {
+    function selectVoteDelegate(uint256 voteDelegateIndex) callAsUrnOwner() external {
         numCalls["selectVoteDelegate"]++;
-        engine.selectVoteDelegate(urn, currentVoteDelegate);
+        engine.selectVoteDelegate(urn, _getRandomVoteDelegate(voteDelegateIndex));
     }
 
     function lock(uint256 wad, uint16 ref) external callAsAnyone {
@@ -318,17 +309,18 @@ contract LockstakeHandler is StdUtils, StdCheats {
         dog.bark(ilk, urn, address(0));
     }
 
-    function take(uint256 auctionIndex) external useRandomAuctionId(auctionIndex) {
+    function take(uint256 auctionIndex) external {
         numCalls["take"]++;
         LockstakeClipper.Sale memory sale;
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(currentAuctionId);
+        uint256 auctionId = _getRandomAuctionId(auctionIndex);
+        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(auctionId);
 
         vm.startPrank(pauseProxy); // we use startPrank as cannot override an ongoing prank with a single vm.prank
         vat.suck(address(0), address(this), sale.tab);
         vm.stopPrank();
 
         clip.take({
-            id:  currentAuctionId,
+            id:  auctionId,
             amt: sale.lot,
             max: type(uint256).max,
             who: address(this),
@@ -336,10 +328,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
         });
     }
 
-    function yank(uint256 auctionIndex) external useRandomAuctionId(auctionIndex) {
+    function yank(uint256 auctionIndex) external callAsPauseProxy() {
         numCalls["yank"]++;
-        vm.startPrank(yankCaller);
-        clip.yank(currentAuctionId);
-        vm.stopPrank();
+        clip.yank(_getRandomAuctionId(auctionIndex));
     }
 }

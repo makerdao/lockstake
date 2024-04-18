@@ -218,31 +218,31 @@ contract LockstakeHandler is StdUtils, StdCheats {
         engine.selectVoteDelegate(urn, currentVoteDelegate);
     }
 
-    function lock(uint256 amt, uint16 ref) external useAnyone {
+    function lock(uint256 wad, uint16 ref) external useAnyone {
         numCalls["lock"]++;
 
-        // amt = bound(amt, 0, uint256(type(int256).max) / 10**18) * 10**18;
+        // wad = bound(wad, 0, uint256(type(int256).max) / 10**18) * 10**18;
         (uint256 ink,) = vat.urns(ilk, urn);
         (,, uint256 spotPrice,,) = vat.ilks(ilk);
-        amt = bound(amt, 0, _min(
+        wad = bound(wad, 0, _min(
                                 uint256(type(int256).max),
                                 type(uint256).max / spotPrice - ink
                             ) / 10**18
                     ) * 10**18;
 
-        deal(address(mkr), anyone, amt);
-        mkr.approve(address(engine), amt);
+        deal(address(mkr), anyone, wad);
+        mkr.approve(address(engine), wad);
 
-        engine.lock(urn, amt, ref);
+        engine.lock(urn, wad, ref);
     }
 
-    function lockNgt(uint256 ngtAmt, uint16 ref) external useAnyone {
+    function lockNgt(uint256 ngtWad, uint16 ref) external useAnyone {
         numCalls["lockNgt"]++;
 
-        // ngtAmt = bound(ngtAmt, 0, uint256(type(int256).max) / 10**18) * 10**18;
+        // ngtWad = bound(ngtWad, 0, uint256(type(int256).max) / 10**18) * 10**18;
         (uint256 ink,) = vat.urns(ilk, urn);
         (,, uint256 spotPrice,,) = vat.ilks(ilk);
-        ngtAmt = bound(ngtAmt, 0, _min(
+        ngtWad = bound(ngtWad, 0, _min(
                                     uint256(type(int256).max),
                                     _min(
                                         type(uint256).max / spotPrice - ink,
@@ -251,10 +251,10 @@ contract LockstakeHandler is StdUtils, StdCheats {
                                 ) / 10**18
                       ) * 10**18 * mkrNgtRate;
 
-        deal(address(ngt), anyone, ngtAmt);
-        ngt.approve(address(engine), ngtAmt);
+        deal(address(ngt), anyone, ngtWad);
+        ngt.approve(address(engine), ngtWad);
 
-        engine.lockNgt(urn, ngtAmt, ref);
+        engine.lockNgt(urn, ngtWad, ref);
     }
 
     function free(address to, uint256 wad) external useUrnOnwer() {

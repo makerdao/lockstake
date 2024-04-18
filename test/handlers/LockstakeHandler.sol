@@ -63,19 +63,19 @@ contract LockstakeHandler is StdUtils, StdCheats {
 
     uint256 constant RAY = 10 ** 27;
 
-    modifier useAnyone() {
+    modifier callAsAnyone() {
         vm.startPrank(anyone);
         _;
         vm.stopPrank();
     }
 
-    modifier useUrnOnwer() {
+    modifier callAsUrnOwner() {
         vm.startPrank(urnOwner);
         _;
         vm.stopPrank();
     }
 
-    modifier usePauseProxy() {
+    modifier callAsPauseProxy() {
         vm.startPrank(pauseProxy);
         _;
         vm.stopPrank();
@@ -203,22 +203,22 @@ contract LockstakeHandler is StdUtils, StdCheats {
         }
     }
 
-    function addFarm(uint256 farmIndex) usePauseProxy() useRandomFarm(farmIndex) external {
+    function addFarm(uint256 farmIndex) callAsPauseProxy() useRandomFarm(farmIndex) external {
         numCalls["addFarm"]++;
         engine.addFarm(currentFarm);
     }
 
-    function selectFarm(uint16 ref, uint256 farmIndex) useUrnOnwer() useRandomFarm(farmIndex) external {
+    function selectFarm(uint16 ref, uint256 farmIndex) callAsUrnOwner() useRandomFarm(farmIndex) external {
         numCalls["selectFarm"]++;
         engine.selectFarm(urn, currentFarm, ref);
     }
 
-    function selectVoteDelegate(uint256 voteDelegateIndex) useUrnOnwer() useRandomVoteDelegate(voteDelegateIndex) external {
+    function selectVoteDelegate(uint256 voteDelegateIndex) callAsUrnOwner() useRandomVoteDelegate(voteDelegateIndex) external {
         numCalls["selectVoteDelegate"]++;
         engine.selectVoteDelegate(urn, currentVoteDelegate);
     }
 
-    function lock(uint256 wad, uint16 ref) external useAnyone {
+    function lock(uint256 wad, uint16 ref) external callAsAnyone {
         numCalls["lock"]++;
 
         // wad = bound(wad, 0, uint256(type(int256).max) / 10**18) * 10**18;
@@ -236,7 +236,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         engine.lock(urn, wad, ref);
     }
 
-    function lockNgt(uint256 ngtWad, uint16 ref) external useAnyone {
+    function lockNgt(uint256 ngtWad, uint16 ref) external callAsAnyone {
         numCalls["lockNgt"]++;
 
         // ngtWad = bound(ngtWad, 0, uint256(type(int256).max) / 10**18) * 10**18;
@@ -257,7 +257,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         engine.lockNgt(urn, ngtWad, ref);
     }
 
-    function free(address to, uint256 wad) external useUrnOnwer() {
+    function free(address to, uint256 wad) external callAsUrnOwner() {
         numCalls["free"]++;
 
         (uint256 ink, uint256 art) = vat.urns(ilk, urn);
@@ -267,7 +267,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         engine.free(urn, to, wad);
     }
 
-    function freeNgt(address to, uint256 ngtWad) external useUrnOnwer() {
+    function freeNgt(address to, uint256 ngtWad) external callAsUrnOwner() {
         numCalls["freeNgt"]++;
 
         (uint256 ink, uint256 art ) = vat.urns(ilk, urn);
@@ -277,7 +277,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         engine.freeNgt(urn, to, ngtWad);
     }
 
-    function draw(uint256 wad) external useUrnOnwer() {
+    function draw(uint256 wad) external callAsUrnOwner() {
         numCalls["draw"]++;
 
         (uint256 ink, uint256 art) = vat.urns(ilk, urn);
@@ -292,7 +292,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         engine.draw(urn, address(this), wad);
     }
 
-    function wipe(uint256 wad) external useAnyone {
+    function wipe(uint256 wad) external callAsAnyone {
         numCalls["wipe"]++;
 
         (, uint256 art) = vat.urns(ilk, urn);

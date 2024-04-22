@@ -272,12 +272,16 @@ contract LockstakeHandler is StdUtils, StdCheats {
         numCalls["draw"]++;
 
         (uint256 ink, uint256 art) = vat.urns(ilk, urn);
-        (, uint256 rate, uint256 spotPrice,, uint256 dust) = vat.ilks(ilk);
+        (uint256 Art, uint256 rate, uint256 spotPrice,, uint256 dust) = vat.ilks(ilk);
         (uint256 duty, uint256 rho) = jug.ilks(ilk);
         rate = _rpow(duty, block.timestamp - rho, RAY) * rate / RAY;
+        if (ink * spotPrice < art * rate) { revert("unsafe-due-to-prev-price-drop"); }
         wad = bound(wad, art > 0 ? 0 : dust / RAY, _min(
                                                         (ink * spotPrice - art * rate) / rate,
-                                                        uint256(type(int256).max)
+                                                        _min(
+                                                            uint256(type(int256).max) / rate,
+                                                            type(uint256).max - Art
+                                                        )
                                                     ));
 
         engine.draw(urn, address(this), wad);
@@ -288,7 +292,11 @@ contract LockstakeHandler is StdUtils, StdCheats {
 
         (, uint256 art) = vat.urns(ilk, urn);
         (, uint256 rate,,, uint256 dust) = vat.ilks(ilk);
-        wad = bound(wad, 0, art > 0 ? _divup(art * rate, RAY) - dust / RAY : 0);
+        wad = bound(wad, 0, art > 0 ? _min(
+                                            (art * rate - dust) / rate ,
+                                            uint256(type(int256).max) / rate
+                                        )
+                                    : 0);
 
         deal(address(nst), anyone, wad);
         nst.approve(address(engine), wad);

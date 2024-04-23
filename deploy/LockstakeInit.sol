@@ -53,6 +53,7 @@ interface LockstakeClipperLike {
 
 interface PipLike {
     function kiss(address) external;
+    function rely(address) external;
 }
 
 interface CalcLike {
@@ -61,6 +62,10 @@ interface CalcLike {
 
 interface AutoLineLike {
     function setIlk(bytes32, uint256, uint256, uint256) external;
+}
+
+interface OsmMomLike {
+    function setOsm(bytes32, address) external;
 }
 
 interface LineMomLike {
@@ -176,6 +181,12 @@ library LockstakeInit {
         PipLike(pip).kiss(address(clipper));
         PipLike(pip).kiss(clipperMom);
         PipLike(pip).kiss(address(dss.end));
+        // This assumes pip is a standard Osm sourced by a Median
+        {
+        address osmMom = dss.chainlog.getAddress("OSM_MOM");
+        PipLike(pip).rely(osmMom);
+        OsmMomLike(osmMom).setOsm(cfg.ilk, pip);
+        }
 
         dss.spotter.file(cfg.ilk, "mat", cfg.mat);
         dss.spotter.file(cfg.ilk, "pip", pip);

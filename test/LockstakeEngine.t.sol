@@ -250,10 +250,13 @@ contract LockstakeEngineTest is DssTest {
         assertEq(ttl, 1 days);
         assertEq(_rho(ilk), block.timestamp);
         assertEq(_duty(ilk), 100000001 * 10**27 / 100000000);
+        address osmMom = dss.chainlog.getAddress("OSM_MOM");
         address clipperMom = dss.chainlog.getAddress("CLIPPER_MOM");
+        assertEq(OsmMomAbstract(osmMom).osms(ilk), address(pip));
+        assertEq(pip.wards(osmMom), 1);
         assertEq(pip.bud(address(dss.spotter)), 1);
         assertEq(pip.bud(address(clip)), 1);
-        assertEq(pip.bud(address(clipperMom)), 1);
+        assertEq(pip.bud(clipperMom), 1);
         assertEq(pip.bud(address(dss.end)), 1);
         assertEq(_mat(ilk), 3 * 10**27);
         assertEq(_pip(ilk), address(pip));

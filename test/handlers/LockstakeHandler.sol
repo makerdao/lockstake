@@ -110,12 +110,12 @@ contract LockstakeHandler is StdUtils, StdCheats {
         for (uint256 i = 0; i < voteDelegates_.length ; i++) {
             voteDelegates.push(voteDelegates_[i]);
         }
-        // voteDelegates.push(address(0));
+        voteDelegates.push(address(0));
 
         for (uint256 i = 0; i < farms_.length ; i++) {
             farms.push(farms_[i]);
         }
-        // farms.push(address(0));
+        farms.push(address(0));
     }
 
     function _rpow(uint256 x, uint256 n, uint256 b) internal pure returns (uint256 z) {

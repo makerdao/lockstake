@@ -342,4 +342,10 @@ contract LockstakeHandler is StdUtils, StdCheats {
         numCalls["yank"]++;
         clip.yank(_getRandomAuctionId(auctionIndex));
     }
+
+    function warp(uint256 secs) external {
+        numCalls["warp"]++;
+        secs = bound(secs, 0, 365 days);
+        vm.warp(block.timestamp + secs);
+    }
 }

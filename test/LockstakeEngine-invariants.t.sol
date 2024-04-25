@@ -273,9 +273,11 @@ contract LockstakeEngineIntegrationTest is DssTest {
         console.log("dropPriceAndBark", handler.numCalls("dropPriceAndBark"));
         console.log("take", handler.numCalls("take"));
         console.log("yank", handler.numCalls("yank"));
+        console.log("warp", handler.numCalls("warp"));
         console.log("total count", handler.numCalls("addFarm") + handler.numCalls("selectFarm") + handler.numCalls("selectVoteDelegate") +
                                    handler.numCalls("lock") + handler.numCalls("lockNgt") + handler.numCalls("free") +
                                    handler.numCalls("freeNgt") + handler.numCalls("draw") + handler.numCalls("wipe") +
-                                   handler.numCalls("dropPriceAndBark") + handler.numCalls("take") + handler.numCalls("yank"));
+                                   handler.numCalls("dropPriceAndBark") + handler.numCalls("take") + handler.numCalls("yank") +
+                                   handler.numCalls("warp"));
     }
 }

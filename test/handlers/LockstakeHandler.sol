@@ -251,6 +251,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
     function free(address to, uint256 wad) external callAsUrnOwner() {
         numCalls["free"]++;
 
+        if (to == address(engine)) { revert("free-to-engine-unsupported"); }
+
         (uint256 ink, uint256 art) = vat.urns(ilk, urn);
         (, uint256 rate, uint256 spotPrice,,) = vat.ilks(ilk);
         wad = bound(wad, 0, ink - _divup(art * rate, spotPrice));

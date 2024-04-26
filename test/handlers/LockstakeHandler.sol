@@ -277,7 +277,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         (uint256 Art, uint256 rate, uint256 spotPrice,, uint256 dust) = vat.ilks(ilk);
         (uint256 duty, uint256 rho) = jug.ilks(ilk);
         rate = _rpow(duty, block.timestamp - rho, RAY) * rate / RAY;
-        if (ink * spotPrice < art * rate) { revert("unsafe-due-to-prev-price-drop"); }
+        if (ink * spotPrice < art * rate) { revert("unsafe-fee-accumulation-or-price-drop"); }
         wad = bound(wad, art > 0 ? 0 : dust / RAY, _min(
                                                         (ink * spotPrice - art * rate) / rate,
                                                         _min(

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
 import "dss-test/DssTest.sol";
 
@@ -357,7 +357,7 @@ contract LockstakeClipperTest is DssTest {
         assertEq(address(clip.dog()), address(123));
     }
 
-    function testGetChop() public {
+    function testGetChop() public view {
         uint256 chop = dss.dog.chop(ilk);
         (, uint256 chop2,,) = dss.dog.ilks(ilk);
         assertEq(chop, chop2);

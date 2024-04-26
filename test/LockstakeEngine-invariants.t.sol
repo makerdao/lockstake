@@ -130,7 +130,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
         vat.rely(address(engine));
         vat.init(ilk);
         JugLike(jug).init(ilk);
-        JugLike(jug).file(ilk, "duty", 1001 * 10**27 / 1000);
+        JugLike(jug).file(ilk, "duty", 1000000021979553151239153027); // 100% APY
         SpotterLike(spot).file(ilk, "pip", address(pip));
         SpotterLike(spot).file(ilk, "mat", 3 * 10**27); // 300% coll ratio
         pip.setPrice(1000 * 10**18); // 1 MKR = 1000 USD

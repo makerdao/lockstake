@@ -2,7 +2,7 @@
 
 // Based on https://github.com/Uniswap/v3-periphery/blob/697c2474757ea89fec12a4e6db16a574fe259610/contracts/base/Multicall.sol
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
 // Enables calling multiple methods in a single call to the contract
 abstract contract Multicall  {

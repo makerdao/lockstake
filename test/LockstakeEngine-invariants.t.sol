@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
 import "dss-test/DssTest.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
@@ -209,20 +209,20 @@ contract LockstakeEngineIntegrationTest is DssTest {
         targetContract(address(handler)); // invariant tests should fuzz only handler functions
     }
 
-    function invariant_system_mkr_equals_ink() public {
+    function invariant_system_mkr_equals_ink() public view {
         (uint256 ink,) = vat.urns(ilk, urn);
         assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), ink);
     }
 
-    function invariant_system_mkr_equals_lsmkr_total_supply() public {
+    function invariant_system_mkr_equals_lsmkr_total_supply() public view {
         assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), lsmkr.totalSupply());
     }
 
-    function invariant_delegation_exclusiveness() public {
+    function invariant_delegation_exclusiveness() public view {
         assertLe(handler.numDelegated(), 1);
     }
 
-    function invariant_delegation_all_or_nothing() public {
+    function invariant_delegation_all_or_nothing() public view {
         address urnDelegate = engine.urnVoteDelegates(urn);
         (uint256 ink,) = vat.urns(ilk, urn);
 
@@ -234,11 +234,11 @@ contract LockstakeEngineIntegrationTest is DssTest {
         }
     }
 
-    function invariant_staking_exclusiveness() public {
+    function invariant_staking_exclusiveness() public view {
         assertLe(handler.numStakedForUrn(handler.urn()), 1);
     }
 
-    function invariant_staking_all_or_nothing() public {
+    function invariant_staking_all_or_nothing() public view {
         address urnFarm = engine.urnFarms(urn);
         (uint256 ink,) = vat.urns(ilk, urn);
 
@@ -250,7 +250,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
         }
     }
 
-    function invariant_no_delegation_or_staking_during_auction() public {
+    function invariant_no_delegation_or_staking_during_auction() public view {
         assertTrue(
             engine.urnAuctions(urn) == 0 ||
             engine.urnVoteDelegates(urn) == address(0) && engine.urnFarms(urn) == address(0)

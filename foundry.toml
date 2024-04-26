@@ -7,4 +7,8 @@ optimizer = true
 optimizer_runs = 200
 verbosity = 1
 
+invariant.runs = 1
+invariant.depth = 100
+invariant.preserve_state = true # For using cheats in handlers (https://github.com/foundry-rs/foundry/pull/7219)
+
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

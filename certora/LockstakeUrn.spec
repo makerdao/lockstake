@@ -1,7 +1,4 @@
-/* Basic setup for `LockstakeUrn` */
-
-// This checks for reachability
-// use builtin rule sanity;
+// LockstakeUrn.spec
 
 using Vat as vat;
 using LockstakeMkr as lsmkr;

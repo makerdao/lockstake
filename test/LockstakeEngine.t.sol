@@ -25,12 +25,16 @@ interface LineMomLike {
     function ilks(bytes32) external view returns (uint256);
 }
 
+interface MkrAuthorityLike {
+    function rely(address) external;
+}
+
 contract LockstakeEngineTest is DssTest {
     using stdStorage for StdStorage;
 
     DssInstance             dss;
     address                 pauseProxy;
-    GemMock                 mkr;
+    DSTokenAbstract         mkr;
     LockstakeMkr            lsmkr;
     LockstakeEngine         engine;
     LockstakeClipper        clip;
@@ -86,12 +90,15 @@ contract LockstakeEngineTest is DssTest {
 
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
         pip = MedianAbstract(dss.chainlog.getAddress("PIP_MKR"));
-        mkr = new GemMock(0);
+        mkr = DSTokenAbstract(dss.chainlog.getAddress("MCD_GOV"));
         nst = new NstMock();
         nstJoin = new NstJoinMock(address(dss.vat), address(nst));
         rTok = new GemMock(0);
         ngt = new GemMock(0);
         mkrNgt = new MkrNgtMock(address(mkr), address(ngt), 24_000);
+        vm.startPrank(pauseProxy);
+        MkrAuthorityLike(mkr.authority()).rely(address(mkrNgt));
+        vm.stopPrank();
 
         voteDelegateFactory = new VoteDelegateFactoryMock(address(mkr));
         voter = address(123);

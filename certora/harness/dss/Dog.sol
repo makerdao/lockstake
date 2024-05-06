@@ -17,9 +17,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// taken from: https://github.com/Certora/makerTraining/tree/master/src
-
-pragma solidity ^0.8.16;
+pragma solidity ^0.6.12;
 
 interface ClipperLike {
     function ilk() external view returns (bytes32);

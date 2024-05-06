@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
 import { LockstakeEngine } from "../../src/LockstakeEngine.sol";
 
 
 /// @title For testing the `LockstakeEngine.multicall` function
-contract MuticallTest {
+contract MulticallExecutor {
 
     LockstakeEngine public engine;
 

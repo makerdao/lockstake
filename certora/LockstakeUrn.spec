@@ -3,7 +3,7 @@
 using Vat as vat;
 using LockstakeMkr as lsmkr;
 using StakingRewardsMock as stakingRewards;
-using GemMockRewards as rewardsToken;
+using RewardsMock as rewardsToken;
 
 methods {
     function engine() external returns (address) envfree;

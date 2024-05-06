@@ -17,13 +17,36 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// taken from: https://github.com/Certora/makerTraining/tree/master/src
+pragma solidity >=0.5.12;
 
-pragma solidity ^0.8.16;
+contract LibNote {
+    event LogNote(
+        bytes4   indexed  sig,
+        address  indexed  usr,
+        bytes32  indexed  arg1,
+        bytes32  indexed  arg2,
+        bytes             data
+    ) anonymous;
 
-// FIXME: This contract was altered compared to the production version.
-// It doesn't use LibNote anymore.
-// New deployments of this contract will need to include custom events (TO DO).
+    modifier note {
+        _;
+        assembly {
+            // log an 'anonymous' event with a constant 6 words of calldata
+            // and four indexed topics: selector, caller, arg1 and arg2
+            let mark := msize()                       // end of memory ensures zero
+            mstore(0x40, add(mark, 288))              // update free memory pointer
+            mstore(mark, 0x20)                        // bytes type data offset
+            mstore(add(mark, 0x20), 224)              // bytes size (padded)
+            calldatacopy(add(mark, 0x40), 0, 224)     // bytes payload
+            log4(mark, 288,                           // calldata
+                 shl(224, shr(224, calldataload(0))), // msg.sig
+                 caller(),                            // msg.sender
+                 calldataload(4),                     // arg1
+                 calldataload(36)                     // arg2
+                )
+        }
+    }
+}
 
 interface VatLike {
     function ilks(bytes32) external returns (
@@ -33,11 +56,11 @@ interface VatLike {
     function fold(bytes32,address,int) external;
 }
 
-contract Jug {
+contract Jug is LibNote {
     // --- Auth ---
     mapping (address => uint) public wards;
-    function rely(address usr) external auth { wards[usr] = 1; }
-    function deny(address usr) external auth { wards[usr] = 0; }
+    function rely(address usr) external note auth { wards[usr] = 1; }
+    function deny(address usr) external note auth { wards[usr] = 0; }
     modifier auth {
         require(wards[msg.sender] == 1, "Jug/not-authorized");
         _;
@@ -61,7 +84,7 @@ contract Jug {
     }
 
     // --- Math ---
-    function _rpow(uint x, uint n, uint b) internal pure returns (uint z) {
+    function rpow(uint x, uint n, uint b) internal pure returns (uint z) {
       assembly {
         switch x case 0 {switch n case 0 {z := b} default {z := 0}}
         default {
@@ -85,47 +108,47 @@ contract Jug {
       }
     }
     uint256 constant ONE = 10 ** 27;
-    function _add(uint x, uint y) internal pure returns (uint z) {
+    function add(uint x, uint y) internal pure returns (uint z) {
         z = x + y;
         require(z >= x);
     }
-    function _diff(uint x, uint y) internal pure returns (int z) {
+    function diff(uint x, uint y) internal pure returns (int z) {
         z = int(x) - int(y);
         require(int(x) >= 0 && int(y) >= 0);
     }
-    function _rmul(uint x, uint y) internal pure returns (uint z) {
+    function rmul(uint x, uint y) internal pure returns (uint z) {
         z = x * y;
         require(y == 0 || z / y == x);
         z = z / ONE;
     }
 
     // --- Administration ---
-    function init(bytes32 ilk) external auth {
+    function init(bytes32 ilk) external note auth {
         Ilk storage i = ilks[ilk];
         require(i.duty == 0, "Jug/ilk-already-init");
         i.duty = ONE;
-        i.rho  = block.timestamp;
+        i.rho  = now;
     }
-    function file(bytes32 ilk, bytes32 what, uint data) external auth {
-        require(block.timestamp == ilks[ilk].rho, "Jug/rho-not-updated");
+    function file(bytes32 ilk, bytes32 what, uint data) external note auth {
+        require(now == ilks[ilk].rho, "Jug/rho-not-updated");
         if (what == "duty") ilks[ilk].duty = data;
         else revert("Jug/file-unrecognized-param");
     }
-    function file(bytes32 what, uint data) external auth {
+    function file(bytes32 what, uint data) external note auth {
         if (what == "base") base = data;
         else revert("Jug/file-unrecognized-param");
     }
-    function file(bytes32 what, address data) external auth {
+    function file(bytes32 what, address data) external note auth {
         if (what == "vow") vow = data;
         else revert("Jug/file-unrecognized-param");
     }
 
     // --- Stability Fee Collection ---
-    function drip(bytes32 ilk) external returns (uint rate) {
-        require(block.timestamp >= ilks[ilk].rho, "Jug/invalid-now");
+    function drip(bytes32 ilk) external note returns (uint rate) {
+        require(now >= ilks[ilk].rho, "Jug/invalid-now");
         (, uint prev) = vat.ilks(ilk);
-        rate = _rmul(_rpow(_add(base, ilks[ilk].duty), block.timestamp - ilks[ilk].rho, ONE), prev);
-        vat.fold(ilk, vow, _diff(rate, prev));
-        ilks[ilk].rho = block.timestamp;
+        rate = rmul(rpow(add(base, ilks[ilk].duty), now - ilks[ilk].rho, ONE), prev);
+        vat.fold(ilk, vow, diff(rate, prev));
+        ilks[ilk].rho = now;
     }
 }

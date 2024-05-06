@@ -7,7 +7,7 @@ import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
 import { LockstakeMkr } from "src/LockstakeMkr.sol";
 import { PipMock } from "test/mocks/PipMock.sol";
-import { VoteDelegateFactoryMock, VoteDelegateMock } from "test/mocks/VoteDelegateMock.sol";
+import { VoteDelegateFactoryMock, VoteDelegateMock } from "test/mocks/VoteDelegateFactoryMock.sol";
 import { GemMock } from "test/mocks/GemMock.sol";
 import { NstMock } from "test/mocks/NstMock.sol";
 import { NstJoinMock } from "test/mocks/NstJoinMock.sol";

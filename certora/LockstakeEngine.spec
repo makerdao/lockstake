@@ -8,6 +8,8 @@ using LockstakeMkr as lsmkr;
 using VoteDelegateMock as voteDelegate;
 using VoteDelegate2Mock as voteDelegate2;
 using VoteDelegateFactoryMock as voteDelegateFactory;
+using StakingRewardsMock as farm;
+using StakingRewards2Mock as farm2;
 
 methods {
     // storage variables
@@ -43,6 +45,12 @@ methods {
     function mkr.balanceOf(address) external returns (uint256) envfree;
     function mkr.totalSupply() external returns (uint256) envfree;
     function lsmkr.allowance(address,address) external returns (uint256) envfree;
+    function lsmkr.balanceOf(address) external returns (uint256) envfree;
+    function lsmkr.totalSupply() external returns (uint256) envfree;
+    function farm.balanceOf(address) external returns (uint256) envfree;
+    function farm.totalSupply() external returns (uint256) envfree;
+    function farm2.balanceOf(address) external returns (uint256) envfree;
+    function farm2.totalSupply() external returns (uint256) envfree;
     //
     function voteDelegate.stake(address) external returns (uint256) envfree;
     function voteDelegate2.stake(address) external returns (uint256) envfree;
@@ -50,6 +58,10 @@ methods {
     function _.init() external => DISPATCHER(true);
     function _.lock(uint256) external => DISPATCHER(true);
     function _.free(uint256) external => DISPATCHER(true);
+    function _.stake(address,uint256,uint16) external => DISPATCHER(true);
+    function _.withdraw(address,uint256) external => DISPATCHER(true);
+    function _.stake(uint256,uint16) external => DISPATCHER(true);
+    function _.withdraw(uint256) external => DISPATCHER(true);
     function _._ external => DISPATCH [
         currentContract.open(uint256),
         currentContract.hope(address,address),
@@ -200,30 +212,30 @@ rule file_revert(bytes32 what, address data) {
 }
 
 // Verify correct storage changes for non reverting addFarm
-rule addFarm(address farm) {
+rule addFarm(address farm_) {
     env e;
 
     address other;
-    require other != farm;
+    require other != farm_;
 
     LockstakeEngine.FarmStatus farmsOtherBefore = farms(other);
 
-    addFarm(e, farm);
+    addFarm(e, farm_);
 
-    LockstakeEngine.FarmStatus farmsFarmAfter = farms(farm);
+    LockstakeEngine.FarmStatus farmsFarmAfter = farms(farm_);
     LockstakeEngine.FarmStatus farmsOtherAfter = farms(other);
 
-    assert farmsFarmAfter == LockstakeEngine.FarmStatus.ACTIVE, "addFarm did not set the farms[farm] as ACTIVE";
+    assert farmsFarmAfter == LockstakeEngine.FarmStatus.ACTIVE, "addFarm did not set the farms[farm_] as ACTIVE";
     assert farmsOtherAfter == farmsOtherBefore, "addFarm did not keep unchanged the rest of farms[x]";
 }
 
 // Verify revert rules on addFarm
-rule addFarm_revert(address farm) {
+rule addFarm_revert(address farm_) {
     env e;
 
     mathint wardsSender = wards(e.msg.sender);
 
-    addFarm@withrevert(e, farm);
+    addFarm@withrevert(e, farm_);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
@@ -232,30 +244,30 @@ rule addFarm_revert(address farm) {
 }
 
 // Verify correct storage changes for non reverting delFarm
-rule delFarm(address farm) {
+rule delFarm(address farm_) {
     env e;
 
     address other;
-    require other != farm;
+    require other != farm_;
 
     LockstakeEngine.FarmStatus farmsOtherBefore = farms(other);
 
-    delFarm(e, farm);
+    delFarm(e, farm_);
 
-    LockstakeEngine.FarmStatus farmsFarmAfter = farms(farm);
+    LockstakeEngine.FarmStatus farmsFarmAfter = farms(farm_);
     LockstakeEngine.FarmStatus farmsOtherAfter = farms(other);
 
-    assert farmsFarmAfter == LockstakeEngine.FarmStatus.DELETED, "delFarm did not set the farms[farm] as DELETED";
+    assert farmsFarmAfter == LockstakeEngine.FarmStatus.DELETED, "delFarm did not set the farms[farm_] as DELETED";
     assert farmsOtherAfter == farmsOtherBefore, "delFarm did not keep unchanged the rest of farms[x]";
 }
 
 // Verify revert rules on delFarm
-rule delFarm_revert(address farm) {
+rule delFarm_revert(address farm_) {
     env e;
 
     mathint wardsSender = wards(e.msg.sender);
 
-    delFarm@withrevert(e, farm);
+    delFarm@withrevert(e, farm_);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
@@ -387,25 +399,32 @@ rule selectVoteDelegate(address urn, address voteDelegate_) {
     require prevVoteDelegate == zero || prevVoteDelegate == voteDelegate2;
 
     address other;
-    require other != voteDelegate_ && other != prevVoteDelegate && other != currentContract;
+    require other != urn;
+    address other2;
+    require other2 != voteDelegate_ && other2 != prevVoteDelegate && other2 != currentContract;
 
     bytes32 ilk = ilk();
     mathint ink; mathint a;
     ink, a = vat.urns(ilk, urn);
 
+    address urnVoteDelegatesOtherBefore = urnVoteDelegates(other);
     mathint mkrBalanceOfPrevVoteDelegateBefore = mkr.balanceOf(prevVoteDelegate);
     mathint mkrBalanceOfNewVoteDelegateBefore = mkr.balanceOf(voteDelegate_);
     mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
+    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other2);
     require to_mathint(mkr.totalSupply()) >= mkrBalanceOfPrevVoteDelegateBefore + mkrBalanceOfNewVoteDelegateBefore + mkrBalanceOfEngineBefore + mkrBalanceOfOtherBefore;
 
     selectVoteDelegate(e, urn, voteDelegate_);
 
+    address urnVoteDelegatesUrnAfter = urnVoteDelegates(urn);
+    address urnVoteDelegatesOtherAfter = urnVoteDelegates(other);
     mathint mkrBalanceOfPrevVoteDelegateAfter = mkr.balanceOf(prevVoteDelegate);
     mathint mkrBalanceOfNewVoteDelegateAfter = mkr.balanceOf(voteDelegate_);
     mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
+    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other2);
 
+    assert urnVoteDelegatesUrnAfter == voteDelegate_, "selectVoteDelegate did not set urnVoteDelegates[urn] as voteDelegate_";
+    assert urnVoteDelegatesOtherAfter == urnVoteDelegatesOtherBefore, "selectVoteDelegate did not keep unchanged the rest of urnVoteDelegates[x]";
     assert prevVoteDelegate == zero => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore, "selectVoteDelegate did not keep the balance unchanged when the prev voteDelegate was address(0)";
     assert prevVoteDelegate != zero => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - ink, "selectVoteDelegate did not decrease the deposited MKR in prev voteDelegate by ink";
     assert voteDelegate_ == zero => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore, "selectVoteDelegate did not keep the balance unchanged when the new voteDelegate was address(0)";
@@ -453,6 +472,93 @@ rule selectVoteDelegate_revert(address urn, address voteDelegate_) {
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5 || revert6, "Revert rules failed";
+}
+
+// Verify correct storage changes for non reverting selectFarm
+rule selectFarm(address urn, address farm_, uint16 ref) {
+    env e;
+
+    require urn == lockstakeUrn;
+
+    address zero = 0x0000000000000000000000000000000000000000;
+
+    require farm_ == zero || farm_ == farm;
+    address prevFarm = urnFarms(urn);
+    require prevFarm == zero || prevFarm == farm2;
+
+    address other;
+    require other != urn;
+    address other2;
+    require other2 != farm_ && other2 != prevFarm && other2 != urn;
+
+    bytes32 ilk = ilk();
+    mathint ink; mathint a;
+    ink, a = vat.urns(ilk, urn);
+
+    address urnFarmsOtherBefore = urnFarms(other);
+    mathint lsmkrBalanceOfPrevFarmBefore = lsmkr.balanceOf(prevFarm);
+    mathint lsmkrBalanceOfNewFarmBefore = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
+    mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
+    require to_mathint(lsmkr.totalSupply()) >= lsmkrBalanceOfPrevFarmBefore + lsmkrBalanceOfNewFarmBefore + lsmkrBalanceOfUrnBefore + lsmkrBalanceOfOtherBefore;
+
+    selectFarm(e, urn, farm_, ref);
+
+    address urnFarmsUrnAfter = urnFarms(urn);
+    address urnFarmsOtherAfter = urnFarms(other);
+    mathint lsmkrBalanceOfPrevFarmAfter = lsmkr.balanceOf(prevFarm);
+    mathint lsmkrBalanceOfNewFarmAfter = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
+    mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
+
+    assert urnFarmsUrnAfter == farm_, "selectFarm did not set urnFarms[urn] as farm_";
+    assert urnFarmsOtherAfter == urnFarmsOtherBefore, "selectFarm did not keep unchanged the rest of urnFarms[x]";
+    assert prevFarm == zero => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "selectFarm did not keep the balance unchanged when the prev farm was address(0)";
+    assert prevFarm != zero => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - ink, "selectFarm did not decrease the deposited LSMKR in prev farm by ink";
+    assert farm_ == zero => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore, "selectFarm did not keep the balance unchanged when the new farm was address(0)";
+    assert farm_ != zero => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore + ink, "selectFarm did not increase the deposited LSMKR in new farm by ink";
+    assert prevFarm == zero && farm_ == zero || prevFarm != zero && farm_ != zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "selectFarm did not keep the balance unchanged of urn when both farm are zero or different than zero";
+    assert prevFarm == zero && farm_ != zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - ink, "selectFarm did not decrease the deposited LSMKR in engine by ink";
+    assert prevFarm != zero && farm_ == zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + ink, "selectFarm did not increase the deposited LSMKR in engine by ink";
+    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "selectFarm did not keep unchanged the rest unrelated farm deposits";
+}
+
+// Verify revert rules on selectFarm
+rule selectFarm_revert(address urn, address farm_, uint16 ref) {
+    env e;
+
+    require urn == lockstakeUrn;
+
+    address zero = 0x0000000000000000000000000000000000000000;
+
+    require farm_ == zero || farm_ == farm;
+    address prevFarm = urnFarms(urn);
+    require prevFarm == zero || prevFarm == farm2;
+
+    address urnOwnersUrn = urnOwners(urn);
+    mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
+    mathint urnAuctions = urnAuctions(urn);
+    LockstakeEngine.FarmStatus farmsFarm = farms(farm_);
+    bytes32 ilk = ilk();
+    mathint ink; mathint a;
+    ink, a = vat.urns(ilk, urn);
+
+    require prevFarm == zero && to_mathint(lsmkr.balanceOf(urn)) >= ink || prevFarm != zero && to_mathint(lsmkr.balanceOf(prevFarm)) >= ink && to_mathint(farm2.balanceOf(urn)) >= ink; // TODO: this might be interesting to be proved
+    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(farm_) + lsmkr.balanceOf(urn);
+    require farm2.totalSupply() >= farm2.balanceOf(urn);
+    require farm.totalSupply() >= farm.balanceOf(urn);
+    require farm.totalSupply() + ink <= max_uint256;
+
+    selectFarm@withrevert(e, urn, farm_, ref);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
+    bool revert3 = urnAuctions > 0;
+    bool revert4 = farm_ != zero && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
+    bool revert5 = farm_ == prevFarm;
+
+    assert lastReverted <=> revert1 || revert2 || revert3 ||
+                            revert4 || revert5, "Revert rules failed";
 }
 
 // using LockstakeEngine as _Engine;

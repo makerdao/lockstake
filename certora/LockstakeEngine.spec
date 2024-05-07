@@ -425,14 +425,14 @@ rule selectVoteDelegate(address urn, address voteDelegate_) {
 
     assert urnVoteDelegatesUrnAfter == voteDelegate_, "selectVoteDelegate did not set urnVoteDelegates[urn] as voteDelegate_";
     assert urnVoteDelegatesOtherAfter == urnVoteDelegatesOtherBefore, "selectVoteDelegate did not keep unchanged the rest of urnVoteDelegates[x]";
-    assert prevVoteDelegate == zero => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore, "selectVoteDelegate did not keep the balance unchanged when the prev voteDelegate was address(0)";
-    assert prevVoteDelegate != zero => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - ink, "selectVoteDelegate did not decrease the deposited MKR in prev voteDelegate by ink";
-    assert voteDelegate_ == zero => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore, "selectVoteDelegate did not keep the balance unchanged when the new voteDelegate was address(0)";
-    assert voteDelegate_ != zero => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore + ink, "selectVoteDelegate did not increase the deposited MKR in new voteDelegate by ink";
-    assert prevVoteDelegate == zero && voteDelegate_ == zero || prevVoteDelegate != zero && voteDelegate_ != zero => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "selectVoteDelegate did not keep the balance unchanged of engine when both voteDelegate are zero or different than zero";
-    assert prevVoteDelegate == zero && voteDelegate_ != zero => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - ink, "selectVoteDelegate did not decrease the deposited MKR in engine by ink";
-    assert prevVoteDelegate != zero && voteDelegate_ == zero => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + ink, "selectVoteDelegate did not increase the deposited MKR in engine by ink";
-    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "selectVoteDelegate did not keep unchanged the rest unrelated voteDelegate deposits";
+    assert prevVoteDelegate == zero => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore, "selectVoteDelegate did not keep unchanged mkr.balanceOf(address(0))";
+    assert prevVoteDelegate != zero => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - ink, "selectVoteDelegate did not decrease mkr.balanceOf(prevVoteDelegate) by ink";
+    assert voteDelegate_ == zero => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore, "selectVoteDelegate did not keep unchanged mkr.balanceOf(address(0)) 2";
+    assert voteDelegate_ != zero => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore + ink, "selectVoteDelegate did not increase mkr.balanceOf(newVoteDelegate) by ink";
+    assert prevVoteDelegate == zero && voteDelegate_ == zero || prevVoteDelegate != zero && voteDelegate_ != zero => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "selectVoteDelegate did not keep unchanged mkr.balanceOf(engine)";
+    assert prevVoteDelegate == zero && voteDelegate_ != zero => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - ink, "selectVoteDelegate did not decrease mkr.balanceOf(engine) by ink";
+    assert prevVoteDelegate != zero && voteDelegate_ == zero => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + ink, "selectVoteDelegate did not increase mkr.balanceOf(engine) by ink";
+    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "selectVoteDelegate did not keep unchanged the rest of mkr.balanceOf(x)";
 }
 
 // Verify revert rules on selectVoteDelegate
@@ -513,14 +513,14 @@ rule selectFarm(address urn, address farm_, uint16 ref) {
 
     assert urnFarmsUrnAfter == farm_, "selectFarm did not set urnFarms[urn] as farm_";
     assert urnFarmsOtherAfter == urnFarmsOtherBefore, "selectFarm did not keep unchanged the rest of urnFarms[x]";
-    assert prevFarm == zero => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "selectFarm did not keep the balance unchanged when the prev farm was address(0)";
-    assert prevFarm != zero => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - ink, "selectFarm did not decrease the deposited LSMKR in prev farm by ink";
-    assert farm_ == zero => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore, "selectFarm did not keep the balance unchanged when the new farm was address(0)";
-    assert farm_ != zero => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore + ink, "selectFarm did not increase the deposited LSMKR in new farm by ink";
-    assert prevFarm == zero && farm_ == zero || prevFarm != zero && farm_ != zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "selectFarm did not keep the balance unchanged of urn when both farm are zero or different than zero";
-    assert prevFarm == zero && farm_ != zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - ink, "selectFarm did not decrease the deposited LSMKR in engine by ink";
-    assert prevFarm != zero && farm_ == zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + ink, "selectFarm did not increase the deposited LSMKR in engine by ink";
-    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "selectFarm did not keep unchanged the rest unrelated farm deposits";
+    assert prevFarm == zero => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "selectFarm did not keep unchanged lsmkr.balanceOf(address(0))";
+    assert prevFarm != zero => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - ink, "selectFarm did not decrease lsmkr.balanceOf(prevFarm) by ink";
+    assert farm_ == zero => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore, "selectFarm did not keep unchanged lsmkr.balanceOf(address(0)) 2";
+    assert farm_ != zero => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore + ink, "selectFarm did not increase lsmkr.balanceOf(new Farm) by ink";
+    assert prevFarm == zero && farm_ == zero || prevFarm != zero && farm_ != zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "selectFarm did not keep unchanged lsmkr.balanceOf(urn)";
+    assert prevFarm == zero && farm_ != zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - ink, "selectFarm did not decrease lsmkr.balanceOf(urn) by ink";
+    assert prevFarm != zero && farm_ == zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + ink, "selectFarm did not increase lsmkr.balanceOf(urn) by ink";
+    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "selectFarm did not keep unchanged the rest of lsmkr.balanceOf(x)";
 }
 
 // Verify revert rules on selectFarm
@@ -559,6 +559,67 @@ rule selectFarm_revert(address urn, address farm_, uint16 ref) {
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5, "Revert rules failed";
+}
+
+// Verify correct storage changes for non reverting lock
+rule lock(address urn, uint256 wad, uint16 ref) {
+    env e;
+
+    require urn == lockstakeUrn;
+
+    address zero = 0x0000000000000000000000000000000000000000;
+
+    address voteDelegate_ = urnVoteDelegates(urn);
+    require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
+    require voteDelegate_ == zero || voteDelegate_ == voteDelegate;
+    address farm_ = urnFarms(urn);
+    require farm_ == zero || farm_ == farm;
+
+    address other;
+    require other != e.msg.sender && other != currentContract && other != voteDelegate_;
+    address other2;
+    require other2 != urn && other2 != farm_;
+
+    bytes32 ilk = ilk();
+    mathint inkBefore; mathint a;
+    inkBefore, a = vat.urns(ilk, urn);
+    mathint mkrBalanceOfSenderBefore = mkr.balanceOf(e.msg.sender);
+    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
+    mathint mkrBalanceOfVoteDelegateBefore = mkr.balanceOf(voteDelegate_);
+    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
+    require to_mathint(mkr.totalSupply()) >= mkrBalanceOfSenderBefore + mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBefore + mkrBalanceOfOtherBefore;
+    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
+    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
+    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
+    require lsmkrTotalSupplyBefore >= lsmkrBalanceOfUrnBefore + lsmkrBalanceOfFarmBefore + lsmkrBalanceOfOtherBefore;
+
+    lock(e, urn, wad, ref);
+
+    mathint inkAfter;
+    inkAfter, a = vat.urns(ilk, urn);
+    mathint mkrBalanceOfSenderAfter = mkr.balanceOf(e.msg.sender);
+    mathint mkrBalanceOfVoteDelegateAfter = mkr.balanceOf(voteDelegate_);
+    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
+    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
+    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
+    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
+    mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
+
+    assert inkAfter == inkBefore + wad, "lock did not increase ink by wad";
+    assert mkrBalanceOfSenderAfter == mkrBalanceOfSenderBefore - wad, "lock did not decrease mkr.balanceOf(sender) by wad";
+    assert voteDelegate_ == zero => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "lock did not keep unchanged mkr.balanceOf(address(0))";
+    assert voteDelegate_ != zero => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore + wad, "lock did not increase mkr.balanceOf(voteDelegate) by wad";
+    assert voteDelegate_ == zero => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + wad, "lock did not increase mkr.balanceOf(engine) by wad";
+    assert voteDelegate_ != zero => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "lock did not keep unchanged mkr.balanceOf(engine)";
+    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "lock did not keep unchanged the rest of mkr.balanceOf(x)";
+    assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + wad, "lock did not increase lsmkr.totalSupply() by wad";
+    assert farm_ == zero => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "lock did not keep unchanged lsmkr.balanceOf(address(0))";
+    assert farm_ != zero => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + wad, "lock did not increase lsmkr.balanceOf(farm) by wad";
+    assert farm_ == zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + wad, "lock did not increase lsmkr.balanceOf(urn) by wad";
+    assert farm_ != zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "lock did not keep unchanged lsmkr.balanceOf(urn)";
+    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "lock did not keep unchanged the rest of lsmkr.balanceOf(x)";
 }
 
 // using LockstakeEngine as _Engine;

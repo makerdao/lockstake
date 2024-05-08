@@ -420,6 +420,7 @@ rule selectVoteDelegate(address urn, address voteDelegate_) {
     mathint mkrBalanceOfNewVoteDelegateBefore = mkr.balanceOf(voteDelegate_);
     mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other2);
+    // Tokens invariants
     require to_mathint(mkr.totalSupply()) >= mkrBalanceOfPrevVoteDelegateBefore + mkrBalanceOfNewVoteDelegateBefore + mkrBalanceOfEngineBefore + mkrBalanceOfOtherBefore;
 
     selectVoteDelegate(e, urn, voteDelegate_);
@@ -462,11 +463,13 @@ rule selectVoteDelegate_revert(address urn, address voteDelegate_) {
     a, rate, spot, b, c = vat.ilks(ilk);
     mathint ink; mathint art;
     ink, art = vat.urns(ilk, urn);
+    // Vat assumptions
     require ink * spot <= max_uint256;
     require art * rate <= max_uint256;
 
     require prevVoteDelegate == zero && to_mathint(mkr.balanceOf(currentContract)) >= ink || prevVoteDelegate != zero && to_mathint(mkr.balanceOf(prevVoteDelegate)) >= ink && to_mathint(voteDelegate2.stake(currentContract)) >= ink; // TODO: this might be interesting to be proved
     require voteDelegate.stake(currentContract) + ink <= max_uint256;
+    // Tokens invariants
     require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(prevVoteDelegate) + mkr.balanceOf(voteDelegate_) + mkr.balanceOf(currentContract);
 
     selectVoteDelegate@withrevert(e, urn, voteDelegate_);
@@ -508,6 +511,7 @@ rule selectFarm(address urn, address farm_, uint16 ref) {
     mathint lsmkrBalanceOfNewFarmBefore = lsmkr.balanceOf(farm_);
     mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
+    // Tokens invariants
     require to_mathint(lsmkr.totalSupply()) >= lsmkrBalanceOfPrevFarmBefore + lsmkrBalanceOfNewFarmBefore + lsmkrBalanceOfUrnBefore + lsmkrBalanceOfOtherBefore;
 
     selectFarm(e, urn, farm_, ref);
@@ -551,10 +555,13 @@ rule selectFarm_revert(address urn, address farm_, uint16 ref) {
     mathint ink; mathint a;
     ink, a = vat.urns(ilk, urn);
 
-    require prevFarm == zero && to_mathint(lsmkr.balanceOf(urn)) >= ink || prevFarm != zero && to_mathint(lsmkr.balanceOf(prevFarm)) >= ink && to_mathint(farm2.balanceOf(urn)) >= ink; // TODO: this might be interesting to be proved
+    // TODO: this might be nice to prove in some sort
+    require prevFarm == zero && to_mathint(lsmkr.balanceOf(urn)) >= ink || prevFarm != zero && to_mathint(lsmkr.balanceOf(prevFarm)) >= ink && to_mathint(farm2.balanceOf(urn)) >= ink;
+    // Token invariants
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(farm_) + lsmkr.balanceOf(urn);
     require farm2.totalSupply() >= farm2.balanceOf(urn);
     require farm.totalSupply() >= farm.balanceOf(urn);
+    // Assumption
     require farm.totalSupply() + ink <= max_uint256;
 
     selectFarm@withrevert(e, urn, farm_, ref);
@@ -595,11 +602,13 @@ rule lock(address urn, uint256 wad, uint16 ref) {
     mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfVoteDelegateBefore = mkr.balanceOf(voteDelegate_);
     mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
-    require to_mathint(mkr.totalSupply()) >= mkrBalanceOfSenderBefore + mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBefore + mkrBalanceOfOtherBefore;
     mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
     mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm_);
     mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
+
+    // Tokens invariants
+    require to_mathint(mkr.totalSupply()) >= mkrBalanceOfSenderBefore + mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBefore + mkrBalanceOfOtherBefore;
     require lsmkrTotalSupplyBefore >= lsmkrBalanceOfUrnBefore + lsmkrBalanceOfFarmBefore + lsmkrBalanceOfOtherBefore;
 
     lock(e, urn, wad, ref);
@@ -655,7 +664,7 @@ rule lock_revert(address urn, uint256 wad, uint16 ref) {
 
     // User balance and approval
     require mkr.balanceOf(e.msg.sender) >= wad && mkr.allowance(e.msg.sender, currentContract) >= wad;
-    // Token invariants
+    // Tokens invariants
     require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm_);
     // TODO: this might be nice to prove in some sort
@@ -668,7 +677,7 @@ rule lock_revert(address urn, uint256 wad, uint16 ref) {
     mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
     ink, art = vat.urns(ilk, urn);
     Art, rate, spot, a, dust = vat.ilks(ilk);
-    // Assumptions from the Vat
+    // Vat assumptions
     require rate >= RAY() && rate <= max_int256();
     require (ink + wad) * spot <= max_uint256;
     require rate * Art <= max_uint256;

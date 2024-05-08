@@ -39,14 +39,19 @@ methods {
     function getUrn(address,uint256) external returns (address) envfree;
     //
     function lockstakeUrn.engine() external returns (address) envfree;
+    function vat.live() external returns (uint256) envfree;
     function vat.ilks(bytes32) external returns (uint256,uint256,uint256,uint256,uint256) envfree;
+    function vat.gem(bytes32,address) external returns (uint256) envfree;
     function vat.urns(bytes32,address) external returns (uint256,uint256) envfree;
     function vat.can(address,address) external returns (uint256) envfree;
+    function vat.wards(address) external returns (uint256) envfree;
+    function mkr.allowance(address,address) external returns (uint256) envfree;
     function mkr.balanceOf(address) external returns (uint256) envfree;
     function mkr.totalSupply() external returns (uint256) envfree;
     function lsmkr.allowance(address,address) external returns (uint256) envfree;
     function lsmkr.balanceOf(address) external returns (uint256) envfree;
     function lsmkr.totalSupply() external returns (uint256) envfree;
+    function lsmkr.wards(address) external returns (uint256) envfree;
     function farm.balanceOf(address) external returns (uint256) envfree;
     function farm.totalSupply() external returns (uint256) envfree;
     function farm2.balanceOf(address) external returns (uint256) envfree;
@@ -79,6 +84,9 @@ methods {
         currentContract.getReward(address,address,address)
     ] default HAVOC_ALL;
 }
+
+definition max_int256() returns mathint = 2^255 - 1;
+definition RAY() returns mathint = 10^27;
 
 // Verify that each storage layout is only modified in the corresponding functions
 rule storageAffected(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector  } {
@@ -620,6 +628,69 @@ rule lock(address urn, uint256 wad, uint16 ref) {
     assert farm_ == zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + wad, "lock did not increase lsmkr.balanceOf(urn) by wad";
     assert farm_ != zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "lock did not keep unchanged lsmkr.balanceOf(urn)";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "lock did not keep unchanged the rest of lsmkr.balanceOf(x)";
+}
+
+// Verify revert rules on lock
+rule lock_revert(address urn, uint256 wad, uint16 ref) {
+    env e;
+
+    require urn == lockstakeUrn;
+
+    address zero = 0x0000000000000000000000000000000000000000;
+
+    address voteDelegate_ = urnVoteDelegates(urn);
+    require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
+    require voteDelegate_ == zero || voteDelegate_ == voteDelegate;
+    address farm_ = urnFarms(urn);
+    require farm_ == zero || farm_ == farm;
+
+    address urnOwnersUrn = urnOwners(urn);
+
+    require vat.live() == 1;
+    // Happening in urn constructor
+    require vat.can(urn, currentContract) == 1;
+    // Happening in deploy scripts
+    require vat.wards(currentContract) == 1;
+    require lsmkr.wards(currentContract) == 1;
+
+    // User balance and approval
+    require mkr.balanceOf(e.msg.sender) >= wad && mkr.allowance(e.msg.sender, currentContract) >= wad;
+    // Token invariants
+    require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
+    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm_);
+    // TODO: this might be nice to prove in some sort
+    require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
+    require farm.totalSupply() == farm.balanceOf(urn);
+    require lsmkr.balanceOf(farm_) == farm.totalSupply();
+    require lsmkr.totalSupply() + wad <= to_mathint(mkr.totalSupply());
+
+    bytes32 ilk = ilk();
+    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
+    ink, art = vat.urns(ilk, urn);
+    Art, rate, spot, a, dust = vat.ilks(ilk);
+    // Assumptions from the Vat
+    require rate >= RAY() && rate <= max_int256();
+    require (ink + wad) * spot <= max_uint256;
+    require rate * Art <= max_uint256;
+    require Art >= art;
+    require art == 0 || rate * art >= dust;
+    // TODO: these might be nice to prove in some sort
+    require vat.gem(ilk, urn) == 0;
+    require lsmkr.balanceOf(urn) == 0 || farm.balanceOf(urn) == 0;
+    require ink == lsmkr.balanceOf(urn) + farm.balanceOf(urn);
+
+    LockstakeEngine.FarmStatus farmsFarm = farms(farm_);
+
+    lock@withrevert(e, urn, wad, ref);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = urnOwnersUrn == zero;
+    bool revert3 = to_mathint(wad) > max_int256();
+    bool revert4 = farm_ != zero && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
+    bool revert5 = farm_ != zero && wad == 0;
+
+    assert lastReverted <=> revert1 || revert2 || revert3 ||
+                            revert4 || revert5, "Revert rules failed";
 }
 
 // using LockstakeEngine as _Engine;

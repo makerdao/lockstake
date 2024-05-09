@@ -45,6 +45,7 @@ contract LockstakeEngineTest is DssTest {
     NstJoinMock             nstJoin;
     GemMock                 rTok;
     StakingRewardsMock      farm;
+    StakingRewardsMock      farm2;
     MkrNgtMock              mkrNgt;
     GemMock                 ngt;
     bytes32                 ilk = "LSE";
@@ -123,10 +124,11 @@ contract LockstakeEngineTest is DssTest {
         calc = instance.clipperCalc;
         lsmkr = LockstakeMkr(instance.lsmkr);
         farm = new StakingRewardsMock(address(rTok), address(lsmkr));
+        farm2 = new StakingRewardsMock(address(rTok), address(lsmkr));
 
         address[] memory farms = new address[](2);
         farms[0] = address(farm);
-        farms[1] = address(1111111); // Just to test that more than 1 farm is correctly whitelisted
+        farms[1] = address(farm2);
 
         cfg = LockstakeConfig({
             ilk: ilk,
@@ -274,7 +276,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(dss.dog.wards(address(clip)), 1);
         assertEq(address(engine.jug()), address(dss.jug));
         assertTrue(engine.farms(address(farm)) == LockstakeEngine.FarmStatus.ACTIVE);
-        assertTrue(engine.farms(address(1111111)) == LockstakeEngine.FarmStatus.ACTIVE);
+        assertTrue(engine.farms(address(farm2)) == LockstakeEngine.FarmStatus.ACTIVE);
         assertEq(engine.wards(address(clip)), 1);
         assertEq(clip.buf(), 1.25 * 10**27);
         assertEq(clip.tail(), 3600);
@@ -330,6 +332,8 @@ contract LockstakeEngineTest is DssTest {
         cfg.tau = 0;
         cfg.cut = 10**27;
         cfg.step = 1;
+        cfg.farms[0] = address(new StakingRewardsMock(address(rTok), address(instance2.lsmkr)));
+        cfg.farms[1] = address(new StakingRewardsMock(address(rTok), address(instance2.lsmkr)));
         vm.startPrank(pauseProxy);
         LockstakeInit.initLockstake(dss, instance2, cfg);
         vm.stopPrank();
@@ -546,34 +550,34 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function testSelectFarm() public {
-        StakingRewardsMock farm2 = new StakingRewardsMock(address(rTok), address(lsmkr));
+        StakingRewardsMock farm3 = new StakingRewardsMock(address(rTok), address(lsmkr));
         address urn = engine.open(0);
         assertEq(engine.urnFarms(urn), address(0));
         vm.expectRevert("LockstakeEngine/farm-unsupported-or-deleted");
-        engine.selectFarm(urn, address(farm2), 5);
-        vm.prank(pauseProxy); engine.addFarm(address(farm2));
+        engine.selectFarm(urn, address(farm3), 5);
+        vm.prank(pauseProxy); engine.addFarm(address(farm3));
         vm.expectEmit(true, true, true, true);
-        emit SelectFarm(urn, address(farm2), 5);
-        engine.selectFarm(urn, address(farm2), 5);
-        assertEq(engine.urnFarms(urn), address(farm2));
+        emit SelectFarm(urn, address(farm3), 5);
+        engine.selectFarm(urn, address(farm3), 5);
+        assertEq(engine.urnFarms(urn), address(farm3));
         vm.expectRevert("LockstakeEngine/same-farm");
-        engine.selectFarm(urn, address(farm2), 5);
+        engine.selectFarm(urn, address(farm3), 5);
         assertEq(lsmkr.balanceOf(address(farm)), 0);
-        assertEq(lsmkr.balanceOf(address(farm2)), 0);
+        assertEq(lsmkr.balanceOf(address(farm3)), 0);
         mkr.approve(address(engine), 100_000 * 10**18);
         engine.lock(urn, 100_000 * 10**18, 5);
         assertEq(lsmkr.balanceOf(address(farm)),  0);
-        assertEq(lsmkr.balanceOf(address(farm2)), 100_000 * 10**18);
+        assertEq(lsmkr.balanceOf(address(farm3)), 100_000 * 10**18);
         assertEq(farm.balanceOf(urn),  0);
-        assertEq(farm2.balanceOf(urn), 100_000 * 10**18);
+        assertEq(farm3.balanceOf(urn), 100_000 * 10**18);
         engine.selectFarm(urn, address(farm), 5);
         assertEq(lsmkr.balanceOf(address(farm)),  100_000 * 10**18);
-        assertEq(lsmkr.balanceOf(address(farm2)), 0);
+        assertEq(lsmkr.balanceOf(address(farm3)), 0);
         assertEq(farm.balanceOf(urn),  100_000 * 10**18);
-        assertEq(farm2.balanceOf(urn), 0);
-        vm.prank(pauseProxy); engine.delFarm(address(farm2));
+        assertEq(farm3.balanceOf(urn), 0);
+        vm.prank(pauseProxy); engine.delFarm(address(farm3));
         vm.expectRevert("LockstakeEngine/farm-unsupported-or-deleted");
-        engine.selectFarm(urn, address(farm2), 5);
+        engine.selectFarm(urn, address(farm3), 5);
     }
 
     function _testLockFree(bool withDelegate, bool withStaking) internal {

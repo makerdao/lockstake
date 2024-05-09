@@ -76,6 +76,10 @@ interface ClipperMomLike {
     function setPriceTolerance(address, uint256) external;
 }
 
+interface StakingRewardsLike {
+    function stakingToken() external view returns (address);
+}
+
 interface IlkRegistryLike {
     function put(
         bytes32 _ilk,
@@ -201,6 +205,7 @@ library LockstakeInit {
 
         engine.file("jug", address(dss.jug));
         for (uint256 i = 0; i < cfg.farms.length; i++) {
+            require(StakingRewardsLike(cfg.farms[i]).stakingToken() == lockstakeInstance.lsmkr, "Farm staking token mismatch");
             engine.addFarm(cfg.farms[i]);
         }
         engine.rely(address(clipper));

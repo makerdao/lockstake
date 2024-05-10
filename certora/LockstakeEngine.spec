@@ -662,13 +662,16 @@ rule lock_revert(address urn, uint256 wad, uint16 ref) {
 
     address urnOwnersUrn = urnOwners(urn);
 
-    require vat.live() == 1;
+    bytes32 ilk = ilk();
+    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
+    ink, art = vat.urns(ilk, urn);
+    Art, rate, spot, a, dust = vat.ilks(ilk);
+
     // Happening in urn constructor
     require vat.can(urn, currentContract) == 1;
     // Happening in deploy scripts
     require vat.wards(currentContract) == 1;
     require lsmkr.wards(currentContract) == 1;
-
     // User balance and approval
     require mkr.balanceOf(e.msg.sender) >= wad && mkr.allowance(e.msg.sender, currentContract) >= wad;
     // Tokens invariants
@@ -679,12 +682,8 @@ rule lock_revert(address urn, uint256 wad, uint16 ref) {
     require farm.totalSupply() == farm.balanceOf(urn);
     require lsmkr.balanceOf(farm_) == farm.totalSupply();
     require lsmkr.totalSupply() + wad <= to_mathint(mkr.totalSupply());
-
-    bytes32 ilk = ilk();
-    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
-    ink, art = vat.urns(ilk, urn);
-    Art, rate, spot, a, dust = vat.ilks(ilk);
     // Vat assumptions
+    require vat.live() == 1;
     require rate >= RAY() && rate <= max_int256();
     require (ink + wad) * spot <= max_uint256;
     require rate * Art <= max_uint256;
@@ -806,14 +805,17 @@ rule lockNgt_revert(address urn, uint256 ngtWad, uint16 ref) {
 
     address urnOwnersUrn = urnOwners(urn);
 
-    require vat.live() == 1;
+    bytes32 ilk = ilk();
+    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
+    ink, art = vat.urns(ilk, urn);
+    Art, rate, spot, a, dust = vat.ilks(ilk);
+
     // Happening in urn constructor
     require vat.can(urn, currentContract) == 1;
     require ngt.allowance(currentContract, mkrNgt) == max_uint256;
     // Happening in deploy scripts
     require vat.wards(currentContract) == 1;
     require lsmkr.wards(currentContract) == 1;
-
     // User balance and approval
     require ngt.balanceOf(e.msg.sender) >= ngtWad && ngt.allowance(e.msg.sender, currentContract) >= ngtWad;
     // Tokens invariants
@@ -827,12 +829,8 @@ rule lockNgt_revert(address urn, uint256 ngtWad, uint16 ref) {
     require farm.totalSupply() == farm.balanceOf(urn);
     require lsmkr.balanceOf(farm_) == farm.totalSupply();
     require lsmkr.totalSupply() + ngtWad/mkrNgtRate <= to_mathint(mkr.totalSupply());
-
-    bytes32 ilk = ilk();
-    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
-    ink, art = vat.urns(ilk, urn);
-    Art, rate, spot, a, dust = vat.ilks(ilk);
     // Vat assumptions
+    require vat.live() == 1;
     require rate >= RAY() && rate <= max_int256();
     require (ink + ngtWad/mkrNgtRate) * spot <= max_uint256;
     require rate * Art <= max_uint256;
@@ -929,6 +927,75 @@ rule free(address urn, address to, uint256 wad) {
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "free did not keep unchanged the rest of lsmkr.balanceOf(x)";
 }
 
+// Verify revert rules on free
+rule free_revert(address urn, address to, uint256 wad) {
+    env e;
+
+    require urn == lockstakeUrn;
+
+    mathint fee = fee();
+    require fee < WAD();
+
+    address zero = 0x0000000000000000000000000000000000000000;
+
+    address voteDelegate_ = urnVoteDelegates(urn);
+    require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
+    require voteDelegate_ == zero || voteDelegate_ == voteDelegate;
+    address farm_ = urnFarms(urn);
+    require farm_ == zero || farm_ == farm;
+
+    address urnOwnersUrn = urnOwners(urn);
+    mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
+
+    bytes32 ilk = ilk();
+    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
+    ink, art = vat.urns(ilk, urn);
+    Art, rate, spot, a, dust = vat.ilks(ilk);
+
+    // Happening in urn constructor
+    require vat.can(urn, currentContract) == 1;
+    require lsmkr.allowance(urn, currentContract) == max_uint256;
+    // Happening in deploy scripts
+    require vat.wards(currentContract) == 1;
+    require lsmkr.wards(currentContract) == 1;
+    // Tokens invariants
+    require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
+    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm_);
+    // TODO: this might be nice to prove in some sort
+    require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
+    require voteDelegate_ != zero => to_mathint(voteDelegate.stake(currentContract)) == ink;
+    require voteDelegate_ == zero => to_mathint(mkr.balanceOf(currentContract)) >= ink;
+    require farm.totalSupply() == farm.balanceOf(urn);
+    require lsmkr.balanceOf(farm_) == farm.totalSupply();
+    // Vat assumptions
+    require vat.live() == 1;
+    require rate >= RAY() && rate <= max_int256();
+    require (ink - wad) * spot <= max_uint256;
+    require rate * Art <= max_uint256;
+    require Art >= art;
+    require art == 0 || rate * art >= dust;
+    // TODO: these might be nice to prove in some sort
+    require vat.gem(ilk, urn) == 0;
+    require lsmkr.balanceOf(urn) == 0 || farm.balanceOf(urn) == 0;
+    require lsmkr.balanceOf(urn) > 0 => farm_ == zero;
+    require farm.balanceOf(urn)  > 0 => farm_ != zero;
+    require ink == lsmkr.balanceOf(urn) + farm.balanceOf(urn);
+
+    LockstakeEngine.FarmStatus farmsFarm = farms(farm_);
+
+    free@withrevert(e, urn, to, wad);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
+    bool revert3 = to_mathint(wad) > max_int256();
+    bool revert4 = ink < to_mathint(wad) || wad > 0 && (ink - wad) * spot < art * rate;
+    bool revert5 = farm_ != 0 && wad == 0;
+    bool revert6 = wad * fee > max_uint256;
+
+    assert lastReverted <=> revert1 || revert2 || revert3 ||
+                            revert4 || revert5 || revert6, "Revert rules failed";
+}
+
 // Verify correct storage changes for non reverting freeNgt
 rule freeNgt(address urn, address to, uint256 ngtWad) {
     env e;
@@ -936,11 +1003,10 @@ rule freeNgt(address urn, address to, uint256 ngtWad) {
     // Happening in constructor
     mathint mkrNgtRate = mkrNgtRate();
     require mkrNgtRate == to_mathint(mkrNgt.rate());
-
-    require urn == lockstakeUrn;
-
     mathint fee = fee();
     require fee < WAD();
+
+    require urn == lockstakeUrn;
 
     address zero = 0x0000000000000000000000000000000000000000;
 
@@ -1008,6 +1074,83 @@ rule freeNgt(address urn, address to, uint256 ngtWad) {
     assert farm_ == zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - ngtWad/mkrNgtRate, "freeNgt did not decrease lsmkr.balanceOf(urn) by ngtWad/mkrNgtRate";
     assert farm_ != zero => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "freeNgt did not keep unchanged lsmkr.balanceOf(urn)";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "freeNgt did not keep unchanged the rest of lsmkr.balanceOf(x)";
+}
+
+// Verify revert rules on freeNgt
+rule freeNgt_revert(address urn, address to, uint256 ngtWad) {
+    env e;
+
+    // Happening in constructor
+    mathint mkrNgtRate = mkrNgtRate();
+    require mkrNgtRate == to_mathint(mkrNgt.rate());
+    mathint fee = fee();
+    require fee < WAD();
+    require mkr.allowance(currentContract, mkrNgt) == max_uint256;
+    // Avoid division by zero
+    require mkrNgtRate > 0;
+
+    require urn == lockstakeUrn;
+
+    address zero = 0x0000000000000000000000000000000000000000;
+
+    address voteDelegate_ = urnVoteDelegates(urn);
+    require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
+    require voteDelegate_ == zero || voteDelegate_ == voteDelegate;
+    address farm_ = urnFarms(urn);
+    require farm_ == zero || farm_ == farm;
+
+    address urnOwnersUrn = urnOwners(urn);
+    mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
+
+    bytes32 ilk = ilk();
+    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
+    ink, art = vat.urns(ilk, urn);
+    Art, rate, spot, a, dust = vat.ilks(ilk);
+
+    // Happening in urn constructor
+    require vat.can(urn, currentContract) == 1;
+    require lsmkr.allowance(urn, currentContract) == max_uint256;
+    // Happening in deploy scripts
+    require vat.wards(currentContract) == 1;
+    require lsmkr.wards(currentContract) == 1;
+    // Tokens invariants
+    require ngt.totalSupply() >= ngt.balanceOf(to);
+    require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
+    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm_);
+    // TODO: this might be nice to prove in some sort
+    require ngt.totalSupply() + ngtWad <= max_uint256;
+    require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
+    require voteDelegate_ != zero => to_mathint(voteDelegate.stake(currentContract)) == ink;
+    require voteDelegate_ == zero => to_mathint(mkr.balanceOf(currentContract)) >= ink;
+    require farm.totalSupply() == farm.balanceOf(urn);
+    require lsmkr.balanceOf(farm_) == farm.totalSupply();
+    // Vat assumptions
+    require vat.live() == 1;
+    require rate >= RAY() && rate <= max_int256();
+    require (ink - ngtWad/mkrNgtRate) * spot <= max_uint256;
+    require rate * Art <= max_uint256;
+    require Art >= art;
+    require art == 0 || rate * art >= dust;
+    // TODO: these might be nice to prove in some sort
+    require vat.gem(ilk, urn) == 0;
+    require lsmkr.balanceOf(urn) == 0 || farm.balanceOf(urn) == 0;
+    require lsmkr.balanceOf(urn) > 0 => farm_ == zero;
+    require farm.balanceOf(urn)  > 0 => farm_ != zero;
+    require ink == lsmkr.balanceOf(urn) + farm.balanceOf(urn);
+
+    LockstakeEngine.FarmStatus farmsFarm = farms(farm_);
+
+    freeNgt@withrevert(e, urn, to, ngtWad);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
+    bool revert3 = to_mathint(ngtWad/mkrNgtRate) > max_int256();
+    bool revert4 = ink < to_mathint(ngtWad/mkrNgtRate) || ngtWad/mkrNgtRate > 0 && (ink - ngtWad/mkrNgtRate) * spot < art * rate;
+    bool revert5 = farm_ != 0 && ngtWad/mkrNgtRate == 0;
+    bool revert6 = ngtWad/mkrNgtRate * fee > max_uint256;
+
+    assert lastReverted <=> revert1 || revert2 || revert3 ||
+                            revert4 || revert5 || revert6, "Revert rules failed";
 }
 
 // using LockstakeEngine as _Engine;

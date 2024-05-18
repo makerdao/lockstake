@@ -35,8 +35,8 @@ rule init() {
     mathint vatCanUrnEngineAfter = vat.can(currentContract, engine);
     mathint lsmkrAllowanceUrnEngineAfter = lsmkr.allowance(currentContract, engine);
 
-    assert vatCanUrnEngineAfter == 1, "init did not set the hope approval";
-    assert lsmkrAllowanceUrnEngineAfter == max_uint256, "init did not set allowance to max_uint256";
+    assert vatCanUrnEngineAfter == 1, "Assert 1";
+    assert lsmkrAllowanceUrnEngineAfter == max_uint256, "Assert 2";
 }
 
 // Verify revert rules on init
@@ -71,10 +71,10 @@ rule stake(address farm, uint256 wad, uint16 ref) {
     mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
     mathint farmBalanceOfUrnAfter = stakingRewards.balanceOf(currentContract);
 
-    assert lsmkrAllowanceUrnFarmAfter == 0 || lsmkrAllowanceUrnFarmAfter == max_uint256, "stake did not finish with allowance 0 or max_uint256";
-    assert lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "stake did not decrease lsmkr balance of urn by wad";
-    assert lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + wad, "stake did not increase lsmkr balance of farm by wad";
-    assert farmBalanceOfUrnAfter == farmBalanceOfUrnBefore + wad, "stake did not increase farm balance of urn by wad";
+    assert lsmkrAllowanceUrnFarmAfter == 0 || lsmkrAllowanceUrnFarmAfter == max_uint256, "Assert 1";
+    assert lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 2";
+    assert lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + wad, "Assert 3";
+    assert farmBalanceOfUrnAfter == farmBalanceOfUrnBefore + wad, "Assert 4";
 }
 
 // Verify revert rules on stake
@@ -116,9 +116,9 @@ rule withdraw(address farm, uint256 wad) {
     mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
     mathint farmBalanceOfUrnAfter = stakingRewards.balanceOf(currentContract);
 
-    assert lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + wad, "withdraw did not increase lsmkr balance of urn by wad";
-    assert lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "withdraw did not decrease lsmkr balance of farm by wad";
-    assert farmBalanceOfUrnAfter == farmBalanceOfUrnBefore - wad, "withdraw did not decrease farm balance of urn by wad";
+    assert lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + wad, "Assert 1";
+    assert lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 2";
+    assert farmBalanceOfUrnAfter == farmBalanceOfUrnBefore - wad, "Assert 3";
 }
 
 // Verify revert rules on withdraw
@@ -158,7 +158,7 @@ rule getReward(address farm, address to) {
 
     mathint rewardsTokenBalanceOfToAfter = rewardsToken.balanceOf(to);
 
-    assert rewardsTokenBalanceOfToAfter >= rewardsTokenBalanceOfToBefore, "getReward did not increase or keep the same balance of to";
+    assert rewardsTokenBalanceOfToAfter >= rewardsTokenBalanceOfToBefore, "Assert 1";
 }
 
 // Verify revert rules on getReward

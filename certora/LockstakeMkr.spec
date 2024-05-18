@@ -41,10 +41,10 @@ rule storageAffected(method f) {
     mathint balanceOfAfter = balanceOf(anyAddr);
     mathint allowanceAfter = allowance(anyAddr, anyAddr2);
 
-    assert wardsAfter != wardsBefore => f.selector == sig:rely(address).selector || f.selector == sig:deny(address).selector, "wards[x] changed in an unexpected function";
-    assert totalSupplyAfter != totalSupplyBefore => f.selector == sig:mint(address,uint256).selector || f.selector == sig:burn(address,uint256).selector, "totalSupply changed in an unexpected function";
-    assert balanceOfAfter != balanceOfBefore => f.selector == sig:mint(address,uint256).selector || f.selector == sig:burn(address,uint256).selector || f.selector == sig:transfer(address,uint256).selector || f.selector == sig:transferFrom(address,address,uint256).selector, "balanceOf changed in an unexpected function";
-    assert allowanceAfter != allowanceBefore => f.selector == sig:burn(address,uint256).selector || f.selector == sig:transferFrom(address,address,uint256).selector || f.selector == sig:approve(address,uint256).selector, "allowance changed in an unexpected function";
+    assert wardsAfter != wardsBefore => f.selector == sig:rely(address).selector || f.selector == sig:deny(address).selector, "Assert 1";
+    assert totalSupplyAfter != totalSupplyBefore => f.selector == sig:mint(address,uint256).selector || f.selector == sig:burn(address,uint256).selector, "Assert 2";
+    assert balanceOfAfter != balanceOfBefore => f.selector == sig:mint(address,uint256).selector || f.selector == sig:burn(address,uint256).selector || f.selector == sig:transfer(address,uint256).selector || f.selector == sig:transferFrom(address,address,uint256).selector, "Assert 3";
+    assert allowanceAfter != allowanceBefore => f.selector == sig:burn(address,uint256).selector || f.selector == sig:transferFrom(address,address,uint256).selector || f.selector == sig:approve(address,uint256).selector, "Assert 4";
 }
 
 // Verify correct storage changes for non reverting rely
@@ -61,8 +61,8 @@ rule rely(address usr) {
     mathint wardsUsrAfter = wards(usr);
     mathint wardsOtherAfter = wards(other);
 
-    assert wardsUsrAfter == 1, "rely did not set the wards";
-    assert wardsOtherAfter == wardsOtherBefore, "rely did not keep unchanged the rest of wards[x]";
+    assert wardsUsrAfter == 1, "Assert 1";
+    assert wardsOtherAfter == wardsOtherBefore, "Assert 2";
 }
 
 // Verify revert rules on rely
@@ -93,8 +93,8 @@ rule deny(address usr) {
     mathint wardsUsrAfter = wards(usr);
     mathint wardsOtherAfter = wards(other);
 
-    assert wardsUsrAfter == 0, "deny did not set the wards";
-    assert wardsOtherAfter == wardsOtherBefore, "deny did not keep unchanged the rest of wards[x]";
+    assert wardsUsrAfter == 0, "Assert 1";
+    assert wardsOtherAfter == wardsOtherBefore, "Assert 2";
 }
 
 // Verify revert rules on deny
@@ -130,10 +130,10 @@ rule transfer(address to, uint256 value) {
     mathint balanceOfToAfter = balanceOf(to);
     mathint balanceOfOtherAfter = balanceOf(other);
 
-    assert e.msg.sender != to => balanceOfSenderAfter == balanceOfSenderBefore - value, "transfer did not decrease balanceOf[sender] by value";
-    assert e.msg.sender != to => balanceOfToAfter == balanceOfToBefore + value, "transfer did not increase balanceOf[to] by value";
-    assert e.msg.sender == to => balanceOfSenderAfter == balanceOfSenderBefore, "transfer did not keep unchanged balanceOf[sender == to]";
-    assert balanceOfOtherAfter == balanceOfOtherBefore, "transfer did not keep unchanged the rest of balanceOf[x]";
+    assert e.msg.sender != to => balanceOfSenderAfter == balanceOfSenderBefore - value, "Assert 1";
+    assert e.msg.sender != to => balanceOfToAfter == balanceOfToBefore + value, "Assert 2";
+    assert e.msg.sender == to => balanceOfSenderAfter == balanceOfSenderBefore, "Assert 3";
+    assert balanceOfOtherAfter == balanceOfOtherBefore, "Assert 4";
 }
 
 // Verify revert rules on transfer
@@ -177,14 +177,14 @@ rule transferFrom(address from, address to, uint256 value) {
     mathint allowanceFromSenderAfter = allowance(from, e.msg.sender);
     mathint allowanceOtherAfter = allowance(other2, other3);
 
-    assert from != to => balanceOfFromAfter == balanceOfFromBefore - value, "transferFrom did not decrease balanceOf[from] by value";
-    assert from != to => balanceOfToAfter == balanceOfToBefore + value, "transferFrom did not increase balanceOf[to] by value";
-    assert from == to => balanceOfFromAfter == balanceOfFromBefore, "transferFrom did not keep unchanged balanceOf[from == to]";
-    assert balanceOfOtherAfter == balanceOfOtherBefore, "transferFrom did not keep unchanged the rest of balanceOf[x]";
-    assert e.msg.sender != from && allowanceFromSenderBefore != max_uint256 => allowanceFromSenderAfter == allowanceFromSenderBefore - value, "transferFrom did not decrease allowance[from][sender] by value";
-    assert e.msg.sender == from => allowanceFromSenderAfter == allowanceFromSenderBefore, "transferFrom did not keep unchanged allowance[from][sender] when from == sender";
-    assert allowanceFromSenderBefore == max_uint256 => allowanceFromSenderAfter == allowanceFromSenderBefore, "transferFrom did not keep unchanged allowance[from][sender] when is max_uint256";
-    assert allowanceOtherAfter == allowanceOtherBefore, "transferFrom did not keep unchanged the rest of allowance[x][y]";
+    assert from != to => balanceOfFromAfter == balanceOfFromBefore - value, "Assert 1";
+    assert from != to => balanceOfToAfter == balanceOfToBefore + value, "Assert 2";
+    assert from == to => balanceOfFromAfter == balanceOfFromBefore, "Assert 3";
+    assert balanceOfOtherAfter == balanceOfOtherBefore, "Assert 4";
+    assert e.msg.sender != from && allowanceFromSenderBefore != max_uint256 => allowanceFromSenderAfter == allowanceFromSenderBefore - value, "Assert 5";
+    assert e.msg.sender == from => allowanceFromSenderAfter == allowanceFromSenderBefore, "Assert 6";
+    assert allowanceFromSenderBefore == max_uint256 => allowanceFromSenderAfter == allowanceFromSenderBefore, "Assert 7";
+    assert allowanceOtherAfter == allowanceOtherBefore, "Assert 8";
 }
 
 // Verify revert rules on transferFrom
@@ -218,8 +218,8 @@ rule approve(address spender, uint256 value) {
     mathint allowanceSenderSpenderAfter = allowance(e.msg.sender, spender);
     mathint allowanceOtherAfter = allowance(other, other2);
 
-    assert allowanceSenderSpenderAfter == to_mathint(value), "approve did not set allowance[sender][spender] to value";
-    assert allowanceOtherAfter == allowanceOtherBefore, "approve did not keep unchanged the rest of allowance[x][y]";
+    assert allowanceSenderSpenderAfter == to_mathint(value), "Assert 1";
+    assert allowanceOtherAfter == allowanceOtherBefore, "Assert 2";
 }
 
 // Verify revert rules on approve
@@ -254,9 +254,9 @@ rule mint(address to, uint256 value) {
     mathint balanceOfToAfter = balanceOf(to);
     mathint balanceOfOtherAfter = balanceOf(other);
 
-    assert totalSupplyAfter == totalSupplyBefore + value, "mint did not increase totalSupply by value";
-    assert balanceOfToAfter == balanceOfToBefore + value, "mint did not increase balanceOf[to] by value";
-    assert balanceOfOtherAfter == balanceOfOtherBefore, "mint did not keep unchanged the rest of balanceOf[x]";
+    assert totalSupplyAfter == totalSupplyBefore + value, "Assert 1";
+    assert balanceOfToAfter == balanceOfToBefore + value, "Assert 2";
+    assert balanceOfOtherAfter == balanceOfOtherBefore, "Assert 3";
 }
 
 // Verify revert rules on mint
@@ -303,13 +303,13 @@ rule burn(address from, uint256 value) {
     mathint allowanceFromSenderAfter = allowance(from, e.msg.sender);
     mathint allowanceOtherAfter = allowance(other2, other3);
 
-    assert totalSupplyAfter == totalSupplyBefore - value, "burn did not decrease totalSupply by value";
-    assert balanceOfFromAfter == balanceOfFromBefore - value, "burn did not decrease balanceOf[from] by value";
-    assert balanceOfOtherAfter == balanceOfOtherBefore, "burn did not keep unchanged the rest of balanceOf[x]";
-    assert e.msg.sender != from && allowanceFromSenderBefore != max_uint256 => allowanceFromSenderAfter == allowanceFromSenderBefore - value, "burn did not decrease allowance[from][sender] by value";
-    assert e.msg.sender == from => allowanceFromSenderAfter == allowanceFromSenderBefore, "burn did not keep unchanged allowance[from][sender] when from == sender";
-    assert allowanceFromSenderBefore == max_uint256 => allowanceFromSenderAfter == allowanceFromSenderBefore, "burn did not keep unchanged allowance[from][sender] when is max_uint256";
-    assert allowanceOtherAfter == allowanceOtherBefore, "burn did not keep unchanged the rest of allowance[x][y]";
+    assert totalSupplyAfter == totalSupplyBefore - value, "Assert 1";
+    assert balanceOfFromAfter == balanceOfFromBefore - value, "Assert 2";
+    assert balanceOfOtherAfter == balanceOfOtherBefore, "Assert 3";
+    assert e.msg.sender != from && allowanceFromSenderBefore != max_uint256 => allowanceFromSenderAfter == allowanceFromSenderBefore - value, "Assert 4";
+    assert e.msg.sender == from => allowanceFromSenderAfter == allowanceFromSenderBefore, "Assert 5";
+    assert allowanceFromSenderBefore == max_uint256 => allowanceFromSenderAfter == allowanceFromSenderBefore, "Assert 6";
+    assert allowanceOtherAfter == allowanceOtherBefore, "Assert 7";
 }
 
 // Verify revert rules on burn

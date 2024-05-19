@@ -222,3 +222,4 @@ Up to date implementation: https://github.com/makerdao/endgame-toolkit/commit/1a
 * In many of the modules, such as the splitter and the flappers, NST can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.
 * The LSE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.
 * Freeing very small amounts could bypass the exit fees (due to the rounding down) but since the LSE is meant to only be deployed on Ethereum, this is assumed to not be economically viable.
+* It is assumed that MKR to/from NGT conversions are not blocked.

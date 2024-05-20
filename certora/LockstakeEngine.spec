@@ -13,6 +13,7 @@ using StakingRewards2Mock as farm2;
 using MkrNgtMock as mkrNgt;
 using NgtMock as ngt;
 using NstMock as nst;
+using NstJoinMock as nstJoin;
 using Jug as jug;
 
 methods {
@@ -44,7 +45,10 @@ methods {
     //
     function lockstakeUrn.engine() external returns (address) envfree;
     function vat.live() external returns (uint256) envfree;
+    function vat.Line() external returns (uint256) envfree;
+    function vat.debt() external returns (uint256) envfree;
     function vat.ilks(bytes32) external returns (uint256,uint256,uint256,uint256,uint256) envfree;
+    function vat.dai(address) external returns (uint256) envfree;
     function vat.gem(bytes32,address) external returns (uint256) envfree;
     function vat.urns(bytes32,address) external returns (uint256,uint256) envfree;
     function vat.can(address,address) external returns (uint256) envfree;
@@ -66,11 +70,12 @@ methods {
     function mkrNgt.rate() external returns (uint256) envfree;
     function nst.balanceOf(address) external returns (uint256) envfree;
     function nst.totalSupply() external returns (uint256) envfree;
-    function jug.ilks(bytes32) external returns (uint256, uint256) envfree;
+    function jug.vow() external returns (address) envfree;
     //
     function voteDelegate.stake(address) external returns (uint256) envfree;
     function voteDelegate2.stake(address) external returns (uint256) envfree;
     function voteDelegateFactory.created(address) external returns (uint256) envfree;
+    function jug.drip(bytes32 ilk) external returns (uint256) => dripSummary(ilk);
     function _.init() external => DISPATCHER(true);
     function _.lock(uint256) external => DISPATCHER(true);
     function _.free(uint256) external => DISPATCHER(true);
@@ -106,7 +111,20 @@ definition max_int256() returns mathint = 2^255 - 1;
 definition WAD() returns mathint = 10^18;
 definition RAY() returns mathint = 10^27;
 
-definition _divUp(mathint x, mathint y) returns mathint = x != 0 ? ((x - 1) / y) + 1 : 0;
+definition _divup(mathint x, mathint y) returns mathint = x != 0 ? ((x - 1) / y) + 1 : 0;
+
+ghost mathint duty;
+ghost mathint timeDiff;
+
+function dripSummary(bytes32 ilk) returns uint256 {
+    env e;
+    require duty >= RAY();
+    uint256 prev; uint256 a;
+    a, prev, a, a, a = vat.ilks(ilk);
+    uint256 rate = timeDiff == 0 ? prev : require_uint256(duty * timeDiff * prev / RAY());
+    vat.fold(e, ilk, jug.vow(), require_int256(rate - prev));
+    return rate;
+}
 
 // Verify that each storage layout is only modified in the corresponding functions
 rule storageAffected(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector  } {
@@ -1340,6 +1358,103 @@ rule freeNoFee_revert(address urn, address to, uint256 wad) {
     bool revert4 = to_mathint(wad) > max_int256();
     bool revert5 = ink < to_mathint(wad) || wad > 0 && (ink - wad) * spot < art * rate;
     bool revert6 = farm_ != 0 && wad == 0;
+
+    assert lastReverted <=> revert1 || revert2 || revert3 ||
+                            revert4 || revert5 || revert6, "Revert rules failed";
+}
+
+// Verify correct storage changes for non reverting draw
+rule draw(address urn, address to, uint256 wad) {
+    env e;
+
+    address other;
+    require other != to;
+
+    bytes32 ilk = ilk();
+    mathint ArtBefore; mathint a;
+    ArtBefore, a, a, a, a = vat.ilks(ilk);
+    mathint artBefore;
+    a, artBefore = vat.urns(ilk, urn);
+    mathint nstTotalSupplyBefore = nst.totalSupply();
+    mathint nstBalanceOfToBefore = nst.balanceOf(to);
+    mathint nstBalanceOfOtherBefore = nst.balanceOf(other);
+
+    // Tokens invariants
+    require nstTotalSupplyBefore >= nstBalanceOfToBefore + nstBalanceOfOtherBefore;
+
+    draw(e, urn, to, wad);
+
+    mathint ArtAfter; mathint rateAfter;
+    ArtAfter, rateAfter, a, a, a = vat.ilks(ilk);
+    mathint artAfter;
+    a, artAfter = vat.urns(ilk, urn);
+    mathint nstTotalSupplyAfter = nst.totalSupply();
+    mathint nstBalanceOfToAfter = nst.balanceOf(to);
+    mathint nstBalanceOfOtherAfter = nst.balanceOf(other);
+
+    assert ArtAfter == ArtBefore + _divup(wad * RAY(), rateAfter), "Assert 1";
+    assert artAfter == artBefore + _divup(wad * RAY(), rateAfter), "Assert 2";
+    assert nstTotalSupplyAfter == nstTotalSupplyBefore + wad, "Assert 3";
+    assert nstBalanceOfToAfter == nstBalanceOfToBefore + wad, "Assert 4";
+    assert nstBalanceOfOtherAfter == nstBalanceOfOtherBefore, "Assert 5";
+}
+
+// Verify revert rules on draw
+rule draw_revert(address urn, address to, uint256 wad) {
+    env e;
+
+    address urnOwnersUrn = urnOwners(urn);
+    mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
+
+    bytes32 ilk = ilk();
+    mathint Line = vat.Line();
+    mathint debt = vat.debt();
+    mathint Art; mathint prev; mathint spot; mathint line; mathint dust; mathint a;
+    Art, prev, spot, line, dust = vat.ilks(ilk);
+    mathint ink; mathint art;
+    ink, art = vat.urns(ilk, urn);
+    mathint nstTotalSupply = nst.totalSupply();
+    mathint nstBalanceOfTo = nst.balanceOf(to);
+
+    storage init = lastStorage;
+    mathint rate = dripSummary(ilk);
+    // Avoid division by zero
+    require rate > 0;
+
+    mathint dart = _divup(wad * RAY(), rate);
+
+    // Happening in constructor
+    require vat.can(currentContract, nstJoin) == 1;
+    // Happening in urn constructor
+    require vat.can(urn, currentContract) == 1;
+    // Tokens invariants
+    require nstTotalSupply >= nstBalanceOfTo;
+    // Practical token assumtiopns
+    require nstTotalSupply + wad <= max_uint256;
+    // Practical Vat assumptions
+    require vat.live() == 1;
+    require vat.wards(jug) == 1;
+    require rate >= RAY() && rate <= max_int256();
+    require ink * spot <= max_uint256;
+    require rate * Art <= max_uint256;
+    require Art >= art;
+    require Art + dart <= max_uint256;
+    require rate * dart <= max_int256();
+    require debt + Art * (rate - prev) + (rate * dart) <= max_int256();
+    require rate * art <= max_uint256;
+    require vat.dai(currentContract) + (dart * rate) <= max_uint256;
+    require vat.dai(nstJoin) + (dart * rate) <= max_uint256;
+    // Other assumptions
+    require wad * RAY() <= max_uint256;
+
+    draw@withrevert(e, urn, to, wad) at init;
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
+    bool revert3 = to_mathint(dart) > max_int256();
+    bool revert4 = dart > 0 && ((Art + dart) * rate > line || debt + Art * (rate - prev) + (rate * dart) > Line);
+    bool revert5 = dart > 0 && ink * spot < (art + dart) * rate;
+    bool revert6 = art + dart > 0 && rate * (art + dart) < dust;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5 || revert6, "Revert rules failed";

@@ -1592,6 +1592,53 @@ rule wipeAll(address urn) {
     assert nstBalanceOfOtherAfter == nstBalanceOfOtherBefore, "Assert 5";
 }
 
+// Verify revert rules on wipeAll
+rule wipeAll_revert(address urn) {
+    env e;
+
+    bytes32 ilk = ilk();
+    mathint Line = vat.Line();
+    mathint debt = vat.debt();
+    mathint Art; mathint rate; mathint spot; mathint line; mathint dust; mathint a;
+    Art, rate, spot, line, dust = vat.ilks(ilk);
+    mathint ink; mathint art;
+    ink, art = vat.urns(ilk, urn);
+    mathint nstTotalSupply = nst.totalSupply();
+    mathint nstBalanceOfSender = nst.balanceOf(e.msg.sender);
+
+    mathint wad = _divup(art * rate, RAY());
+
+    // Happening in constructor
+    require nst.allowance(currentContract, nstJoin) == max_uint256;
+    // Happening in urn constructor
+    require vat.can(urn, currentContract) == 1;
+    // Tokens invariants
+    require nstTotalSupply >= nstBalanceOfSender + nst.balanceOf(currentContract) + nst.balanceOf(nstJoin);
+    // Practical token assumtiopns
+    require nstBalanceOfSender >= to_mathint(wad);
+    require to_mathint(nst.allowance(e.msg.sender, currentContract)) >= wad;
+    // Practical Vat assumptions
+    require vat.live() == 1;
+    require vat.wards(jug) == 1;
+    require rate >= RAY() && rate <= max_int256();
+    require ink * spot <= max_uint256;
+    require rate * Art <= max_uint256;
+    require Art >= art;
+    require rate * -art >= min_int256();
+    require debt >= rate * art;
+    require vat.dai(currentContract) + wad * RAY() <= max_uint256;
+    require to_mathint(vat.dai(nstJoin)) >= wad * RAY();
+    // Other assumptions
+    require wad * RAY() <= max_uint256;
+
+    wipeAll@withrevert(e, urn);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = to_mathint(art) > max_int256();
+
+    assert lastReverted <=> revert1 || revert2, "Revert rules failed";
+}
+
 // Verify correct storage changes for non reverting getReward
 rule getReward(address urn, address farm_, address to) {
     env e;

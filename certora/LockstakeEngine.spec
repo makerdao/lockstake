@@ -15,6 +15,7 @@ using NgtMock as ngt;
 using NstMock as nst;
 using NstJoinMock as nstJoin;
 using Jug as jug;
+using RewardsMock as rewardsToken;
 
 methods {
     // storage variables
@@ -65,12 +66,17 @@ methods {
     function lsmkr.wards(address) external returns (uint256) envfree;
     function farm.balanceOf(address) external returns (uint256) envfree;
     function farm.totalSupply() external returns (uint256) envfree;
+    function farm.rewardsToken() external returns (address) envfree;
+    function farm.rewards(address) external returns (uint256) envfree;
     function farm2.balanceOf(address) external returns (uint256) envfree;
     function farm2.totalSupply() external returns (uint256) envfree;
     function mkrNgt.rate() external returns (uint256) envfree;
+    function nst.allowance(address,address) external returns (uint256) envfree;
     function nst.balanceOf(address) external returns (uint256) envfree;
     function nst.totalSupply() external returns (uint256) envfree;
     function jug.vow() external returns (address) envfree;
+    function rewardsToken.balanceOf(address) external returns (uint256) envfree;
+    function rewardsToken.totalSupply() external returns (uint256) envfree;
     //
     function voteDelegate.stake(address) external returns (uint256) envfree;
     function voteDelegate2.stake(address) external returns (uint256) envfree;
@@ -108,6 +114,7 @@ methods {
 
 definition addrZero() returns address = 0x0000000000000000000000000000000000000000;
 definition max_int256() returns mathint = 2^255 - 1;
+definition min_int256() returns mathint = -2^255;
 definition WAD() returns mathint = 10^18;
 definition RAY() returns mathint = 10^27;
 
@@ -1441,7 +1448,6 @@ rule draw_revert(address urn, address to, uint256 wad) {
     require Art + dart <= max_uint256;
     require rate * dart <= max_int256();
     require debt + Art * (rate - prev) + (rate * dart) <= max_int256();
-    require rate * art <= max_uint256;
     require vat.dai(currentContract) + (dart * rate) <= max_uint256;
     require vat.dai(nstJoin) + (dart * rate) <= max_uint256;
     // Other assumptions
@@ -1458,6 +1464,116 @@ rule draw_revert(address urn, address to, uint256 wad) {
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5 || revert6, "Revert rules failed";
+}
+
+// Verify correct storage changes for non reverting wipe
+rule wipe(address urn, uint256 wad) {
+    env e;
+
+    address other;
+    require other != e.msg.sender;
+
+    bytes32 ilk = ilk();
+    mathint ArtBefore; mathint rate; mathint a;
+    ArtBefore, rate, a, a, a = vat.ilks(ilk);
+    mathint artBefore;
+    a, artBefore = vat.urns(ilk, urn);
+    mathint nstTotalSupplyBefore = nst.totalSupply();
+    mathint nstBalanceOfSenderBefore = nst.balanceOf(e.msg.sender);
+    mathint nstBalanceOfOtherBefore = nst.balanceOf(other);
+
+    // Tokens invariants
+    require nstTotalSupplyBefore >= nstBalanceOfSenderBefore + nstBalanceOfOtherBefore;
+
+    wipe(e, urn, wad);
+
+    mathint ArtAfter;
+    ArtAfter, a, a, a, a = vat.ilks(ilk);
+    mathint artAfter;
+    a, artAfter = vat.urns(ilk, urn);
+    mathint nstTotalSupplyAfter = nst.totalSupply();
+    mathint nstBalanceOfSenderAfter = nst.balanceOf(e.msg.sender);
+    mathint nstBalanceOfOtherAfter = nst.balanceOf(other);
+
+    assert ArtAfter == ArtBefore - wad * RAY() / rate, "Assert 1";
+    assert artAfter == artBefore - wad * RAY() / rate, "Assert 2";
+    assert nstTotalSupplyAfter == nstTotalSupplyBefore - wad, "Assert 3";
+    assert nstBalanceOfSenderAfter == nstBalanceOfSenderBefore - wad, "Assert 4";
+    assert nstBalanceOfOtherAfter == nstBalanceOfOtherBefore, "Assert 5";
+}
+
+// Verify correct storage changes for non reverting wipeAll
+rule wipeAll(address urn) {
+    env e;
+
+    address other;
+    require other != e.msg.sender;
+
+    bytes32 ilk = ilk();
+    mathint ArtBefore; mathint rate; mathint a;
+    ArtBefore, rate, a, a, a = vat.ilks(ilk);
+    mathint artBefore;
+    a, artBefore = vat.urns(ilk, urn);
+    mathint wad = _divup(artBefore * rate, RAY());
+    mathint nstTotalSupplyBefore = nst.totalSupply();
+    mathint nstBalanceOfSenderBefore = nst.balanceOf(e.msg.sender);
+    mathint nstBalanceOfOtherBefore = nst.balanceOf(other);
+
+    // Tokens invariants
+    require nstTotalSupplyBefore >= nstBalanceOfSenderBefore + nstBalanceOfOtherBefore;
+
+    wipeAll(e, urn);
+
+    mathint ArtAfter;
+    ArtAfter, a, a, a, a = vat.ilks(ilk);
+    mathint artAfter;
+    a, artAfter = vat.urns(ilk, urn);
+    mathint nstTotalSupplyAfter = nst.totalSupply();
+    mathint nstBalanceOfSenderAfter = nst.balanceOf(e.msg.sender);
+    mathint nstBalanceOfOtherAfter = nst.balanceOf(other);
+
+    assert ArtAfter == ArtBefore - artBefore, "Assert 1";
+    assert artAfter == 0, "Assert 2";
+    assert nstTotalSupplyAfter == nstTotalSupplyBefore - wad, "Assert 3";
+    assert nstBalanceOfSenderAfter == nstBalanceOfSenderBefore - wad, "Assert 4";
+    assert nstBalanceOfOtherAfter == nstBalanceOfOtherBefore, "Assert 5";
+}
+
+// Verify correct storage changes for non reverting getReward
+rule getReward(address urn, address farm_, address to) {
+    env e;
+
+    address other;
+    require other != to && other != urn && other != farm_;
+
+    require urn == lockstakeUrn;
+    require farm_ == farm;
+    require farm.rewardsToken() == rewardsToken;
+
+    mathint farmRewardsUrnBefore = farm.rewards(urn);
+    mathint rewardsTokenBalanceOfToBefore = rewardsToken.balanceOf(to);
+    mathint rewardsTokenBalanceOfUrnBefore = rewardsToken.balanceOf(urn);
+    mathint rewardsTokenBalanceOfFarmBefore = rewardsToken.balanceOf(farm);
+    mathint rewardsTokenBalanceOfOtherBefore = rewardsToken.balanceOf(other);
+
+    // Tokens invariants
+    require to_mathint(rewardsToken.totalSupply()) >= rewardsTokenBalanceOfToBefore + rewardsTokenBalanceOfUrnBefore + rewardsTokenBalanceOfFarmBefore + rewardsTokenBalanceOfOtherBefore;
+
+    getReward(e, urn, farm_, to);
+
+    mathint farmRewardsUrnAfter = farm.rewards(urn);
+    mathint rewardsTokenBalanceOfToAfter = rewardsToken.balanceOf(to);
+    mathint rewardsTokenBalanceOfUrnAfter = rewardsToken.balanceOf(urn);
+    mathint rewardsTokenBalanceOfFarmAfter = rewardsToken.balanceOf(farm);
+    mathint rewardsTokenBalanceOfOtherAfter = rewardsToken.balanceOf(other);
+
+    assert farmRewardsUrnAfter == 0, "Assert 1";
+    assert to != urn && to != farm_ => rewardsTokenBalanceOfToAfter == rewardsTokenBalanceOfToBefore + rewardsTokenBalanceOfUrnBefore + farmRewardsUrnBefore, "Assert 2";
+    assert to == urn => rewardsTokenBalanceOfToAfter == rewardsTokenBalanceOfToBefore + farmRewardsUrnBefore, "Assert 3";
+    assert to == farm_ => rewardsTokenBalanceOfToAfter == rewardsTokenBalanceOfToBefore + rewardsTokenBalanceOfUrnBefore, "Assert 4";
+    assert to != urn => rewardsTokenBalanceOfUrnAfter == 0, "Assert 5";
+    assert to != farm_ => rewardsTokenBalanceOfFarmAfter == rewardsTokenBalanceOfFarmBefore - farmRewardsUrnBefore, "Assert 6";
+    assert rewardsTokenBalanceOfOtherAfter == rewardsTokenBalanceOfOtherBefore, "Assert 7";
 }
 
 // using LockstakeEngine as _Engine;

@@ -1676,6 +1676,32 @@ rule getReward(address urn, address farm_, address to) {
     assert rewardsTokenBalanceOfOtherAfter == rewardsTokenBalanceOfOtherBefore, "Assert 7";
 }
 
+// Verify revert rules on getReward
+rule getReward_revert(address urn, address farm_, address to) {
+    env e;
+
+    address urnOwnersUrn = urnOwners(urn);
+    mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
+    LockstakeEngine.FarmStatus farmsFarm = farms(farm_);
+    require farmsFarm == LockstakeEngine.FarmStatus.UNSUPPORTED || farmsFarm == LockstakeEngine.FarmStatus.ACTIVE || farmsFarm == LockstakeEngine.FarmStatus.DELETED;
+    require farm_ == farm;
+    require farm.rewardsToken() == rewardsToken;
+
+    // Tokens invariants
+    require to_mathint(rewardsToken.totalSupply()) >= rewardsToken.balanceOf(to) + rewardsToken.balanceOf(urn) + rewardsToken.balanceOf(farm_);
+
+    // Assumption from the farm
+    require rewardsToken.balanceOf(farm_) >= farm.rewards(urn);
+
+    getReward@withrevert(e, urn, farm_, to);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
+    bool revert3 = farmsFarm == LockstakeEngine.FarmStatus.UNSUPPORTED;
+
+    assert lastReverted <=> revert1 || revert2 || revert3, "Revert rules failed";
+}
+
 // Verify correct storage changes for non reverting onKick
 rule onKick(address urn, uint256 wad) {
     env e;

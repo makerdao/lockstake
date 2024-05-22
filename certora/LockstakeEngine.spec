@@ -757,7 +757,7 @@ rule lock_revert(address urn, uint256 wad, uint16 ref) {
     ink, art = vat.urns(ilk, urn);
     Art, rate, spot, a, dust = vat.ilks(ilk);
 
-    // Happening in urn constructor
+    // Happening in urn init
     require vat.can(urn, currentContract) == 1;
     // Happening in deploy scripts
     require vat.wards(currentContract) == 1;
@@ -899,7 +899,7 @@ rule lockNgt_revert(address urn, uint256 ngtWad, uint16 ref) {
     require mkrNgtRate == to_mathint(mkrNgt.rate());
     // Avoid division by zero
     require mkrNgtRate > 0;
-    // Happening in urn constructor
+    // Happening in urn init
     require vat.can(urn, currentContract) == 1;
     require ngt.allowance(currentContract, mkrNgt) == max_uint256;
     // Happening in deploy scripts
@@ -1040,7 +1040,7 @@ rule free_revert(address urn, address to, uint256 wad) {
 
     // Hapenning in constructor
     require fee < WAD();
-    // Happening in urn constructor
+    // Happening in urn init
     require vat.can(urn, currentContract) == 1;
     require lsmkr.allowance(urn, currentContract) == max_uint256;
     // Happening in deploy scripts
@@ -1191,7 +1191,7 @@ rule freeNgt_revert(address urn, address to, uint256 ngtWad) {
     require mkr.allowance(currentContract, mkrNgt) == max_uint256;
     // Avoid division by zero
     require mkrNgtRate > 0;
-    // Happening in urn constructor
+    // Happening in urn init
     require vat.can(urn, currentContract) == 1;
     require lsmkr.allowance(urn, currentContract) == max_uint256;
     // Happening in deploy scripts
@@ -1327,7 +1327,7 @@ rule freeNoFee_revert(address urn, address to, uint256 wad) {
     ink, art = vat.urns(ilk, urn);
     Art, rate, spot, a, dust = vat.ilks(ilk);
 
-    // Happening in urn constructor
+    // Happening in urn init
     require vat.can(urn, currentContract) == 1;
     require lsmkr.allowance(urn, currentContract) == max_uint256;
     // Happening in deploy scripts
@@ -1432,7 +1432,7 @@ rule draw_revert(address urn, address to, uint256 wad) {
 
     // Happening in constructor
     require vat.can(currentContract, nstJoin) == 1;
-    // Happening in urn constructor
+    // Happening in urn init
     require vat.can(urn, currentContract) == 1;
     // Tokens invariants
     require nstTotalSupply >= nstBalanceOfTo;
@@ -1523,7 +1523,7 @@ rule wipe_revert(address urn, uint256 wad) {
 
     // Happening in constructor
     require nst.allowance(currentContract, nstJoin) == max_uint256;
-    // Happening in urn constructor
+    // Happening in urn init
     require vat.can(urn, currentContract) == 1;
     // Tokens invariants
     require nstTotalSupply >= nstBalanceOfSender + nst.balanceOf(currentContract) + nst.balanceOf(nstJoin);
@@ -1610,7 +1610,7 @@ rule wipeAll_revert(address urn) {
 
     // Happening in constructor
     require nst.allowance(currentContract, nstJoin) == max_uint256;
-    // Happening in urn constructor
+    // Happening in urn init
     require vat.can(urn, currentContract) == 1;
     // Tokens invariants
     require nstTotalSupply >= nstBalanceOfSender + nst.balanceOf(currentContract) + nst.balanceOf(nstJoin);
@@ -1772,6 +1772,46 @@ rule onKick(address urn, uint256 wad) {
     assert prevFarm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 15";
     assert prevFarm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + ink, "Assert 16";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 17";
+}
+
+// Verify revert rules on onKick
+rule onKick_revert(address urn, uint256 wad) {
+    env e;
+
+    require urn == lockstakeUrn;
+    address prevVoteDelegate = urnVoteDelegates(urn);
+    require prevVoteDelegate == addrZero() || prevVoteDelegate == voteDelegate;
+    address prevFarm = urnFarms(urn);
+    require prevFarm == addrZero() || prevFarm == stakingRewards;
+
+    mathint urnAuctionsUrn = urnAuctions(urn);
+    mathint wardsSender = wards(e.msg.sender);
+    mathint ink; mathint art;
+    ink, art = vat.urns(ilk(), urn);
+
+    // Happening in urn init
+    require lsmkr.allowance(urn, currentContract) == max_uint256;
+    // Tokens invariants
+    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(urn) + lsmkr.balanceOf(currentContract);
+    require stakingRewards.totalSupply() >= stakingRewards.balanceOf(urn);
+    // VoteDelegate assumptions
+    require prevVoteDelegate == addrZero() || to_mathint(voteDelegate.stake(currentContract)) >= ink + wad;
+    require prevVoteDelegate == addrZero() || mkr.balanceOf(voteDelegate) >= voteDelegate.stake(currentContract);
+    // StakingRewards assumptions
+    require prevFarm == addrZero() && lsmkr.balanceOf(urn) >= wad ||
+            prevFarm != addrZero() && to_mathint(stakingRewards.balanceOf(urn)) >= ink + wad && to_mathint(lsmkr.balanceOf(prevFarm)) >= ink + wad;
+    // LockstakeClipper assumption
+    require wad > 0;
+    // Practical assumption (ink + wad should be the same than the ink prev to the kick call)
+    require ink + wad <= max_uint256;
+
+    onKick@withrevert(e, urn, wad);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = wardsSender != 1;
+    bool revert3 = urnAuctionsUrn == max_uint256;
+
+    assert lastReverted <=> revert1 || revert2 || revert3, "Revert rules failed";
 }
 
 // using LockstakeEngine as _Engine;

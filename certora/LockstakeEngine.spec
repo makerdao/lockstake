@@ -8,8 +8,8 @@ using LockstakeMkr as lsmkr;
 using VoteDelegateMock as voteDelegate;
 using VoteDelegate2Mock as voteDelegate2;
 using VoteDelegateFactoryMock as voteDelegateFactory;
-using StakingRewardsMock as farm;
-using StakingRewards2Mock as farm2;
+using StakingRewardsMock as stakingRewards;
+using StakingRewards2Mock as stakingRewards2;
 using MkrNgtMock as mkrNgt;
 using NgtMock as ngt;
 using NstMock as nst;
@@ -64,12 +64,12 @@ methods {
     function lsmkr.balanceOf(address) external returns (uint256) envfree;
     function lsmkr.totalSupply() external returns (uint256) envfree;
     function lsmkr.wards(address) external returns (uint256) envfree;
-    function farm.balanceOf(address) external returns (uint256) envfree;
-    function farm.totalSupply() external returns (uint256) envfree;
-    function farm.rewardsToken() external returns (address) envfree;
-    function farm.rewards(address) external returns (uint256) envfree;
-    function farm2.balanceOf(address) external returns (uint256) envfree;
-    function farm2.totalSupply() external returns (uint256) envfree;
+    function stakingRewards.balanceOf(address) external returns (uint256) envfree;
+    function stakingRewards.totalSupply() external returns (uint256) envfree;
+    function stakingRewards.rewardsToken() external returns (address) envfree;
+    function stakingRewards.rewards(address) external returns (uint256) envfree;
+    function stakingRewards2.balanceOf(address) external returns (uint256) envfree;
+    function stakingRewards2.totalSupply() external returns (uint256) envfree;
     function mkrNgt.rate() external returns (uint256) envfree;
     function nst.allowance(address,address) external returns (uint256) envfree;
     function nst.balanceOf(address) external returns (uint256) envfree;
@@ -201,15 +201,15 @@ rule inkMatchesLsmkrFarm(method f) filtered { f -> f.selector != sig:multicall(b
     bytes32 ilk = ilk();
 
     address farmBefore = urnFarms(anyUrn);
-    require farmBefore == addrZero() || farmBefore == farm;
+    require farmBefore == addrZero() || farmBefore == stakingRewards;
 
     mathint inkBefore; mathint a;
     inkBefore, a = vat.urns(ilk, anyUrn);
 
     mathint lsmkrBalanceOfAnyUrnBefore = lsmkr.balanceOf(anyUrn);
-    mathint farmBalanceOfAnyUrnBefore = farmBefore == addrZero() ? 0 : farm.balanceOf(anyUrn);
+    mathint farmBalanceOfAnyUrnBefore = farmBefore == addrZero() ? 0 : stakingRewards.balanceOf(anyUrn);
 
-    require farm2.balanceOf(anyUrn) == 0;
+    require stakingRewards2.balanceOf(anyUrn) == 0;
     require lsmkrBalanceOfAnyUrnBefore == 0 || farmBalanceOfAnyUrnBefore == 0;
     require lsmkrBalanceOfAnyUrnBefore > 0 => farmBefore == addrZero();
     require farmBalanceOfAnyUrnBefore  > 0 => farmBefore != addrZero();
@@ -219,13 +219,13 @@ rule inkMatchesLsmkrFarm(method f) filtered { f -> f.selector != sig:multicall(b
     f(e, args);
 
     address farmAfter = urnFarms(anyUrn);
-    require farmAfter == addrZero() || farmAfter == farmBefore && farmAfter == farm || farmAfter != farmBefore => farmAfter == farm2;
+    require farmAfter == addrZero() || farmAfter == farmBefore || farmAfter != farmBefore => farmAfter == stakingRewards2;
 
     mathint inkAfter;
     inkAfter, a = vat.urns(ilk, anyUrn);
 
     mathint lsmkrBalanceOfAnyUrnAfter = lsmkr.balanceOf(anyUrn);
-    mathint farmBalanceOfAnyUrnAfter = farmAfter == addrZero() ? 0 : (farmAfter == farmBefore ? farm.balanceOf(anyUrn) : farm2.balanceOf(anyUrn));
+    mathint farmBalanceOfAnyUrnAfter = farmAfter == addrZero() ? 0 : (farmAfter == farmBefore ? stakingRewards.balanceOf(anyUrn) : stakingRewards2.balanceOf(anyUrn));
 
     assert lsmkrBalanceOfAnyUrnAfter == 0 || farmBalanceOfAnyUrnAfter == 0, "Assert 1";
     assert lsmkrBalanceOfAnyUrnAfter > 0 => farmAfter == addrZero(), "Assert 2";
@@ -324,17 +324,17 @@ rule file_revert(bytes32 what, address data) {
 }
 
 // Verify correct storage changes for non reverting addFarm
-rule addFarm(address farm_) {
+rule addFarm(address farm) {
     env e;
 
     address other;
-    require other != farm_;
+    require other != farm;
 
     LockstakeEngine.FarmStatus farmsOtherBefore = farms(other);
 
-    addFarm(e, farm_);
+    addFarm(e, farm);
 
-    LockstakeEngine.FarmStatus farmsFarmAfter = farms(farm_);
+    LockstakeEngine.FarmStatus farmsFarmAfter = farms(farm);
     LockstakeEngine.FarmStatus farmsOtherAfter = farms(other);
 
     assert farmsFarmAfter == LockstakeEngine.FarmStatus.ACTIVE, "Assert 1";
@@ -342,12 +342,12 @@ rule addFarm(address farm_) {
 }
 
 // Verify revert rules on addFarm
-rule addFarm_revert(address farm_) {
+rule addFarm_revert(address farm) {
     env e;
 
     mathint wardsSender = wards(e.msg.sender);
 
-    addFarm@withrevert(e, farm_);
+    addFarm@withrevert(e, farm);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
@@ -356,17 +356,17 @@ rule addFarm_revert(address farm_) {
 }
 
 // Verify correct storage changes for non reverting delFarm
-rule delFarm(address farm_) {
+rule delFarm(address farm) {
     env e;
 
     address other;
-    require other != farm_;
+    require other != farm;
 
     LockstakeEngine.FarmStatus farmsOtherBefore = farms(other);
 
-    delFarm(e, farm_);
+    delFarm(e, farm);
 
-    LockstakeEngine.FarmStatus farmsFarmAfter = farms(farm_);
+    LockstakeEngine.FarmStatus farmsFarmAfter = farms(farm);
     LockstakeEngine.FarmStatus farmsOtherAfter = farms(other);
 
     assert farmsFarmAfter == LockstakeEngine.FarmStatus.DELETED, "Assert 1";
@@ -374,12 +374,12 @@ rule delFarm(address farm_) {
 }
 
 // Verify revert rules on delFarm
-rule delFarm_revert(address farm_) {
+rule delFarm_revert(address farm) {
     env e;
 
     mathint wardsSender = wards(e.msg.sender);
 
-    delFarm@withrevert(e, farm_);
+    delFarm@withrevert(e, farm);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
@@ -588,19 +588,19 @@ rule selectVoteDelegate_revert(address urn, address voteDelegate_) {
 }
 
 // Verify correct storage changes for non reverting selectFarm
-rule selectFarm(address urn, address farm_, uint16 ref) {
+rule selectFarm(address urn, address farm, uint16 ref) {
     env e;
 
     require urn == lockstakeUrn;
 
-    require farm_ == addrZero() || farm_ == farm;
+    require farm == addrZero() || farm == stakingRewards;
     address prevFarm = urnFarms(urn);
-    require prevFarm == addrZero() || prevFarm == farm2;
+    require prevFarm == addrZero() || prevFarm == stakingRewards2;
 
     address other;
     require other != urn;
     address other2;
-    require other2 != farm_ && other2 != prevFarm && other2 != urn;
+    require other2 != farm && other2 != prevFarm && other2 != urn;
 
     bytes32 ilk = ilk();
     mathint ink; mathint a;
@@ -608,68 +608,68 @@ rule selectFarm(address urn, address farm_, uint16 ref) {
 
     address urnFarmsOtherBefore = urnFarms(other);
     mathint lsmkrBalanceOfPrevFarmBefore = lsmkr.balanceOf(prevFarm);
-    mathint lsmkrBalanceOfNewFarmBefore = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfNewFarmBefore = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
 
     // Tokens invariants
     require to_mathint(lsmkr.totalSupply()) >= lsmkrBalanceOfPrevFarmBefore + lsmkrBalanceOfNewFarmBefore + lsmkrBalanceOfUrnBefore + lsmkrBalanceOfOtherBefore;
 
-    selectFarm(e, urn, farm_, ref);
+    selectFarm(e, urn, farm, ref);
 
     address urnFarmsUrnAfter = urnFarms(urn);
     address urnFarmsOtherAfter = urnFarms(other);
     mathint lsmkrBalanceOfPrevFarmAfter = lsmkr.balanceOf(prevFarm);
-    mathint lsmkrBalanceOfNewFarmAfter = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfNewFarmAfter = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
 
-    assert urnFarmsUrnAfter == farm_, "Assert 1";
+    assert urnFarmsUrnAfter == farm, "Assert 1";
     assert urnFarmsOtherAfter == urnFarmsOtherBefore, "Assert 2";
     assert prevFarm == addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "Assert 3";
     assert prevFarm != addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - ink, "Assert 4";
-    assert farm_ == addrZero() => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore, "Assert 5";
-    assert farm_ != addrZero() => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore + ink, "Assert 6";
-    assert prevFarm == addrZero() && farm_ == addrZero() || prevFarm != addrZero() && farm_ != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 7";
-    assert prevFarm == addrZero() && farm_ != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - ink, "Assert 8";
-    assert prevFarm != addrZero() && farm_ == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + ink, "Assert 9";
+    assert farm == addrZero() => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore, "Assert 5";
+    assert farm != addrZero() => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore + ink, "Assert 6";
+    assert prevFarm == addrZero() && farm == addrZero() || prevFarm != addrZero() && farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 7";
+    assert prevFarm == addrZero() && farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - ink, "Assert 8";
+    assert prevFarm != addrZero() && farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + ink, "Assert 9";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 10";
 }
 
 // Verify revert rules on selectFarm
-rule selectFarm_revert(address urn, address farm_, uint16 ref) {
+rule selectFarm_revert(address urn, address farm, uint16 ref) {
     env e;
 
     require urn == lockstakeUrn;
 
-    require farm_ == addrZero() || farm_ == farm;
+    require farm == addrZero() || farm == stakingRewards;
     address prevFarm = urnFarms(urn);
-    require prevFarm == addrZero() || prevFarm == farm2;
+    require prevFarm == addrZero() || prevFarm == stakingRewards2;
 
     address urnOwnersUrn = urnOwners(urn);
     mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
     mathint urnAuctions = urnAuctions(urn);
-    LockstakeEngine.FarmStatus farmsFarm = farms(farm_);
+    LockstakeEngine.FarmStatus farmsFarm = farms(farm);
     bytes32 ilk = ilk();
     mathint ink; mathint a;
     ink, a = vat.urns(ilk, urn);
 
     // TODO: this might be nice to prove in some sort
-    require prevFarm == addrZero() && to_mathint(lsmkr.balanceOf(urn)) >= ink || prevFarm != addrZero() && to_mathint(lsmkr.balanceOf(prevFarm)) >= ink && to_mathint(farm2.balanceOf(urn)) >= ink;
+    require prevFarm == addrZero() && to_mathint(lsmkr.balanceOf(urn)) >= ink || prevFarm != addrZero() && to_mathint(lsmkr.balanceOf(prevFarm)) >= ink && to_mathint(stakingRewards2.balanceOf(urn)) >= ink;
     // Token invariants
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(farm_) + lsmkr.balanceOf(urn);
-    require farm2.totalSupply() >= farm2.balanceOf(urn);
-    require farm.totalSupply() >= farm.balanceOf(urn);
+    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(farm) + lsmkr.balanceOf(urn);
+    require stakingRewards2.totalSupply() >= stakingRewards2.balanceOf(urn);
+    require stakingRewards.totalSupply() >= stakingRewards.balanceOf(urn);
     // Assumption
-    require farm.totalSupply() + ink <= max_uint256;
+    require stakingRewards.totalSupply() + ink <= max_uint256;
 
-    selectFarm@withrevert(e, urn, farm_, ref);
+    selectFarm@withrevert(e, urn, farm, ref);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
     bool revert3 = urnAuctions > 0;
-    bool revert4 = farm_ != addrZero() && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
-    bool revert5 = farm_ == prevFarm;
+    bool revert4 = farm != addrZero() && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
+    bool revert5 = farm == prevFarm;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5, "Revert rules failed";
@@ -683,15 +683,15 @@ rule lock(address urn, uint256 wad, uint16 ref) {
 
     address voteDelegate_ = urnVoteDelegates(urn);
     require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
-    address farm_ = urnFarms(urn);
-    require farm_ == addrZero() || farm_ == farm;
+    address farm = urnFarms(urn);
+    require farm == addrZero() || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
     address other;
     require other != e.msg.sender && other != currentContract && other != voteDelegate_;
     address other2;
-    require other2 != urn && other2 != farm_;
+    require other2 != urn && other2 != farm;
 
     bytes32 ilk = ilk();
     mathint inkBefore; mathint a;
@@ -702,7 +702,7 @@ rule lock(address urn, uint256 wad, uint16 ref) {
     mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
     mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
     mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
 
     // Tokens invariants
@@ -718,7 +718,7 @@ rule lock(address urn, uint256 wad, uint16 ref) {
     mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
     mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
 
@@ -730,10 +730,10 @@ rule lock(address urn, uint256 wad, uint16 ref) {
     assert voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 6";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 7";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + wad, "Assert 8";
-    assert farm_ == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 9";
-    assert farm_ != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + wad, "Assert 10";
-    assert farm_ == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + wad, "Assert 11";
-    assert farm_ != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 12";
+    assert farm == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 9";
+    assert farm != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + wad, "Assert 10";
+    assert farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + wad, "Assert 11";
+    assert farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 12";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 13";
 }
 
@@ -745,8 +745,8 @@ rule lock_revert(address urn, uint256 wad, uint16 ref) {
 
     address voteDelegate_ = urnVoteDelegates(urn);
     require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
-    address farm_ = urnFarms(urn);
-    require farm_ == addrZero() || farm_ == farm;
+    address farm = urnFarms(urn);
+    require farm == addrZero() || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -766,11 +766,11 @@ rule lock_revert(address urn, uint256 wad, uint16 ref) {
     require mkr.balanceOf(e.msg.sender) >= wad && mkr.allowance(e.msg.sender, currentContract) >= wad;
     // Tokens invariants
     require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm_);
+    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
     // TODO: this might be nice to prove in some sort
     require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
-    require farm.totalSupply() == farm.balanceOf(urn);
-    require lsmkr.balanceOf(farm_) == farm.totalSupply();
+    require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
+    require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
     require lsmkr.totalSupply() + wad <= to_mathint(mkr.totalSupply());
     // Practical Vat assumptions
     require vat.live() == 1;
@@ -782,18 +782,18 @@ rule lock_revert(address urn, uint256 wad, uint16 ref) {
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
-    require lsmkr.balanceOf(urn) == 0 || farm.balanceOf(urn) == 0;
-    require ink == lsmkr.balanceOf(urn) + farm.balanceOf(urn);
+    require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
+    require ink == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
-    LockstakeEngine.FarmStatus farmsFarm = farms(farm_);
+    LockstakeEngine.FarmStatus farmsFarm = farms(farm);
 
     lock@withrevert(e, urn, wad, ref);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = urnOwnersUrn == addrZero();
     bool revert3 = to_mathint(wad) > max_int256();
-    bool revert4 = farm_ != addrZero() && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
-    bool revert5 = farm_ != addrZero() && wad == 0;
+    bool revert4 = farm != addrZero() && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
+    bool revert5 = farm != addrZero() && wad == 0;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5, "Revert rules failed";
@@ -807,15 +807,15 @@ rule lockNgt(address urn, uint256 ngtWad, uint16 ref) {
 
     address voteDelegate_ = urnVoteDelegates(urn);
     require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
-    address farm_ = urnFarms(urn);
-    require farm_ == addrZero() || farm_ == farm;
+    address farm = urnFarms(urn);
+    require farm == addrZero() || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
     address other;
     require other != e.msg.sender && other != currentContract && other != voteDelegate_;
     address other2;
-    require other2 != urn && other2 != farm_;
+    require other2 != urn && other2 != farm;
 
     mathint mkrNgtRate = mkrNgtRate();
 
@@ -831,7 +831,7 @@ rule lockNgt(address urn, uint256 ngtWad, uint16 ref) {
     mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
     mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
     mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
 
     // Happening in constructor
@@ -853,7 +853,7 @@ rule lockNgt(address urn, uint256 ngtWad, uint16 ref) {
     mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
     mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
 
@@ -867,10 +867,10 @@ rule lockNgt(address urn, uint256 ngtWad, uint16 ref) {
     assert voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 9";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + ngtWad/mkrNgtRate, "Assert 10";
-    assert farm_ == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
-    assert farm_ != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + ngtWad/mkrNgtRate, "Assert 12";
-    assert farm_ == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + ngtWad/mkrNgtRate, "Assert 13";
-    assert farm_ != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
+    assert farm == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
+    assert farm != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + ngtWad/mkrNgtRate, "Assert 12";
+    assert farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + ngtWad/mkrNgtRate, "Assert 13";
+    assert farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 15";
 }
 
@@ -882,8 +882,8 @@ rule lockNgt_revert(address urn, uint256 ngtWad, uint16 ref) {
 
     address voteDelegate_ = urnVoteDelegates(urn);
     require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
-    address farm_ = urnFarms(urn);
-    require farm_ == addrZero() || farm_ == farm;
+    address farm = urnFarms(urn);
+    require farm == addrZero() || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -910,13 +910,13 @@ rule lockNgt_revert(address urn, uint256 ngtWad, uint16 ref) {
     // Tokens invariants
     require to_mathint(ngt.totalSupply()) >= ngt.balanceOf(e.msg.sender) + ngt.balanceOf(currentContract) + ngt.balanceOf(mkrNgt);
     require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm_);
+    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
     // Assumption
     require to_mathint(mkr.totalSupply()) <= max_uint256 - ngtWad/mkrNgtRate;
     // TODO: this might be nice to prove in some sort
     require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
-    require farm.totalSupply() == farm.balanceOf(urn);
-    require lsmkr.balanceOf(farm_) == farm.totalSupply();
+    require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
+    require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
     require lsmkr.totalSupply() + ngtWad/mkrNgtRate <= to_mathint(mkr.totalSupply());
     // Practical Vat assumptions
     require vat.live() == 1;
@@ -928,18 +928,18 @@ rule lockNgt_revert(address urn, uint256 ngtWad, uint16 ref) {
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
-    require lsmkr.balanceOf(urn) == 0 || farm.balanceOf(urn) == 0;
-    require ink == lsmkr.balanceOf(urn) + farm.balanceOf(urn);
+    require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
+    require ink == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
-    LockstakeEngine.FarmStatus farmsFarm = farms(farm_);
+    LockstakeEngine.FarmStatus farmsFarm = farms(farm);
 
     lockNgt@withrevert(e, urn, ngtWad, ref);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = urnOwnersUrn == addrZero();
     bool revert3 = ngtWad/mkrNgtRate > max_int256();
-    bool revert4 = farm_ != addrZero() && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
-    bool revert5 = farm_ != addrZero() && ngtWad/mkrNgtRate == 0;
+    bool revert4 = farm != addrZero() && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
+    bool revert5 = farm != addrZero() && ngtWad/mkrNgtRate == 0;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5, "Revert rules failed";
@@ -953,13 +953,13 @@ rule free(address urn, address to, uint256 wad) {
 
     address voteDelegate_ = urnVoteDelegates(urn);
     require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
-    address farm_ = urnFarms(urn);
-    require farm_ == addrZero() || farm_ == farm;
+    address farm = urnFarms(urn);
+    require farm == addrZero() || farm == stakingRewards;
 
     address other;
     require other != to && other != currentContract && other != voteDelegate_;
     address other2;
-    require other2 != urn && other2 != farm_;
+    require other2 != urn && other2 != farm;
 
     mathint fee = fee();
 
@@ -973,7 +973,7 @@ rule free(address urn, address to, uint256 wad) {
     mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
     mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
     mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
 
     // Happening in constructor
@@ -992,7 +992,7 @@ rule free(address urn, address to, uint256 wad) {
     mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
     mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
 
@@ -1009,10 +1009,10 @@ rule free(address urn, address to, uint256 wad) {
     assert to != currentContract && voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 9";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - wad, "Assert 10";
-    assert farm_ == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
-    assert farm_ != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 12";
-    assert farm_ == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 13";
-    assert farm_ != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
+    assert farm == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
+    assert farm != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 12";
+    assert farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 13";
+    assert farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 15";
 }
 
@@ -1024,8 +1024,8 @@ rule free_revert(address urn, address to, uint256 wad) {
 
     address voteDelegate_ = urnVoteDelegates(urn);
     require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
-    address farm_ = urnFarms(urn);
-    require farm_ == addrZero() || farm_ == farm;
+    address farm = urnFarms(urn);
+    require farm == addrZero() || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -1048,13 +1048,13 @@ rule free_revert(address urn, address to, uint256 wad) {
     require lsmkr.wards(currentContract) == 1;
     // Tokens invariants
     require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm_);
+    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
     // TODO: this might be nice to prove in some sort
     require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
     require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= ink;
     require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= ink;
-    require farm.totalSupply() == farm.balanceOf(urn);
-    require lsmkr.balanceOf(farm_) == farm.totalSupply();
+    require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
+    require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
     // Practical Vat assumptions
     require vat.live() == 1;
     require rate >= RAY() && rate <= max_int256();
@@ -1065,10 +1065,10 @@ rule free_revert(address urn, address to, uint256 wad) {
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
-    require lsmkr.balanceOf(urn) == 0 || farm.balanceOf(urn) == 0;
-    require lsmkr.balanceOf(urn) > 0 => farm_ == addrZero();
-    require farm.balanceOf(urn)  > 0 => farm_ != addrZero();
-    require ink == lsmkr.balanceOf(urn) + farm.balanceOf(urn);
+    require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
+    require lsmkr.balanceOf(urn) > 0 => farm == addrZero();
+    require stakingRewards.balanceOf(urn)  > 0 => farm != addrZero();
+    require ink == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     free@withrevert(e, urn, to, wad);
 
@@ -1076,7 +1076,7 @@ rule free_revert(address urn, address to, uint256 wad) {
     bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
     bool revert3 = to_mathint(wad) > max_int256();
     bool revert4 = ink < to_mathint(wad) || wad > 0 && (ink - wad) * spot < art * rate;
-    bool revert5 = farm_ != 0 && wad == 0;
+    bool revert5 = farm != 0 && wad == 0;
     bool revert6 = wad * fee > max_uint256;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
@@ -1091,13 +1091,13 @@ rule freeNgt(address urn, address to, uint256 ngtWad) {
 
     address voteDelegate_ = urnVoteDelegates(urn);
     require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
-    address farm_ = urnFarms(urn);
-    require farm_ == addrZero() || farm_ == farm;
+    address farm = urnFarms(urn);
+    require farm == addrZero() || farm == stakingRewards;
 
     address other;
     require other != currentContract && other != voteDelegate_;
     address other2;
-    require other2 != urn && other2 != farm_;
+    require other2 != urn && other2 != farm;
     address other3;
     require other3 != to;
 
@@ -1116,7 +1116,7 @@ rule freeNgt(address urn, address to, uint256 ngtWad) {
     mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
     mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
     mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
 
     // Happening in constructor
@@ -1139,7 +1139,7 @@ rule freeNgt(address urn, address to, uint256 ngtWad) {
     mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
     mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
 
@@ -1154,10 +1154,10 @@ rule freeNgt(address urn, address to, uint256 ngtWad) {
     assert to != currentContract && voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 9";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 10";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - ngtWad/mkrNgtRate, "Assert 11";
-    assert farm_ == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 12";
-    assert farm_ != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - ngtWad/mkrNgtRate, "Assert 13";
-    assert farm_ == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - ngtWad/mkrNgtRate, "Assert 14";
-    assert farm_ != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 15";
+    assert farm == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 12";
+    assert farm != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - ngtWad/mkrNgtRate, "Assert 13";
+    assert farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - ngtWad/mkrNgtRate, "Assert 14";
+    assert farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 15";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 16";
 }
 
@@ -1169,8 +1169,8 @@ rule freeNgt_revert(address urn, address to, uint256 ngtWad) {
 
     address voteDelegate_ = urnVoteDelegates(urn);
     require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
-    address farm_ = urnFarms(urn);
-    require farm_ == addrZero() || farm_ == farm;
+    address farm = urnFarms(urn);
+    require farm == addrZero() || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -1200,15 +1200,15 @@ rule freeNgt_revert(address urn, address to, uint256 ngtWad) {
     // Tokens invariants
     require ngt.totalSupply() >= ngt.balanceOf(to);
     require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm_);
+    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
     // Practical assumption
     require ngt.totalSupply() + ngtWad <= max_uint256;
     // TODO: this might be nice to prove in some sort
     require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
     require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= ink;
     require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= ink;
-    require farm.totalSupply() == farm.balanceOf(urn);
-    require lsmkr.balanceOf(farm_) == farm.totalSupply();
+    require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
+    require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
     // Practical Vat assumptions
     require vat.live() == 1;
     require rate >= RAY() && rate <= max_int256();
@@ -1219,10 +1219,10 @@ rule freeNgt_revert(address urn, address to, uint256 ngtWad) {
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
-    require lsmkr.balanceOf(urn) == 0 || farm.balanceOf(urn) == 0;
-    require lsmkr.balanceOf(urn) > 0 => farm_ == addrZero();
-    require farm.balanceOf(urn)  > 0 => farm_ != addrZero();
-    require ink == lsmkr.balanceOf(urn) + farm.balanceOf(urn);
+    require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
+    require lsmkr.balanceOf(urn) > 0 => farm == addrZero();
+    require stakingRewards.balanceOf(urn)  > 0 => farm != addrZero();
+    require ink == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     freeNgt@withrevert(e, urn, to, ngtWad);
 
@@ -1230,7 +1230,7 @@ rule freeNgt_revert(address urn, address to, uint256 ngtWad) {
     bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
     bool revert3 = to_mathint(ngtWad/mkrNgtRate) > max_int256();
     bool revert4 = ink < to_mathint(ngtWad/mkrNgtRate) || ngtWad/mkrNgtRate > 0 && (ink - ngtWad/mkrNgtRate) * spot < art * rate;
-    bool revert5 = farm_ != 0 && ngtWad/mkrNgtRate == 0;
+    bool revert5 = farm != 0 && ngtWad/mkrNgtRate == 0;
     bool revert6 = ngtWad/mkrNgtRate * fee > max_uint256;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
@@ -1245,13 +1245,13 @@ rule freeNoFee(address urn, address to, uint256 wad) {
 
     address voteDelegate_ = urnVoteDelegates(urn);
     require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
-    address farm_ = urnFarms(urn);
-    require farm_ == addrZero() || farm_ == farm;
+    address farm = urnFarms(urn);
+    require farm == addrZero() || farm == stakingRewards;
 
     address other;
     require other != to && other != currentContract && other != voteDelegate_;
     address other2;
-    require other2 != urn && other2 != farm_;
+    require other2 != urn && other2 != farm;
 
     bytes32 ilk = ilk();
     mathint inkBefore; mathint a;
@@ -1263,7 +1263,7 @@ rule freeNoFee(address urn, address to, uint256 wad) {
     mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
     mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
     mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
 
     // Tokens invariants
@@ -1280,7 +1280,7 @@ rule freeNoFee(address urn, address to, uint256 wad) {
     mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
     mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm_);
+    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
 
@@ -1297,10 +1297,10 @@ rule freeNoFee(address urn, address to, uint256 wad) {
     assert to != currentContract && voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 9";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - wad, "Assert 10";
-    assert farm_ == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
-    assert farm_ != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 12";
-    assert farm_ == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 13";
-    assert farm_ != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
+    assert farm == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
+    assert farm != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 12";
+    assert farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 13";
+    assert farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 15";
 }
 
@@ -1314,8 +1314,8 @@ rule freeNoFee_revert(address urn, address to, uint256 wad) {
 
     address voteDelegate_ = urnVoteDelegates(urn);
     require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
-    address farm_ = urnFarms(urn);
-    require farm_ == addrZero() || farm_ == farm;
+    address farm = urnFarms(urn);
+    require farm == addrZero() || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -1335,13 +1335,13 @@ rule freeNoFee_revert(address urn, address to, uint256 wad) {
     require lsmkr.wards(currentContract) == 1;
     // Tokens invariants
     require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm_);
+    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
     // TODO: this might be nice to prove in some sort
     require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
     require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= ink;
     require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= ink;
-    require farm.totalSupply() == farm.balanceOf(urn);
-    require lsmkr.balanceOf(farm_) == farm.totalSupply();
+    require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
+    require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
     // Practical Vat assumptions
     require vat.live() == 1;
     require rate >= RAY() && rate <= max_int256();
@@ -1352,10 +1352,10 @@ rule freeNoFee_revert(address urn, address to, uint256 wad) {
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
-    require lsmkr.balanceOf(urn) == 0 || farm.balanceOf(urn) == 0;
-    require lsmkr.balanceOf(urn) > 0 => farm_ == addrZero();
-    require farm.balanceOf(urn)  > 0 => farm_ != addrZero();
-    require ink == lsmkr.balanceOf(urn) + farm.balanceOf(urn);
+    require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
+    require lsmkr.balanceOf(urn) > 0 => farm == addrZero();
+    require stakingRewards.balanceOf(urn)  > 0 => farm != addrZero();
+    require ink == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     freeNoFee@withrevert(e, urn, to, wad);
 
@@ -1364,7 +1364,7 @@ rule freeNoFee_revert(address urn, address to, uint256 wad) {
     bool revert3 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
     bool revert4 = to_mathint(wad) > max_int256();
     bool revert5 = ink < to_mathint(wad) || wad > 0 && (ink - wad) * spot < art * rate;
-    bool revert6 = farm_ != 0 && wad == 0;
+    bool revert6 = farm != 0 && wad == 0;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5 || revert6, "Revert rules failed";
@@ -1640,17 +1640,17 @@ rule wipeAll_revert(address urn) {
 }
 
 // Verify correct storage changes for non reverting getReward
-rule getReward(address urn, address farm_, address to) {
+rule getReward(address urn, address farm, address to) {
     env e;
 
     address other;
-    require other != to && other != urn && other != farm_;
+    require other != to && other != urn && other != farm;
 
     require urn == lockstakeUrn;
-    require farm_ == farm;
-    require farm.rewardsToken() == rewardsToken;
+    require farm == stakingRewards;
+    require stakingRewards.rewardsToken() == rewardsToken;
 
-    mathint farmRewardsUrnBefore = farm.rewards(urn);
+    mathint farmRewardsUrnBefore = stakingRewards.rewards(urn);
     mathint rewardsTokenBalanceOfToBefore = rewardsToken.balanceOf(to);
     mathint rewardsTokenBalanceOfUrnBefore = rewardsToken.balanceOf(urn);
     mathint rewardsTokenBalanceOfFarmBefore = rewardsToken.balanceOf(farm);
@@ -1659,41 +1659,41 @@ rule getReward(address urn, address farm_, address to) {
     // Tokens invariants
     require to_mathint(rewardsToken.totalSupply()) >= rewardsTokenBalanceOfToBefore + rewardsTokenBalanceOfUrnBefore + rewardsTokenBalanceOfFarmBefore + rewardsTokenBalanceOfOtherBefore;
 
-    getReward(e, urn, farm_, to);
+    getReward(e, urn, farm, to);
 
-    mathint farmRewardsUrnAfter = farm.rewards(urn);
+    mathint farmRewardsUrnAfter = stakingRewards.rewards(urn);
     mathint rewardsTokenBalanceOfToAfter = rewardsToken.balanceOf(to);
     mathint rewardsTokenBalanceOfUrnAfter = rewardsToken.balanceOf(urn);
     mathint rewardsTokenBalanceOfFarmAfter = rewardsToken.balanceOf(farm);
     mathint rewardsTokenBalanceOfOtherAfter = rewardsToken.balanceOf(other);
 
     assert farmRewardsUrnAfter == 0, "Assert 1";
-    assert to != urn && to != farm_ => rewardsTokenBalanceOfToAfter == rewardsTokenBalanceOfToBefore + rewardsTokenBalanceOfUrnBefore + farmRewardsUrnBefore, "Assert 2";
+    assert to != urn && to != farm => rewardsTokenBalanceOfToAfter == rewardsTokenBalanceOfToBefore + rewardsTokenBalanceOfUrnBefore + farmRewardsUrnBefore, "Assert 2";
     assert to == urn => rewardsTokenBalanceOfToAfter == rewardsTokenBalanceOfToBefore + farmRewardsUrnBefore, "Assert 3";
-    assert to == farm_ => rewardsTokenBalanceOfToAfter == rewardsTokenBalanceOfToBefore + rewardsTokenBalanceOfUrnBefore, "Assert 4";
+    assert to == farm => rewardsTokenBalanceOfToAfter == rewardsTokenBalanceOfToBefore + rewardsTokenBalanceOfUrnBefore, "Assert 4";
     assert to != urn => rewardsTokenBalanceOfUrnAfter == 0, "Assert 5";
-    assert to != farm_ => rewardsTokenBalanceOfFarmAfter == rewardsTokenBalanceOfFarmBefore - farmRewardsUrnBefore, "Assert 6";
+    assert to != farm => rewardsTokenBalanceOfFarmAfter == rewardsTokenBalanceOfFarmBefore - farmRewardsUrnBefore, "Assert 6";
     assert rewardsTokenBalanceOfOtherAfter == rewardsTokenBalanceOfOtherBefore, "Assert 7";
 }
 
 // Verify revert rules on getReward
-rule getReward_revert(address urn, address farm_, address to) {
+rule getReward_revert(address urn, address farm, address to) {
     env e;
+
+    require farm == stakingRewards;
+    require stakingRewards.rewardsToken() == rewardsToken;
 
     address urnOwnersUrn = urnOwners(urn);
     mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
-    LockstakeEngine.FarmStatus farmsFarm = farms(farm_);
-    require farmsFarm == LockstakeEngine.FarmStatus.UNSUPPORTED || farmsFarm == LockstakeEngine.FarmStatus.ACTIVE || farmsFarm == LockstakeEngine.FarmStatus.DELETED;
-    require farm_ == farm;
-    require farm.rewardsToken() == rewardsToken;
+    LockstakeEngine.FarmStatus farmsFarm = farms(farm);
 
     // Tokens invariants
-    require to_mathint(rewardsToken.totalSupply()) >= rewardsToken.balanceOf(to) + rewardsToken.balanceOf(urn) + rewardsToken.balanceOf(farm_);
+    require to_mathint(rewardsToken.totalSupply()) >= rewardsToken.balanceOf(to) + rewardsToken.balanceOf(urn) + rewardsToken.balanceOf(farm);
 
     // Assumption from the farm
-    require rewardsToken.balanceOf(farm_) >= farm.rewards(urn);
+    require rewardsToken.balanceOf(farm) >= stakingRewards.rewards(urn);
 
-    getReward@withrevert(e, urn, farm_, to);
+    getReward@withrevert(e, urn, farm, to);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
@@ -1710,7 +1710,7 @@ rule onKick(address urn, uint256 wad) {
     address prevVoteDelegate = urnVoteDelegates(urn);
     require prevVoteDelegate == addrZero() || prevVoteDelegate == voteDelegate;
     address prevFarm = urnFarms(urn);
-    require prevFarm == addrZero() || prevFarm == farm;
+    require prevFarm == addrZero() || prevFarm == stakingRewards;
 
     address other;
     require other != urn;

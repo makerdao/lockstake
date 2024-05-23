@@ -1823,8 +1823,8 @@ rule onKick_revert(address urn, uint256 wad) {
     address prevFarm = urnFarms(urn);
     require prevFarm == addrZero() || prevFarm == stakingRewards;
 
-    mathint urnAuctionsUrn = urnAuctions(urn);
     mathint wardsSender = wards(e.msg.sender);
+    mathint urnAuctionsUrn = urnAuctions(urn);
     mathint ink; mathint art;
     ink, art = vat.urns(ilk(), urn);
 
@@ -1851,6 +1851,51 @@ rule onKick_revert(address urn, uint256 wad) {
     bool revert3 = urnAuctionsUrn == max_uint256;
 
     assert lastReverted <=> revert1 || revert2 || revert3, "Revert rules failed";
+}
+
+// Verify correct storage changes for non reverting onTake
+rule onTake(address urn, address who, uint256 wad) {
+    env e;
+
+    address other;
+    require other != currentContract && other != who;
+
+    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
+    mathint mkrBalanceOfWhoBefore = mkr.balanceOf(who);
+    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
+
+    // Tokens invariants
+    require to_mathint(mkr.totalSupply()) >= mkrBalanceOfEngineBefore + mkrBalanceOfWhoBefore + mkrBalanceOfOtherBefore;
+
+    onTake(e, urn, who, wad);
+
+    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
+    mathint mkrBalanceOfWhoAfter = mkr.balanceOf(who);
+    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
+
+    assert who != currentContract => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - wad, "Assert 1";
+    assert who != currentContract => mkrBalanceOfWhoAfter == mkrBalanceOfWhoBefore + wad, "Assert 2";
+    assert who == currentContract => mkrBalanceOfWhoAfter == mkrBalanceOfWhoBefore, "Assert 3";
+}
+
+// Verify revert rules on onTake
+rule onTake_revert(address urn, address who, uint256 wad) {
+    env e;
+
+    mathint wardsSender = wards(e.msg.sender);
+    mathint mkrBalanceOfEngine = mkr.balanceOf(currentContract);
+
+    // Tokens invariants
+    require to_mathint(mkr.totalSupply()) >= mkrBalanceOfEngine + mkr.balanceOf(who);
+    // LockstakeClipper assumption
+    require mkrBalanceOfEngine >= to_mathint(wad);
+
+    onTake@withrevert(e, urn, who, wad);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = wardsSender != 1;
+
+    assert lastReverted <=> revert1 || revert2, "Revert rules failed";
 }
 
 // using LockstakeEngine as _Engine;

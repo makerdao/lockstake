@@ -117,8 +117,8 @@ definition max_int256() returns mathint = 2^255 - 1;
 definition min_int256() returns mathint = -2^255;
 definition WAD() returns mathint = 10^18;
 definition RAY() returns mathint = 10^27;
-
 definition _divup(mathint x, mathint y) returns mathint = x != 0 ? ((x - 1) / y) + 1 : 0;
+definition _min(mathint x, mathint y) returns mathint = x < y ? x : y;
 
 ghost mathint duty;
 ghost mathint timeDiff;
@@ -599,8 +599,8 @@ rule selectVoteDelegate_revert(address urn, address voteDelegate_) {
     mathint urnAuctions = urnAuctions(urn);
     mathint voteDelegateFactoryCreatedVoteDelegate = voteDelegateFactory.created(voteDelegate_);
     bytes32 ilk = ilk();
-    mathint a; mathint rate; mathint spot; mathint b; mathint c;
-    a, rate, spot, b, c = vat.ilks(ilk);
+    mathint rate; mathint spot; mathint a;
+    a, rate, spot, a, a = vat.ilks(ilk);
     mathint ink; mathint art;
     ink, art = vat.urns(ilk, urn);
 
@@ -1896,6 +1896,124 @@ rule onTake_revert(address urn, address who, uint256 wad) {
     bool revert2 = wardsSender != 1;
 
     assert lastReverted <=> revert1 || revert2, "Revert rules failed";
+}
+
+// Verify correct storage changes for non reverting onRemove
+rule onRemove(address urn, uint256 sold, uint256 left) {
+    env e;
+
+    address other;
+    require other != urn;
+    address other2;
+    require other2 != currentContract;
+
+    bytes32 ilk = ilk();
+    mathint fee = fee();
+    mathint urnAuctionsUrnBefore = urnAuctions(urn);
+    mathint urnAuctionsOtherBefore = urnAuctions(other);
+    mathint inkBefore; mathint a;
+    inkBefore, a = vat.urns(ilk, urn);
+    mathint mkrTotalSupplyBefore = mkr.totalSupply();
+    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
+    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other2);
+    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
+    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
+    mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other);
+
+    // Happening in constructor
+    require fee < WAD();
+    // Tokens invariants
+    require mkrTotalSupplyBefore >= mkrBalanceOfEngineBefore + mkrBalanceOfOtherBefore;
+    require lsmkrTotalSupplyBefore >= lsmkrBalanceOfUrnBefore + lsmkrBalanceOfOtherBefore;
+
+    mathint burn = _min(sold * fee / (WAD() - fee), left);
+    mathint refund = left - burn;
+
+    onRemove(e, urn, sold, left);
+
+    mathint urnAuctionsUrnAfter = urnAuctions(urn);
+    mathint urnAuctionsOtherAfter = urnAuctions(other);
+    mathint inkAfter;
+    inkAfter, a = vat.urns(ilk, urn);
+    mathint mkrTotalSupplyAfter = mkr.totalSupply();
+    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
+    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other2);
+    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
+    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
+    mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other);
+
+    assert urnAuctionsUrnAfter == urnAuctionsUrnBefore - 1, "Assert 1";
+    assert urnAuctionsOtherAfter == urnAuctionsOtherBefore, "Assert 2";
+    assert refund > 0 => inkAfter == inkBefore + refund, "Assert 3";
+    assert refund == 0 => inkAfter == inkBefore, "Assert 4";
+    assert mkrTotalSupplyAfter == mkrTotalSupplyBefore - burn, "Assert 5";
+    assert mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - burn, "Assert 6";
+    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 7";
+    assert refund > 0 => lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + refund, "Assert 8";
+    assert refund == 0 => lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore, "Assert 9";
+    assert refund > 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + refund, "Assert 10";
+    assert refund == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 11";
+    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 12";
+}
+
+// Verify revert rules on onRemove
+rule onRemove_revert(address urn, uint256 sold, uint256 left) {
+    env e;
+
+    mathint wardsSender = wards(e.msg.sender);
+    bytes32 ilk = ilk();
+    mathint fee = fee();
+    mathint urnAuctionsUrn = urnAuctions(urn);
+    mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
+    Art, rate, spot, a, dust = vat.ilks(ilk);
+    mathint ink; mathint art;
+    ink, art = vat.urns(ilk, urn);
+    mathint mkrTotalSupply = mkr.totalSupply();
+    mathint mkrBalanceOfEngine = mkr.balanceOf(currentContract);
+    mathint lsmkrTotalSupply = lsmkr.totalSupply();
+    mathint lsmkrBalanceOfUrn = lsmkr.balanceOf(urn);
+
+    // Happening in constructor
+    require fee < WAD();
+    // Happening in urn init
+    require vat.can(urn, currentContract) == 1;
+    // Happening in deploy scripts
+    require vat.wards(currentContract) == 1;
+    require lsmkr.wards(currentContract) == 1;
+    // Tokens invariants
+    require mkrTotalSupply >= mkrBalanceOfEngine;
+    require lsmkrTotalSupply >= lsmkrBalanceOfUrn;
+
+    require sold * fee < max_uint256;
+    mathint burn = _min(sold * fee / (WAD() - fee), left);
+    mathint refund = left - burn;
+
+    // Practical Vat assumptions
+    require vat.live() == 1;
+    require rate >= RAY() && rate <= max_int256();
+    require ink + refund <= max_uint256;
+    require (ink + refund) * spot <= max_uint256;
+    require rate * Art <= max_uint256;
+    require Art >= art;
+    require art == 0 || rate * art >= dust;
+    // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
+    require vat.gem(ilk, urn) == 0;
+    // Practical token assumptions
+    require lsmkrTotalSupply + refund <= max_uint256;
+    // Assumption from LockstakeClipper
+    require mkrBalanceOfEngine >= burn;
+    require urn != lsmkr && urn != addrZero();
+
+    onRemove@withrevert(e, urn, sold, left);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = wardsSender != 1;
+    bool revert3 = refund > max_int256();
+    bool revert4 = urnAuctionsUrn == 0;
+
+
+    assert lastReverted <=> revert1 || revert2 || revert3 ||
+                            revert4, "Revert rules failed";
 }
 
 // using LockstakeEngine as _Engine;

@@ -10,7 +10,7 @@ contract MulticallExecutor {
     LockstakeEngine public engine;
 
     /// @dev Make two `hope` calls using the `multicall` function
-    function makeMulticallHope(address urn1, address urn2, address usr) public {
+    function hopeAndHope(address urn1, address urn2, address usr) public {
 
         bytes[] memory calls = new bytes[](2);
         calls[0] = abi.encodeWithSignature("hope(address,address)", urn1, usr);
@@ -19,8 +19,7 @@ contract MulticallExecutor {
     }
     
     /// @dev `hope` followed by `nope` call
-    function hopeThenNope(address urn, address usr) public {
-
+    function hopeAndNope(address urn, address usr) public {
         bytes[] memory calls = new bytes[](2);
         calls[0] = abi.encodeWithSignature("hope(address,address)", urn, usr);
         calls[1] = abi.encodeWithSignature("nope(address,address)", urn, usr);
@@ -28,7 +27,7 @@ contract MulticallExecutor {
     }
 
     /// @dev Standard multicall sequence
-    function standardMulticall(
+    function selectFarmAndLock(
         address urn,
         address farm,
         uint16 ref,

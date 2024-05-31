@@ -76,10 +76,10 @@ methods {
     function jug.vow() external returns (address) envfree;
     function rewardsToken.balanceOf(address) external returns (uint256) envfree;
     function rewardsToken.totalSupply() external returns (uint256) envfree;
-    //
     function voteDelegate.stake(address) external returns (uint256) envfree;
     function voteDelegate2.stake(address) external returns (uint256) envfree;
     function voteDelegateFactory.created(address) external returns (uint256) envfree;
+    //
     function jug.drip(bytes32 ilk) external returns (uint256) => dripSummary(ilk);
     function _.init() external => DISPATCHER(true);
     function _.lock(uint256) external => DISPATCHER(true);

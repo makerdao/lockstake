@@ -53,7 +53,7 @@ methods {
     function spotter.par() external returns (uint256) envfree;
     //
     function _.peek() external => peekSummary() expect (uint256, bool);
-    function _.price(uint256,uint256) external => CONSTANT;
+    function _.price(uint256,uint256) external => calcPriceSummary() expect (uint256);
     function _.free(uint256) external => DISPATCHER(true);
     function _.withdraw(uint256) external => DISPATCHER(true);
     function _.withdraw(address,uint256) external => DISPATCHER(true);
@@ -73,10 +73,13 @@ definition RAY() returns mathint = 10^27;
 
 ghost uint256 pipVal;
 ghost bool pipOk;
-
 function peekSummary() returns (uint256, bool) {
-    env e;
     return (pipVal, pipOk);
+}
+
+ghost uint256 calcPrice;
+function calcPriceSummary() returns uint256 {
+    return calcPrice;
 }
 
 ghost lockedGhost() returns uint256;
@@ -147,12 +150,12 @@ rule storageAffected(method f) {
     assert kicksAfter != kicksBefore => f.selector == sig:kick(uint256,uint256,address,address).selector, "Assert 12";
     assert activeAfter != activeBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 13";
     assert salesAnyPosAfter != salesAnyPosBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 14";
-    assert salesAnyTabAfter != salesAnyTabBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:redo(uint256,address).selector || f.selector == sig:yank(uint256).selector, "Assert 15";
-    assert salesAnyLotAfter != salesAnyLotBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:redo(uint256,address).selector || f.selector == sig:yank(uint256).selector, "Assert 16";
+    assert salesAnyTabAfter != salesAnyTabBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 15";
+    assert salesAnyLotAfter != salesAnyLotBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 16";
     assert salesAnyTotAfter != salesAnyTotBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 17";
-    assert salesAnyUsrAfter != salesAnyUsrBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:redo(uint256,address).selector || f.selector == sig:yank(uint256).selector, "Assert 18";
-    assert salesAnyTicAfter != salesAnyTicBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:redo(uint256,address).selector || f.selector == sig:yank(uint256).selector, "Assert 19";
-    assert salesAnyTopAfter != salesAnyTopBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:redo(uint256,address).selector || f.selector == sig:yank(uint256).selector, "Assert 20";
+    assert salesAnyUsrAfter != salesAnyUsrBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 18";
+    assert salesAnyTicAfter != salesAnyTicBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:redo(uint256,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 19";
+    assert salesAnyTopAfter != salesAnyTopBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:redo(uint256,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 20";
     assert stoppedAfter != stoppedBefore => f.selector == sig:file(bytes32,uint256).selector, "Assert 21";
 }
 
@@ -462,4 +465,114 @@ rule kick_revert(uint256 tab, uint256 lot, address usr, address kpr) {
                             revert10 || revert11 || revert12 ||
                             revert13 || revert14 || revert15 ||
                             revert16, "Revert rules failed";
+}
+
+// Verify correct storage changes for non reverting redo
+rule redo(uint256 id, address kpr) {
+    env e;
+
+    uint256 otherUint256;
+    require otherUint256 != id;
+
+    mathint chost = chost();
+    mathint a; address b;
+    mathint salesIdTab; mathint salesIdLot; mathint salesIdTicBefore; mathint salesIdTopBefore;
+    a, salesIdTab, salesIdLot, a, b, salesIdTicBefore, salesIdTopBefore = sales(id);
+    mathint salesOtherTicBefore; mathint salesOtherTopBefore;
+    a, a, a, a, b, salesOtherTicBefore, salesOtherTopBefore = sales(otherUint256);
+    mathint vatDaiKprBefore = vat.dai(kpr);
+    address vow = vow();
+    mathint vatSinVowBefore = vat.sin(vow);
+
+    mathint par = spotter.par();
+    // Avoid division by zero
+    require par > 0;
+    mathint val; bool c;
+    val, c = peekSummary();
+    mathint feedPrice = val * 10^9 * RAY() / par;
+    mathint buf = buf();
+    mathint coin = tip() + salesIdTab * chip() / WAD();
+    bool paysKpr = salesIdTab >= chost && salesIdLot * feedPrice >= chost;
+
+    redo(e, id, kpr);
+
+    mathint salesIdTicAfter; mathint salesIdTopAfter;
+    a, a, a, a, b, salesIdTicAfter, salesIdTopAfter = sales(id);
+    mathint salesOtherTicAfter; mathint salesOtherTopAfter;
+    a, a, a, a, b, salesOtherTicAfter, salesOtherTopAfter = sales(otherUint256);
+    mathint vatDaiKprAfter = vat.dai(kpr);
+    mathint vatSinVowAfter = vat.sin(vow);
+
+    assert salesIdTicAfter == e.block.timestamp % (max_uint96 + 1), "Assert 1";
+    assert salesIdTopAfter == feedPrice * buf / RAY(), "Assert 2";
+    assert salesOtherTicAfter == salesOtherTicBefore, "Assert 3";
+    assert salesOtherTopAfter == salesOtherTopBefore, "Assert 4";
+    assert paysKpr => vatDaiKprAfter == vatDaiKprBefore + coin, "Assert 5";
+    assert !paysKpr => vatDaiKprAfter == vatDaiKprBefore, "Assert 6";
+    assert paysKpr => vatSinVowAfter == vatSinVowBefore + coin, "Assert 7";
+    assert !paysKpr => vatSinVowAfter == vatSinVowBefore, "Assert 8";
+}
+
+// Verify revert rules on redo
+rule redo_revert(uint256 id, address kpr) {
+    env e;
+
+    mathint locked = lockedGhost();
+    mathint stopped = stopped();
+    mathint tail = tail();
+    mathint cusp = cusp();
+    mathint chost = chost();
+
+    mathint a;
+    mathint salesIdTab; mathint salesIdLot; address salesIdUsr; mathint salesIdTic; mathint salesIdTop;
+    a, salesIdTab, salesIdLot, a, salesIdUsr, salesIdTic, salesIdTop = sales(id);
+
+    require to_mathint(e.block.timestamp) >= salesIdTic;
+    mathint price = calcPriceSummary();
+    // Avoid division by zero
+    require salesIdTop > 0;
+    bool done = e.block.timestamp - salesIdTic > tail || price * RAY() / salesIdTop < cusp;
+
+    mathint par = spotter.par();
+    // Avoid division by zero
+    require par > 0;
+    mathint val; bool has;
+    val, has = peekSummary();
+    mathint feedPrice = val * 10^9 * RAY() / par;
+    mathint buf = buf();
+    mathint tip = tip();
+    mathint chip = chip();
+    mathint coin = tip + salesIdTab * chip() / WAD();
+    bool paysKpr = salesIdTab >= chost && salesIdLot * feedPrice >= chost;
+
+    // Happening in deploy scripts
+    require vat.wards(currentContract) == 1;
+    // Practical Vat assumptions
+    require vat.sin(vow()) + coin <= max_uint256;
+    require vat.dai(kpr) + coin <= max_uint256;
+    require vat.vice() + coin <= max_uint256;
+    require vat.debt() + coin <= max_uint256;
+
+    redo@withrevert(e, id, kpr);
+
+    bool revert1  = e.msg.value > 0;
+    bool revert2  = locked != 0;
+    bool revert3  = stopped > 1;
+    bool revert4  = salesIdUsr == addrZero();
+    bool revert5  = to_mathint(e.block.timestamp) < salesIdTic;
+    bool revert6  = e.block.timestamp - salesIdTic <= tail && price * RAY() > max_uint256;
+    bool revert7  = !done;
+    bool revert8  = !has;
+    bool revert9  = val * 10^9 * RAY() > max_uint256;
+    bool revert10 = feedPrice * buf > max_uint256;
+    bool revert11 = feedPrice * buf / RAY() == 0;
+    bool revert12 = (tip > 0 || chip > 0) && salesIdTab >= chost && salesIdLot * feedPrice > max_uint256;
+    bool revert13 = paysKpr && salesIdTab * chip > max_uint256;
+    bool revert14 = paysKpr && coin > max_uint256;
+
+    assert lastReverted <=> revert1  || revert2  || revert3  ||
+                            revert4  || revert5  || revert6  ||
+                            revert7  || revert8  || revert9  ||
+                            revert10 || revert11 || revert12 ||
+                            revert13 || revert14, "Revert rules failed";
 }

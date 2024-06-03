@@ -96,7 +96,7 @@ Upon calling `open`, an `urn` contract is deployed for each position. The `urn` 
 
 The following functions are called from the LockstakeClipper (see below) throughout the liquidation process.
 
-* `onKick(address urn, uint256 wad)` - Undelegate and unstake the entire `urn`'s MKR amount.
+* `onKick(address urn, uint256 wad)` - Undelegate and unstake the entire `urn`'s MKR amount. Users need to manually delegate and stake again if there are leftovers after liquidation finishes.
 * `onTake(address urn, address who, uint256 wad)` - Transfer MKR to the liquidation auction buyer.
 * `onRemove(address urn, uint256 sold, uint256 left)` - Burn a proportional amount of the MKR which was bought in the auction and return the rest to the `urn`.
 

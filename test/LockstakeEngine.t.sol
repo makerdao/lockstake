@@ -941,6 +941,15 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_ink(ilk, urn), 100_000 * 10**18);
         assertEq(farm.balanceOf(address(urn)), 100_000 * 10**18);
         assertEq(lsmkr.balanceOf(address(farm)), 100_000 * 10**18);
+
+        bytes[] memory revertExecute = new bytes[](1);
+        revertExecute[0] = abi.encodeWithSignature("open(uint256)", 2);
+        vm.expectRevert("LockstakeEngine/wrong-urn-index");
+        engine.multicall(revertExecute);
+
+        revertExecute[0] = abi.encodeWithSignature("onRemove(address,uint256,uint256)", urn, uint256(0), uint256(0));
+        vm.expectRevert(stdError.arithmeticError);
+        vm.prank(pauseProxy); engine.multicall(revertExecute);
     }
 
     function testGetReward() public {

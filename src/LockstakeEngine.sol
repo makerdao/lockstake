@@ -219,6 +219,7 @@ contract LockstakeEngine is Multicall {
     // --- getters ---
 
     function getUrn(address owner, uint256 index) external view returns (address urn) {
+        // NOTE: this function will succeed returning the address even if the urn for the specified index hasn't been created yet
         uint256 salt = uint256(keccak256(abi.encode(owner, index)));
         bytes32 codeHash = keccak256(abi.encodePacked(_initCode()));
         urn = address(uint160(uint256(

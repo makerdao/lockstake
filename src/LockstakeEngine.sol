@@ -66,15 +66,15 @@ interface MkrNgtLike {
 contract LockstakeEngine is Multicall {
     // --- storage variables ---
 
-    mapping(address => uint256)                     public wards;            // usr => 1 == access
-    mapping(address => FarmStatus)                  public farms;            // farm => FarmStatus
-    mapping(address => uint256)                     public usrAmts;          // usr => urns amount
-    mapping(address => address)                     public urnOwners;        // urn => owner
-    mapping(address => mapping(address => uint256)) public urnCan;           // urn => usr => allowed (1 = yes, 0 = no)
-    mapping(address => address)                     public urnVoteDelegates; // urn => current associated voteDelegate
-    mapping(address => address)                     public urnFarms;         // urn => current selected farm
-    mapping(address => uint256)                     public urnAuctions;      // urn => amount of ongoing liquidations
-    JugLike                                         public jug;
+    mapping(address usr  => uint256 allowed)                         public wards;
+    mapping(address farm => FarmStatus)                              public farms;
+    mapping(address usr  => uint256 amount)                          public usrAmts;
+    mapping(address urn  => address owner)                           public urnOwners;
+    mapping(address urn  => mapping(address usr => uint256 allowed)) public urnCan;
+    mapping(address urn  => address voteDelegate)                    public urnVoteDelegates;
+    mapping(address urn  => address farm)                            public urnFarms;
+    mapping(address urn  => uint256 amount)                          public urnAuctions;
+    JugLike                                                          public jug;
 
     // --- constants and enums ---
 

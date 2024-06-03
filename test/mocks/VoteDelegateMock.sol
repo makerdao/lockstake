@@ -34,7 +34,7 @@ contract VoteDelegateMock {
 
     function lock(uint256 wad) external {
         gov.transferFrom(msg.sender, address(this), wad);
-        stake[msg.sender] = stake[msg.sender] + wad;
+        stake[msg.sender] += wad;
     }
 
     function free(uint256 wad) external {

@@ -12,12 +12,10 @@ abstract contract Multicall  {
             (bool success, bytes memory result) = address(this).delegatecall(data[i]);
 
             if (!success) {
-                // Next 5 lines from https://ethereum.stackexchange.com/a/83577
-                if (result.length < 68) revert();
-                assembly {
-                    result := add(result, 0x04)
+                if (result.length == 0) revert("multicall failed");
+                assembly ("memory-safe") {
+                    revert(add(32, result), mload(result))
                 }
-                revert(abi.decode(result, (string)));
             }
 
             results[i] = result;

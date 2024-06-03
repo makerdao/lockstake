@@ -158,6 +158,7 @@ library LockstakeInit {
         require(clipper.dog()                == address(dss.dog),          "Clipper dog mismatch");
         require(clipper.spotter()            == address(dss.spotter),      "Clipper spotter mismatch");
 
+        require(cfg.gap <= cfg.maxLine, "gap greater than max line");
         require(cfg.dust <= cfg.hole, "dust greater than hole");
         require(cfg.duty >= RAY && cfg.duty <= RATES_ONE_HUNDRED_PCT, "duty out of boundaries");
         require(cfg.mat >= RAY && cfg.mat < 10 * RAY, "mat out of boundaries");

@@ -6,6 +6,7 @@ using LockstakeMkr as lsmkr;
 using MkrMock as mkr;
 using Vat as vat;
 using Spotter as spotter;
+using Dog as dog;
 using VoteDelegateMock as voteDelegate;
 using StakingRewardsMock as stakingRewards;
 
@@ -36,10 +37,12 @@ methods {
     function lockstakeEngine.urnVoteDelegates(address) external returns (address) envfree;
     function lockstakeEngine.urnFarms(address) external returns (address) envfree;
     function lockstakeEngine.ilk() external returns (bytes32) envfree;
+    function lockstakeEngine.fee() external returns (uint256) envfree;
+    function mkr.totalSupply() external returns (uint256) envfree;
     function mkr.balanceOf(address) external returns (uint256) envfree;
+    function lsmkr.totalSupply() external returns (uint256) envfree;
     function lsmkr.allowance(address,address) external returns (uint256) envfree;
     function lsmkr.balanceOf(address) external returns (uint256) envfree;
-    function lsmkr.totalSupply() external returns (uint256) envfree;
     function stakingRewards.balanceOf(address) external returns (uint256) envfree;
     function stakingRewards.totalSupply() external returns (uint256) envfree;
     function voteDelegate.stake(address) external returns (uint256) envfree;
@@ -48,9 +51,12 @@ methods {
     function vat.vice() external returns (uint256) envfree;
     function vat.dai(address) external returns (uint256) envfree;
     function vat.sin(address) external returns (uint256) envfree;
+    function vat.gem(bytes32,address) external returns (uint256) envfree;
     function vat.urns(bytes32, address) external returns (uint256,uint256) envfree;
     function spotter.ilks(bytes32) external returns (address,uint256) envfree;
     function spotter.par() external returns (uint256) envfree;
+    function dog.Dirt() external returns (uint256) envfree;
+    function dog.ilks(bytes32) external returns (address,uint256,uint256,uint256) envfree;
     //
     function _.peek() external => peekSummary() expect (uint256, bool);
     function _.price(uint256,uint256) external => calcPriceSummary() expect (uint256);
@@ -70,6 +76,7 @@ definition addrZero() returns address = 0x00000000000000000000000000000000000000
 definition max_int256() returns mathint = 2^255 - 1;
 definition WAD() returns mathint = 10^18;
 definition RAY() returns mathint = 10^27;
+definition _min(mathint x, mathint y) returns mathint = x < y ? x : y;
 
 ghost uint256 pipVal;
 ghost bool pipOk;
@@ -112,6 +119,7 @@ rule storageAffected(method f) {
     mathint chostBefore = chost();
     mathint kicksBefore = kicks();
     mathint activeBefore = active(anyUint256);
+    mathint countBefore = count();
     mathint salesAnyPosBefore; mathint salesAnyTabBefore; mathint salesAnyLotBefore; mathint salesAnyTotBefore; address salesAnyUsrBefore; mathint salesAnyTicBefore; mathint salesAnyTopBefore;
     salesAnyPosBefore, salesAnyTabBefore, salesAnyLotBefore, salesAnyTotBefore, salesAnyUsrBefore, salesAnyTicBefore, salesAnyTopBefore = sales(anyUint256);
     mathint stoppedBefore = stopped();
@@ -132,6 +140,7 @@ rule storageAffected(method f) {
     mathint chostAfter = chost();
     mathint kicksAfter = kicks();
     mathint activeAfter = active(anyUint256);
+    mathint countAfter = count();
     mathint salesAnyPosAfter; mathint salesAnyTabAfter; mathint salesAnyLotAfter; mathint salesAnyTotAfter; address salesAnyUsrAfter; mathint salesAnyTicAfter; mathint salesAnyTopAfter;
     salesAnyPosAfter, salesAnyTabAfter, salesAnyLotAfter, salesAnyTotAfter, salesAnyUsrAfter, salesAnyTicAfter, salesAnyTopAfter = sales(anyUint256);
     mathint stoppedAfter = stopped();
@@ -148,15 +157,16 @@ rule storageAffected(method f) {
     assert tipAfter != tipBefore => f.selector == sig:file(bytes32,uint256).selector, "Assert 10";
     assert chostAfter != chostBefore => f.selector == sig:upchost().selector, "Assert 11";
     assert kicksAfter != kicksBefore => f.selector == sig:kick(uint256,uint256,address,address).selector, "Assert 12";
-    assert activeAfter != activeBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 13";
-    assert salesAnyPosAfter != salesAnyPosBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 14";
-    assert salesAnyTabAfter != salesAnyTabBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 15";
-    assert salesAnyLotAfter != salesAnyLotBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 16";
-    assert salesAnyTotAfter != salesAnyTotBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 17";
-    assert salesAnyUsrAfter != salesAnyUsrBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 18";
-    assert salesAnyTicAfter != salesAnyTicBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:redo(uint256,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 19";
-    assert salesAnyTopAfter != salesAnyTopBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:redo(uint256,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 20";
-    assert stoppedAfter != stoppedBefore => f.selector == sig:file(bytes32,uint256).selector, "Assert 21";
+    assert countAfter != countBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 13";
+    assert activeAfter != activeBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 14";
+    assert salesAnyPosAfter != salesAnyPosBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 15";
+    assert salesAnyTabAfter != salesAnyTabBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 16";
+    assert salesAnyLotAfter != salesAnyLotBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 17";
+    assert salesAnyTotAfter != salesAnyTotBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 18";
+    assert salesAnyUsrAfter != salesAnyUsrBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 19";
+    assert salesAnyTicAfter != salesAnyTicBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:redo(uint256,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 20";
+    assert salesAnyTopAfter != salesAnyTopBefore => f.selector == sig:kick(uint256,uint256,address,address).selector || f.selector == sig:redo(uint256,address).selector || f.selector == sig:take(uint256,uint256,uint256,address,bytes).selector || f.selector == sig:yank(uint256).selector, "Assert 21";
+    assert stoppedAfter != stoppedBefore => f.selector == sig:file(bytes32,uint256).selector, "Assert 22";
 }
 
 // Verify correct storage changes for non reverting rely
@@ -575,4 +585,133 @@ rule redo_revert(uint256 id, address kpr) {
                             revert7  || revert8  || revert9  ||
                             revert10 || revert11 || revert12 ||
                             revert13 || revert14, "Revert rules failed";
+}
+
+// Verify correct storage changes for non reverting take
+rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
+    env e;
+
+    bytes32 ilk = ilk();
+    address vow = vow();
+
+    mathint countBefore = count();
+    uint256 otherUint256;
+    require otherUint256 != id;
+
+    mathint salesIdPosBefore; mathint salesIdTabBefore; mathint salesIdLotBefore; mathint salesIdTotBefore; address salesIdUsrBefore; mathint salesIdTicBefore; mathint salesIdTopBefore;
+    salesIdPosBefore, salesIdTabBefore, salesIdLotBefore, salesIdTotBefore, salesIdUsrBefore, salesIdTicBefore, salesIdTopBefore = sales(id);
+    require salesIdUsrBefore == lockstakeUrn;
+    mathint salesOtherPosBefore; mathint salesOtherTabBefore; mathint salesOtherLotBefore; mathint salesOtherTotBefore; address salesOtherUsrBefore; mathint salesOtherTicBefore; mathint salesOtherTopBefore;
+    salesOtherPosBefore, salesOtherTabBefore, salesOtherLotBefore, salesOtherTotBefore, salesOtherUsrBefore, salesOtherTicBefore, salesOtherTopBefore = sales(otherUint256);
+    mathint vatGemIlkClipperBefore = vat.gem(ilk, currentContract);
+    mathint mkrTotalSupplyBefore = mkr.totalSupply();
+    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(lockstakeEngine);
+    mathint mkrBalanceOfWhoBefore = mkr.balanceOf(who);
+    mathint vatDaiSenderBefore = vat.dai(e.msg.sender);
+    mathint vatDaiVowBefore = vat.dai(vow);
+    mathint dogDirtBefore = dog.Dirt();
+    address a; mathint b;
+    mathint dogIlkDirtBefore;
+    a, b, b, dogIlkDirtBefore = dog.ilks(ilk);
+    mathint vatUrnsIlkUsrInkBefore;
+    vatUrnsIlkUsrInkBefore, b = vat.urns(ilk, salesIdUsrBefore);
+    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
+    mathint lsmkrBalanceOfUsrBefore = lsmkr.balanceOf(salesIdUsrBefore);
+    mathint engineUrnAuctionsUsrBefore = lockstakeEngine.urnAuctions(salesIdUsrBefore);
+
+    mathint price = calcPriceSummary();
+    // Avoid division by zero
+    require price > 0;
+    // Token invariants
+    require mkrTotalSupplyBefore >= mkrBalanceOfEngineBefore + mkrBalanceOfWhoBefore;
+    require lsmkrTotalSupplyBefore >= lsmkrBalanceOfUsrBefore;
+    // LockstakeEngine assumption
+    require lockstakeEngine.ilk() == ilk;
+    // Governance setting assumption
+    require vow != e.msg.sender;
+
+    mathint sliceAux = _min(salesIdLotBefore, amt);
+    mathint oweAux = sliceAux * price;
+    mathint chost = chost();
+    mathint slice; mathint owe;
+    if (oweAux > salesIdTabBefore) {
+        owe = salesIdTabBefore;
+        slice = owe / price;
+    } else {
+        if (oweAux < salesIdTabBefore && sliceAux < salesIdLotBefore) {
+            if (salesIdTabBefore - oweAux < chost) {
+                owe = salesIdTabBefore - chost;
+                slice = owe / price;
+            } else {
+                owe = oweAux;
+                slice = sliceAux;
+            }
+        } else {
+            owe = oweAux;
+            slice = sliceAux;
+        }
+    }
+    mathint calcTabAfter = salesIdTabBefore - owe;
+    mathint calcLotAfter = salesIdLotBefore - slice;
+    bool isRemoved = calcLotAfter == 0 || calcTabAfter == 0;
+    mathint fee = lockstakeEngine.fee();
+    // Happening in Engine constructor
+    require fee < WAD();
+    mathint sold = calcLotAfter == 0 ? salesIdTotBefore : (calcTabAfter == 0 ? salesIdTotBefore - calcLotAfter : 0);
+    mathint left = calcTabAfter == 0 ? calcLotAfter : 0;
+    mathint burn = _min(sold * fee / (WAD() - fee), left);
+    mathint refund = left - burn;
+
+    take(e, id, amt, max, who, data);
+
+    mathint kicksAfter = kicks();
+    mathint countAfter = count();
+    mathint activeCountAfter = active(require_uint256(countAfter - 1));
+    mathint salesIdPosAfter; mathint salesIdTabAfter; mathint salesIdLotAfter; mathint salesIdTotAfter; address salesIdUsrAfter; mathint salesIdTicAfter; mathint salesIdTopAfter;
+    salesIdPosAfter, salesIdTabAfter, salesIdLotAfter, salesIdTotAfter, salesIdUsrAfter, salesIdTicAfter, salesIdTopAfter = sales(id);
+    mathint salesOtherPosAfter; mathint salesOtherTabAfter; mathint salesOtherLotAfter; mathint salesOtherTotAfter; address salesOtherUsrAfter; mathint salesOtherTicAfter; mathint salesOtherTopAfter;
+    salesOtherPosAfter, salesOtherTabAfter, salesOtherLotAfter, salesOtherTotAfter, salesOtherUsrAfter, salesOtherTicAfter, salesOtherTopAfter = sales(otherUint256);
+    mathint vatGemIlkClipperAfter = vat.gem(ilk, currentContract);
+    mathint mkrTotalSupplyAfter = mkr.totalSupply();
+    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(lockstakeEngine);
+    mathint mkrBalanceOfWhoAfter = mkr.balanceOf(who);
+    mathint vatDaiSenderAfter = vat.dai(e.msg.sender);
+    mathint vatDaiVowAfter = vat.dai(vow);
+    mathint dogDirtAfter = dog.Dirt();
+    mathint dogIlkDirtAfter;
+    a, b, b, dogIlkDirtAfter = dog.ilks(ilk);
+    mathint vatUrnsIlkUsrInkAfter;
+    vatUrnsIlkUsrInkAfter, b = vat.urns(ilk, salesIdUsrBefore);
+    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
+    mathint lsmkrBalanceOfUsrAfter = lsmkr.balanceOf(salesIdUsrBefore);
+    mathint engineUrnAuctionsUsrAfter = lockstakeEngine.urnAuctions(salesIdUsrBefore);
+
+    assert countAfter == (isRemoved ? countBefore - 1 : countBefore), "Assert 1";
+    assert salesIdPosAfter == (isRemoved ? 0 : salesIdPosBefore), "Assert 2";
+    assert salesIdTabAfter == (isRemoved ? 0 : calcTabAfter), "Assert 3";
+    assert salesIdLotAfter == (isRemoved ? 0 : calcLotAfter), "Assert 4";
+    assert salesIdTotAfter == (isRemoved ? 0 : salesIdTotBefore), "Assert 5";
+    assert salesIdUsrAfter == (isRemoved ? addrZero() : salesIdUsrBefore), "Assert 6";
+    assert salesIdTicAfter == (isRemoved ? 0 : salesIdTicBefore), "Assert 7";
+    assert salesIdTopAfter == (isRemoved ? 0 : salesIdTopBefore), "Assert 8";
+    assert salesOtherPosAfter == (otherUint256 == active(assert_uint256(countBefore - 1)) && isRemoved ? salesIdPosBefore : salesOtherPosBefore), "Assert 9";
+    assert salesOtherTabAfter == salesOtherTabBefore, "Assert 10";
+    assert salesOtherLotAfter == salesOtherLotBefore, "Assert 11";
+    assert salesOtherTotAfter == salesOtherTotBefore, "Assert 12";
+    assert salesOtherUsrAfter == salesOtherUsrBefore, "Assert 13";
+    assert salesOtherTicAfter == salesOtherTicBefore, "Assert 14";
+    assert salesOtherTopAfter == salesOtherTopBefore, "Assert 15";
+    assert vatGemIlkClipperAfter == vatGemIlkClipperBefore - (calcLotAfter > 0 && calcTabAfter == 0 ? salesIdLotBefore : slice), "Assert 16";
+    assert mkrTotalSupplyAfter == mkrTotalSupplyBefore - burn, "Assert 17";
+    assert who == lockstakeEngine => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - burn, "Assert 18";
+    assert who != lockstakeEngine => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - slice - burn, "Assert 19";
+    assert who != lockstakeEngine && who != salesIdUsrBefore => mkrBalanceOfWhoAfter == mkrBalanceOfWhoBefore + slice, "Assert 20";
+    assert vatDaiSenderAfter == vatDaiSenderBefore - owe, "Assert 21";
+    assert vatDaiVowAfter == vatDaiVowBefore + owe, "Assert 22";
+    assert dogDirtAfter == dogDirtBefore - (calcLotAfter == 0 ? salesIdTabBefore : owe), "Assert 23";
+    assert dogIlkDirtAfter == dogIlkDirtBefore - (calcLotAfter == 0 ? salesIdTabBefore : owe), "Assert 24";
+    assert vatUrnsIlkUsrInkAfter == vatUrnsIlkUsrInkBefore + refund, "Assert 25";
+    assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + refund, "Assert 26";
+    assert lsmkrBalanceOfUsrAfter == lsmkrBalanceOfUsrBefore + refund, "Assert 27";
+    assert engineUrnAuctionsUsrAfter == engineUrnAuctionsUsrBefore - (isRemoved ? 1 : 0), "Assert 28";
 }

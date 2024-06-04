@@ -68,12 +68,12 @@ contract LockstakeEngine is Multicall {
 
     mapping(address usr  => uint256 allowed)                         public wards;
     mapping(address farm => FarmStatus)                              public farms;
-    mapping(address usr  => uint256 amount)                          public usrAmts;
+    mapping(address usr  => uint256 urnsCount)                       public usrAmts;
     mapping(address urn  => address owner)                           public urnOwners;
     mapping(address urn  => mapping(address usr => uint256 allowed)) public urnCan;
     mapping(address urn  => address voteDelegate)                    public urnVoteDelegates;
     mapping(address urn  => address farm)                            public urnFarms;
-    mapping(address urn  => uint256 amount)                          public urnAuctions;
+    mapping(address urn  => uint256 auctionsCount)                   public urnAuctions;
     JugLike                                                          public jug;
 
     // --- constants and enums ---
@@ -218,8 +218,8 @@ contract LockstakeEngine is Multicall {
 
     // --- getters ---
 
+    // NOTE: this function will succeed returning the address even if the urn for the specified index hasn't been created yet
     function getUrn(address owner, uint256 index) external view returns (address urn) {
-        // NOTE: this function will succeed returning the address even if the urn for the specified index hasn't been created yet
         uint256 salt = uint256(keccak256(abi.encode(owner, index)));
         bytes32 codeHash = keccak256(abi.encodePacked(_initCode()));
         urn = address(uint160(uint256(

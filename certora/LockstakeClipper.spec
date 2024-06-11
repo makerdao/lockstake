@@ -455,7 +455,7 @@ rule kick_revert(uint256 tab, uint256 lot, address usr, address kpr) {
     bool revert1  = e.msg.value > 0;
     bool revert2  = wardsSender != 1;
     bool revert3  = locked != 0;
-    bool revert4  = stopped > 0;
+    bool revert4  = stopped >= 1;
     bool revert5  = tab == 0;
     bool revert6  = lot == 0;
     bool revert7  = to_mathint(lot) > max_int256();
@@ -567,7 +567,7 @@ rule redo_revert(uint256 id, address kpr) {
 
     bool revert1  = e.msg.value > 0;
     bool revert2  = locked != 0;
-    bool revert3  = stopped > 1;
+    bool revert3  = stopped >= 2;
     bool revert4  = salesIdUsr == addrZero();
     bool revert5  = to_mathint(e.block.timestamp) < salesIdTic;
     bool revert6  = e.block.timestamp - salesIdTic <= tail && price * RAY() > max_uint256;

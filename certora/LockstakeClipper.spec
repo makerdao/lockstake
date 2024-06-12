@@ -9,6 +9,12 @@ using Spotter as spotter;
 using Dog as dog;
 using VoteDelegateMock as voteDelegate;
 using StakingRewardsMock as stakingRewards;
+using BadGuy as badGuy;
+using RedoGuy as redoGuy;
+using KickGuy as kickGuy;
+using FileUintGuy as fileUintGuy;
+using FileAddrGuy as fileAddrGuy;
+using YankGuy as yankGuy;
 
 methods {
     // storage variables
@@ -40,6 +46,7 @@ methods {
     function lockstakeEngine.fee() external returns (uint256) envfree;
     function mkr.totalSupply() external returns (uint256) envfree;
     function mkr.balanceOf(address) external returns (uint256) envfree;
+    function lsmkr.wards(address) external returns (uint256) envfree;
     function lsmkr.totalSupply() external returns (uint256) envfree;
     function lsmkr.allowance(address,address) external returns (uint256) envfree;
     function lsmkr.balanceOf(address) external returns (uint256) envfree;
@@ -47,14 +54,18 @@ methods {
     function stakingRewards.totalSupply() external returns (uint256) envfree;
     function voteDelegate.stake(address) external returns (uint256) envfree;
     function vat.wards(address) external returns (uint256) envfree;
+    function vat.live() external returns (uint256) envfree;
+    function vat.can(address, address) external returns (uint256) envfree;
     function vat.debt() external returns (uint256) envfree;
     function vat.vice() external returns (uint256) envfree;
     function vat.dai(address) external returns (uint256) envfree;
     function vat.sin(address) external returns (uint256) envfree;
     function vat.gem(bytes32,address) external returns (uint256) envfree;
+    function vat.ilks(bytes32) external returns (uint256,uint256,uint256,uint256,uint256) envfree;
     function vat.urns(bytes32, address) external returns (uint256,uint256) envfree;
     function spotter.ilks(bytes32) external returns (address,uint256) envfree;
     function spotter.par() external returns (uint256) envfree;
+    function dog.wards(address) external returns (uint256) envfree;
     function dog.Dirt() external returns (uint256) envfree;
     function dog.ilks(bytes32) external returns (address,uint256,uint256,uint256) envfree;
     //
@@ -714,4 +725,143 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + refund, "Assert 26";
     assert lsmkrBalanceOfUsrAfter == lsmkrBalanceOfUsrBefore + refund, "Assert 27";
     assert engineUrnAuctionsUsrAfter == engineUrnAuctionsUsrBefore - (isRemoved ? 1 : 0), "Assert 28";
+}
+
+// Verify revert rules on take
+rule take_revert(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
+    env e;
+
+    require e.msg.sender != currentContract;
+
+    bytes32 ilk = ilk();
+    address vow = vow();
+    mathint locked = lockedGhost();
+    mathint stopped = stopped();
+    mathint tail = tail();
+    mathint cusp = cusp();
+    mathint chost = chost();
+    mathint count = count();
+    mathint activeLast;
+    if (count > 0) {
+        activeLast = active(assert_uint256(count - 1));
+    } else {
+        activeLast = 0;
+    }
+
+    mathint salesIdPos; mathint salesIdTab; mathint salesIdLot; mathint salesIdTot; address salesIdUsr; mathint salesIdTic; mathint salesIdTop;
+    salesIdPos, salesIdTab, salesIdLot, salesIdTot, salesIdUsr, salesIdTic, salesIdTop = sales(id);
+
+    mathint vatGemIlkClipper = vat.gem(ilk, currentContract);
+    mathint vatCanSenderClipper = vat.can(e.msg.sender, currentContract);
+    mathint vatDaiSender = vat.dai(e.msg.sender);
+
+    mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
+    Art, rate, spot, a, dust = vat.ilks(ilk);
+    mathint ink; mathint art;
+    ink, art = vat.urns(ilk, salesIdUsr);
+
+    mathint dogDirt = dog.Dirt();
+    address b; mathint dogIlkDirt;
+    b, a, a, dogIlkDirt = dog.ilks(ilk);
+
+    require to_mathint(e.block.timestamp) >= salesIdTic;
+    mathint price = calcPriceSummary();
+    // Avoid division by zero
+    require salesIdTop > 0;
+    bool done = e.block.timestamp - salesIdTic > tail || price * RAY() / salesIdTop < cusp;
+
+    mathint sliceAux = _min(salesIdLot, amt);
+    mathint oweAux = sliceAux * price;
+    mathint slice; mathint owe;
+    if (oweAux > salesIdTab) {
+        owe = salesIdTab;
+        slice = owe / price;
+    } else {
+        if (oweAux < salesIdTab && sliceAux < salesIdLot) {
+            if (salesIdTab - oweAux < chost) {
+                owe = salesIdTab - chost;
+                slice = price > 0 ? owe / price : max_uint256; // Just a placeholder if price == 0
+            } else {
+                owe = oweAux;
+                slice = sliceAux;
+            }
+        } else {
+            owe = oweAux;
+            slice = sliceAux;
+        }
+    }
+    mathint calcTabAfter = salesIdTab - owe;
+    mathint calcLotAfter = salesIdLot - slice;
+    mathint digAmt = calcLotAfter == 0 ? salesIdTab : owe;
+    bool isRemoved = calcLotAfter == 0 || calcTabAfter == 0;
+    mathint fee = lockstakeEngine.fee();
+
+    // Happening in kick
+    require salesIdLot <= max_int256();
+    require salesIdTot >= salesIdLot;
+    // Happening in Engine constructor
+    require fee < WAD();
+    require lsmkr.wards(lockstakeEngine) == 1;
+    mathint sold = calcLotAfter == 0 ? salesIdTot : (calcTabAfter == 0 ? salesIdTot - calcLotAfter : 0);
+    mathint left = calcTabAfter == 0 ? calcLotAfter : 0;
+    mathint burn = _min(sold * fee / (WAD() - fee), left);
+    mathint refund = left - burn;
+    // Happening in urn init
+    require vat.can(salesIdUsr, lockstakeEngine) == 1;
+    // Tokens invariants
+    require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(lockstakeEngine) + mkr.balanceOf(who);
+    require lsmkr.totalSupply() >= mkr.balanceOf(salesIdUsr);
+    // Happening in deploy scripts
+    require vat.wards(currentContract) == 1;
+    require vat.wards(lockstakeEngine) == 1;
+    require dog.wards(currentContract) == 1;
+    require lockstakeEngine.wards(currentContract) == 1;
+    // LockstakeEngine assumtions
+    require lockstakeEngine.ilk() == ilk;
+    require to_mathint(mkr.balanceOf(lockstakeEngine)) >= slice + burn;
+    require lockstakeEngine.urnAuctions(salesIdUsr) > 0;
+    require sold * fee <= max_uint256;
+    require refund <= max_int256();
+    require vat.gem(ilk, salesIdUsr) + refund <= max_uint256;
+    require salesIdUsr != addrZero() && salesIdUsr != lsmkr;
+    require lsmkr.totalSupply() + refund <= max_uint256;
+    // Dog assumptions
+    require dogDirt >= digAmt;
+    require dogIlkDirt >= digAmt;
+    // Practical Vat assumptions
+    require vat.live() == 1;
+    require vat.dai(vow) + owe <= max_uint256;
+    require rate >= RAY() && rate <= max_int256();
+    require ink + refund <= max_uint256;
+    require (ink + refund) * spot <= max_uint256;
+    require rate * Art <= max_uint256;
+    require Art >= art;
+    require art == 0 || rate * art >= dust;
+
+    take@withrevert(e, id, amt, max, who, data);
+
+    bool revert1  = e.msg.value > 0;
+    bool revert2  = locked != 0;
+    bool revert3  = stopped >= 3;
+    bool revert4  = salesIdUsr == addrZero();
+    bool revert5  = price * RAY() > max_uint256;
+    bool revert6  = done;
+    bool revert7  = to_mathint(max) < price;
+    bool revert8  = sliceAux * price > max_uint256;
+    bool revert9  = oweAux < salesIdTab && sliceAux < salesIdLot && salesIdTab - oweAux < chost && salesIdTab <= chost;
+    bool revert10 = oweAux < salesIdTab && sliceAux < salesIdLot && salesIdTab - oweAux < chost && price == 0;
+    bool revert11 = vatGemIlkClipper < slice;
+    bool revert12 = data.length > 0 && (who == badGuy || who == redoGuy || who == kickGuy || who == fileUintGuy || who == fileAddrGuy || who == yankGuy);
+    bool revert13 = vatCanSenderClipper != 1;
+    bool revert14 = vatDaiSender < owe;
+    bool revert15 = (calcLotAfter == 0 || calcTabAfter == 0) && count == 0;
+    bool revert16 = (calcLotAfter == 0 || calcTabAfter == 0) && to_mathint(id) != activeLast && salesIdPos > count - 1;
+    bool revert17 = calcLotAfter > 0 && calcTabAfter == 0 && vatGemIlkClipper < salesIdLot;
+
+    assert lastReverted <=> revert1  || revert2  || revert3  ||
+                            revert4  || revert5  || revert6  ||
+                            revert7  || revert8  || revert9  ||
+                            revert10 || revert11 || revert12 ||
+                            revert13 || revert14 || revert15 ||
+                            revert16 || revert17, "Revert rules failed";
 }

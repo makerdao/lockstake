@@ -427,8 +427,8 @@ rule kick_revert(uint256 tab, uint256 lot, address usr, address kpr) {
     mathint buf = buf();
     mathint par = spotter.par();
     bytes32 ilk = ilk();
-    mathint ink; mathint a; 
-    ink, a = vat.urns(ilk, usr);
+    mathint vatUrnsIlkUsrInk; mathint a;
+    vatUrnsIlkUsrInk, a = vat.urns(ilk, usr);
     // Avoid division by zero
     require par > 0;
     mathint val; bool has;
@@ -445,18 +445,18 @@ rule kick_revert(uint256 tab, uint256 lot, address usr, address kpr) {
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(usr) + lsmkr.balanceOf(lockstakeEngine);
     require stakingRewards.totalSupply() >= stakingRewards.balanceOf(usr);
     // VoteDelegate assumptions
-    require prevVoteDelegate == addrZero() || to_mathint(voteDelegate.stake(lockstakeEngine)) >= ink + lot;
+    require prevVoteDelegate == addrZero() || to_mathint(voteDelegate.stake(lockstakeEngine)) >= vatUrnsIlkUsrInk + lot;
     require prevVoteDelegate == addrZero() || mkr.balanceOf(voteDelegate) >= voteDelegate.stake(lockstakeEngine);
     // StakingRewards assumptions
     require prevFarm == addrZero() && lsmkr.balanceOf(usr) >= lot ||
-            prevFarm != addrZero() && to_mathint(stakingRewards.balanceOf(usr)) >= ink + lot && to_mathint(lsmkr.balanceOf(prevFarm)) >= ink + lot;
+            prevFarm != addrZero() && to_mathint(stakingRewards.balanceOf(usr)) >= vatUrnsIlkUsrInk + lot && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUsrInk + lot;
     // Practical Vat assumptions
     require vat.sin(vow()) + coin <= max_uint256;
     require vat.dai(kpr) + coin <= max_uint256;
     require vat.vice() + coin <= max_uint256;
     require vat.debt() + coin <= max_uint256;
-    // Practical assumption (ink + lot should be the same than the ink prev to the kick call)
-    require ink + lot <= max_uint256;
+    // Practical assumption (vatUrnsIlkUsrInk + lot should be the same than the vatUrnsIlkUsrInk prev to the kick call)
+    require vatUrnsIlkUsrInk + lot <= max_uint256;
     // LockstakeEngine assumption
     require lockstakeEngine.urnAuctions(usr) < max_uint256;
     require lockstakeEngine.ilk() == ilk;
@@ -755,10 +755,10 @@ rule take_revert(uint256 id, uint256 amt, uint256 max, address who, bytes data) 
     mathint vatCanSenderClipper = vat.can(e.msg.sender, currentContract);
     mathint vatDaiSender = vat.dai(e.msg.sender);
 
-    mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
-    Art, rate, spot, a, dust = vat.ilks(ilk);
-    mathint ink; mathint art;
-    ink, art = vat.urns(ilk, salesIdUsr);
+    mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkDust; mathint a;
+    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, a, vatIlksIlkDust = vat.ilks(ilk);
+    mathint vatUrnsIlkUsrInk; mathint vatUrnsIlkUsrArt;
+    vatUrnsIlkUsrInk, vatUrnsIlkUsrArt = vat.urns(ilk, salesIdUsr);
 
     mathint dogDirt = dog.Dirt();
     address b; mathint dogIlkDirt;
@@ -831,12 +831,12 @@ rule take_revert(uint256 id, uint256 amt, uint256 max, address who, bytes data) 
     // Practical Vat assumptions
     require vat.live() == 1;
     require vat.dai(vow) + owe <= max_uint256;
-    require rate >= RAY() && rate <= max_int256();
-    require ink + refund <= max_uint256;
-    require (ink + refund) * spot <= max_uint256;
-    require rate * Art <= max_uint256;
-    require Art >= art;
-    require art == 0 || rate * art >= dust;
+    require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
+    require vatUrnsIlkUsrInk + refund <= max_uint256;
+    require (vatUrnsIlkUsrInk + refund) * vatIlksIlkSpot <= max_uint256;
+    require vatIlksIlkRate * vatIlksIlkArt <= max_uint256;
+    require vatIlksIlkArt >= vatUrnsIlkUsrArt;
+    require vatUrnsIlkUsrArt == 0 || vatIlksIlkRate * vatUrnsIlkUsrArt >= vatIlksIlkDust;
 
     take@withrevert(e, id, amt, max, who, data);
 

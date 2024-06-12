@@ -66,6 +66,7 @@ methods {
     function spotter.ilks(bytes32) external returns (address,uint256) envfree;
     function spotter.par() external returns (uint256) envfree;
     function dog.wards(address) external returns (uint256) envfree;
+    function dog.chop(bytes32) external returns (uint256) envfree;
     function dog.Dirt() external returns (uint256) envfree;
     function dog.ilks(bytes32) external returns (address,uint256,uint256,uint256) envfree;
     //
@@ -864,4 +865,41 @@ rule take_revert(uint256 id, uint256 amt, uint256 max, address who, bytes data) 
                             revert10 || revert11 || revert12 ||
                             revert13 || revert14 || revert15 ||
                             revert16 || revert17, "Revert rules failed";
+}
+
+// Verify correct storage changes for non reverting upchost
+rule upchost() {
+    env e;
+
+    bytes32 ilk = ilk();
+
+    mathint vatIlksIlkDust; mathint a;
+    a, a, a, a, vatIlksIlkDust = vat.ilks(ilk);
+
+    mathint dogChopIlk = dog.chop(ilk);
+
+    upchost(e);
+
+    mathint chostAfter = chost();
+
+    assert chostAfter == vatIlksIlkDust * dogChopIlk / WAD(), "Assert 1";
+}
+
+// Verify revert rules on upchost
+rule upchost_revert() {
+    env e;
+
+    bytes32 ilk = ilk();
+
+    mathint vatIlksIlkDust; mathint a;
+    a, a, a, a, vatIlksIlkDust = vat.ilks(ilk);
+
+    mathint dogChopIlk = dog.chop(ilk);
+
+    upchost@withrevert(e);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = vatIlksIlkDust * dogChopIlk > max_uint256;
+
+    assert lastReverted <=> revert1 || revert2, "Revert rules failed";
 }

@@ -187,8 +187,8 @@ rule inkMatchesLsmkrFarm(method f) filtered { f -> f.selector != sig:multicall(b
     address farmBefore = urnFarms(anyUrn);
     require farmBefore == addrZero() || farmBefore == stakingRewards;
 
-    mathint inkBefore; mathint a;
-    inkBefore, a = vat.urns(ilk, anyUrn);
+    mathint vatUrnsIlkAnyUrnInkBefore; mathint a;
+    vatUrnsIlkAnyUrnInkBefore, a = vat.urns(ilk, anyUrn);
 
     mathint lsmkrBalanceOfAnyUrnBefore = lsmkr.balanceOf(anyUrn);
     mathint farmBalanceOfAnyUrnBefore = farmBefore == addrZero() ? 0 : stakingRewards.balanceOf(anyUrn);
@@ -197,7 +197,7 @@ rule inkMatchesLsmkrFarm(method f) filtered { f -> f.selector != sig:multicall(b
     require lsmkrBalanceOfAnyUrnBefore == 0 || farmBalanceOfAnyUrnBefore == 0;
     require lsmkrBalanceOfAnyUrnBefore > 0 => farmBefore == addrZero();
     require farmBalanceOfAnyUrnBefore  > 0 => farmBefore != addrZero();
-    require inkBefore == lsmkrBalanceOfAnyUrnBefore + farmBalanceOfAnyUrnBefore;
+    require vatUrnsIlkAnyUrnInkBefore == lsmkrBalanceOfAnyUrnBefore + farmBalanceOfAnyUrnBefore;
 
     calldataarg args;
     f(e, args);
@@ -205,8 +205,8 @@ rule inkMatchesLsmkrFarm(method f) filtered { f -> f.selector != sig:multicall(b
     address farmAfter = urnFarms(anyUrn);
     require farmAfter == addrZero() || farmAfter == farmBefore || farmAfter != farmBefore && farmAfter == stakingRewards2;
 
-    mathint inkAfter;
-    inkAfter, a = vat.urns(ilk, anyUrn);
+    mathint vatUrnsIlkAnyUrnInkAfter;
+    vatUrnsIlkAnyUrnInkAfter, a = vat.urns(ilk, anyUrn);
 
     mathint lsmkrBalanceOfAnyUrnAfter = lsmkr.balanceOf(anyUrn);
     mathint farmBalanceOfAnyUrnAfter = farmAfter == addrZero() ? 0 : (farmAfter == farmBefore ? stakingRewards.balanceOf(anyUrn) : stakingRewards2.balanceOf(anyUrn));
@@ -214,7 +214,7 @@ rule inkMatchesLsmkrFarm(method f) filtered { f -> f.selector != sig:multicall(b
     assert f.selector != sig:onRemove(address,uint256,uint256).selector => lsmkrBalanceOfAnyUrnAfter == 0 || farmBalanceOfAnyUrnAfter == 0, "Assert 1";
     assert f.selector != sig:onRemove(address,uint256,uint256).selector => lsmkrBalanceOfAnyUrnAfter > 0 => farmAfter == addrZero(), "Assert 2";
     assert f.selector != sig:onRemove(address,uint256,uint256).selector => farmBalanceOfAnyUrnAfter  > 0 => farmAfter != addrZero(), "Assert 3";
-    assert f.selector != sig:onKick(address,uint256).selector => inkAfter == lsmkrBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter, "Assert 4";
+    assert f.selector != sig:onKick(address,uint256).selector => vatUrnsIlkAnyUrnInkAfter == lsmkrBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter, "Assert 4";
 }
 
 rule inkMatchesLsmkrFarmOnKick(address urn, uint256 wad) {
@@ -228,8 +228,8 @@ rule inkMatchesLsmkrFarmOnKick(address urn, uint256 wad) {
     address farmBefore = urnFarms(anyUrn);
     require farmBefore == addrZero() || farmBefore == stakingRewards;
 
-    mathint inkBefore; mathint a;
-    inkBefore, a = vat.urns(ilk, anyUrn);
+    mathint vatUrnsIlkAnyUrnInkBefore; mathint a;
+    vatUrnsIlkAnyUrnInkBefore, a = vat.urns(ilk, anyUrn);
 
     mathint lsmkrBalanceOfAnyUrnBefore = lsmkr.balanceOf(anyUrn);
     mathint farmBalanceOfAnyUrnBefore = farmBefore == addrZero() ? 0 : stakingRewards.balanceOf(anyUrn);
@@ -238,21 +238,21 @@ rule inkMatchesLsmkrFarmOnKick(address urn, uint256 wad) {
     require lsmkrBalanceOfAnyUrnBefore == 0 || farmBalanceOfAnyUrnBefore == 0;
     require lsmkrBalanceOfAnyUrnBefore > 0 => farmBefore == addrZero();
     require farmBalanceOfAnyUrnBefore  > 0 => farmBefore != addrZero();
-    require inkBefore == lsmkrBalanceOfAnyUrnBefore + farmBalanceOfAnyUrnBefore;
+    require vatUrnsIlkAnyUrnInkBefore == lsmkrBalanceOfAnyUrnBefore + farmBalanceOfAnyUrnBefore;
 
     onKick(e, urn, wad);
 
     address farmAfter = urnFarms(anyUrn);
     require farmAfter == addrZero() || farmAfter == farmBefore || farmAfter != farmBefore && farmAfter == stakingRewards2;
 
-    mathint inkAfter;
-    inkAfter, a = vat.urns(ilk, anyUrn);
+    mathint vatUrnsIlkAnyUrnInkAfter;
+    vatUrnsIlkAnyUrnInkAfter, a = vat.urns(ilk, anyUrn);
 
     mathint lsmkrBalanceOfAnyUrnAfter = lsmkr.balanceOf(anyUrn);
     mathint farmBalanceOfAnyUrnAfter = farmAfter == addrZero() ? 0 : (farmAfter == farmBefore ? stakingRewards.balanceOf(anyUrn) : stakingRewards2.balanceOf(anyUrn));
 
-    assert urn != anyUrn => inkAfter == lsmkrBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter, "Assert 1";
-    assert urn == anyUrn => inkAfter == lsmkrBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter + wad, "Assert 2";
+    assert urn != anyUrn => vatUrnsIlkAnyUrnInkAfter == lsmkrBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter, "Assert 1";
+    assert urn == anyUrn => vatUrnsIlkAnyUrnInkAfter == lsmkrBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter + wad, "Assert 2";
 }
 
 // Verify correct storage changes for non reverting rely
@@ -536,8 +536,8 @@ rule selectVoteDelegate(address urn, address voteDelegate_) {
     require other2 != voteDelegate_ && other2 != prevVoteDelegate && other2 != currentContract;
 
     bytes32 ilk = ilk();
-    mathint ink; mathint a;
-    ink, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInk; mathint a;
+    vatUrnsIlkUrnInk, a = vat.urns(ilk, urn);
 
     address urnVoteDelegatesOtherBefore = urnVoteDelegates(other);
     mathint mkrBalanceOfPrevVoteDelegateBefore = mkr.balanceOf(prevVoteDelegate);
@@ -560,12 +560,12 @@ rule selectVoteDelegate(address urn, address voteDelegate_) {
     assert urnVoteDelegatesUrnAfter == voteDelegate_, "Assert 1";
     assert urnVoteDelegatesOtherAfter == urnVoteDelegatesOtherBefore, "Assert 2";
     assert prevVoteDelegate == addrZero() => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore, "Assert 3";
-    assert prevVoteDelegate != addrZero() => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - ink, "Assert 4";
+    assert prevVoteDelegate != addrZero() => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - vatUrnsIlkUrnInk, "Assert 4";
     assert voteDelegate_ == addrZero() => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore, "Assert 5";
-    assert voteDelegate_ != addrZero() => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore + ink, "Assert 6";
+    assert voteDelegate_ != addrZero() => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore + vatUrnsIlkUrnInk, "Assert 6";
     assert prevVoteDelegate == addrZero() && voteDelegate_ == addrZero() || prevVoteDelegate != addrZero() && voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 7";
-    assert prevVoteDelegate == addrZero() && voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - ink, "Assert 8";
-    assert prevVoteDelegate != addrZero() && voteDelegate_ == addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + ink, "Assert 9";
+    assert prevVoteDelegate == addrZero() && voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - vatUrnsIlkUrnInk, "Assert 8";
+    assert prevVoteDelegate != addrZero() && voteDelegate_ == addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + vatUrnsIlkUrnInk, "Assert 9";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 10";
 }
 
@@ -582,19 +582,19 @@ rule selectVoteDelegate_revert(address urn, address voteDelegate_) {
     mathint urnAuctions = urnAuctions(urn);
     mathint voteDelegateFactoryCreatedVoteDelegate = voteDelegateFactory.created(voteDelegate_);
     bytes32 ilk = ilk();
-    mathint rate; mathint spot; mathint a;
-    a, rate, spot, a, a = vat.ilks(ilk);
-    mathint ink; mathint art;
-    ink, art = vat.urns(ilk, urn);
+    mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint a;
+    a, vatIlksIlkRate, vatIlksIlkSpot, a, a = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt;
+    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
 
     // Tokens invariants
     require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(prevVoteDelegate) + mkr.balanceOf(voteDelegate_) + mkr.balanceOf(currentContract);
     // Practical Vat assumptions
-    require ink * spot <= max_uint256;
-    require art * rate <= max_uint256;
+    require vatUrnsIlkUrnInk * vatIlksIlkSpot <= max_uint256;
+    require vatUrnsIlkUrnArt * vatIlksIlkRate <= max_uint256;
     // TODO: this might be nice to prove in some sort
-    require prevVoteDelegate == addrZero() && to_mathint(mkr.balanceOf(currentContract)) >= ink || prevVoteDelegate != addrZero() && to_mathint(mkr.balanceOf(prevVoteDelegate)) >= ink && to_mathint(voteDelegate2.stake(currentContract)) >= ink; // TODO: this might be interesting to be proved
-    require voteDelegate.stake(currentContract) + ink <= max_uint256;
+    require prevVoteDelegate == addrZero() && to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk || prevVoteDelegate != addrZero() && to_mathint(mkr.balanceOf(prevVoteDelegate)) >= vatUrnsIlkUrnInk && to_mathint(voteDelegate2.stake(currentContract)) >= vatUrnsIlkUrnInk; // TODO: this might be interesting to be proved
+    require voteDelegate.stake(currentContract) + vatUrnsIlkUrnInk <= max_uint256;
 
     selectVoteDelegate@withrevert(e, urn, voteDelegate_);
 
@@ -603,7 +603,7 @@ rule selectVoteDelegate_revert(address urn, address voteDelegate_) {
     bool revert3 = urnAuctions > 0;
     bool revert4 = voteDelegate_ != addrZero() && voteDelegateFactoryCreatedVoteDelegate != 1;
     bool revert5 = voteDelegate_ == prevVoteDelegate;
-    bool revert6 = art > 0 && voteDelegate_ != addrZero() && ink * spot < art * rate;
+    bool revert6 = vatUrnsIlkUrnArt > 0 && voteDelegate_ != addrZero() && vatUrnsIlkUrnInk * vatIlksIlkSpot < vatUrnsIlkUrnArt * vatIlksIlkRate;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5 || revert6, "Revert rules failed";
@@ -625,8 +625,8 @@ rule selectFarm(address urn, address farm, uint16 ref) {
     require other2 != farm && other2 != prevFarm && other2 != urn;
 
     bytes32 ilk = ilk();
-    mathint ink; mathint a;
-    ink, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInk; mathint a;
+    vatUrnsIlkUrnInk, a = vat.urns(ilk, urn);
 
     address urnFarmsOtherBefore = urnFarms(other);
     mathint lsmkrBalanceOfPrevFarmBefore = lsmkr.balanceOf(prevFarm);
@@ -649,12 +649,12 @@ rule selectFarm(address urn, address farm, uint16 ref) {
     assert urnFarmsUrnAfter == farm, "Assert 1";
     assert urnFarmsOtherAfter == urnFarmsOtherBefore, "Assert 2";
     assert prevFarm == addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "Assert 3";
-    assert prevFarm != addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - ink, "Assert 4";
+    assert prevFarm != addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - vatUrnsIlkUrnInk, "Assert 4";
     assert farm == addrZero() => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore, "Assert 5";
-    assert farm != addrZero() => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore + ink, "Assert 6";
+    assert farm != addrZero() => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore + vatUrnsIlkUrnInk, "Assert 6";
     assert prevFarm == addrZero() && farm == addrZero() || prevFarm != addrZero() && farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 7";
-    assert prevFarm == addrZero() && farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - ink, "Assert 8";
-    assert prevFarm != addrZero() && farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + ink, "Assert 9";
+    assert prevFarm == addrZero() && farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - vatUrnsIlkUrnInk, "Assert 8";
+    assert prevFarm != addrZero() && farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + vatUrnsIlkUrnInk, "Assert 9";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 10";
 }
 
@@ -673,17 +673,17 @@ rule selectFarm_revert(address urn, address farm, uint16 ref) {
     mathint urnAuctions = urnAuctions(urn);
     LockstakeEngine.FarmStatus farmsFarm = farms(farm);
     bytes32 ilk = ilk();
-    mathint ink; mathint a;
-    ink, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInk; mathint a;
+    vatUrnsIlkUrnInk, a = vat.urns(ilk, urn);
 
     // TODO: this might be nice to prove in some sort
-    require prevFarm == addrZero() && to_mathint(lsmkr.balanceOf(urn)) >= ink || prevFarm != addrZero() && to_mathint(lsmkr.balanceOf(prevFarm)) >= ink && to_mathint(stakingRewards2.balanceOf(urn)) >= ink;
+    require prevFarm == addrZero() && to_mathint(lsmkr.balanceOf(urn)) >= vatUrnsIlkUrnInk || prevFarm != addrZero() && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUrnInk && to_mathint(stakingRewards2.balanceOf(urn)) >= vatUrnsIlkUrnInk;
     // Token invariants
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(farm) + lsmkr.balanceOf(urn);
     require stakingRewards2.totalSupply() >= stakingRewards2.balanceOf(urn);
     require stakingRewards.totalSupply() >= stakingRewards.balanceOf(urn);
     // Assumption
-    require stakingRewards.totalSupply() + ink <= max_uint256;
+    require stakingRewards.totalSupply() + vatUrnsIlkUrnInk <= max_uint256;
 
     selectFarm@withrevert(e, urn, farm, ref);
 
@@ -716,8 +716,8 @@ rule lock(address urn, uint256 wad, uint16 ref) {
     require other2 != urn && other2 != farm;
 
     bytes32 ilk = ilk();
-    mathint inkBefore; mathint a;
-    inkBefore, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkBefore; mathint a;
+    vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
     mathint mkrBalanceOfSenderBefore = mkr.balanceOf(e.msg.sender);
     mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfVoteDelegateBefore = mkr.balanceOf(voteDelegate_);
@@ -733,8 +733,8 @@ rule lock(address urn, uint256 wad, uint16 ref) {
 
     lock(e, urn, wad, ref);
 
-    mathint inkAfter;
-    inkAfter, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkAfter;
+    vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
     mathint mkrBalanceOfSenderAfter = mkr.balanceOf(e.msg.sender);
     mathint mkrBalanceOfVoteDelegateAfter = mkr.balanceOf(voteDelegate_);
     mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
@@ -744,7 +744,7 @@ rule lock(address urn, uint256 wad, uint16 ref) {
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
 
-    assert inkAfter == inkBefore + wad, "Assert 1";
+    assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore + wad, "Assert 1";
     assert mkrBalanceOfSenderAfter == mkrBalanceOfSenderBefore - wad, "Assert 2";
     assert voteDelegate_ == addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 3";
     assert voteDelegate_ != addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore + wad, "Assert 4";
@@ -775,9 +775,9 @@ rule lock_revert(address urn, uint256 wad, uint16 ref) {
     address urnOwnersUrn = urnOwners(urn);
 
     bytes32 ilk = ilk();
-    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
-    ink, art = vat.urns(ilk, urn);
-    Art, rate, spot, a, dust = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt; mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkDust; mathint a;
+    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
+    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, a, vatIlksIlkDust = vat.ilks(ilk);
 
     // Happening in urn init
     require vat.can(urn, currentContract) == 1;
@@ -796,16 +796,16 @@ rule lock_revert(address urn, uint256 wad, uint16 ref) {
     require lsmkr.totalSupply() + wad <= to_mathint(mkr.totalSupply());
     // Practical Vat assumptions
     require vat.live() == 1;
-    require rate >= RAY() && rate <= max_int256();
-    require (ink + wad) * spot <= max_uint256;
-    require rate * Art <= max_uint256;
-    require Art >= art;
-    require art == 0 || rate * art >= dust;
+    require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
+    require (vatUrnsIlkUrnInk + wad) * vatIlksIlkSpot <= max_uint256;
+    require vatIlksIlkRate * vatIlksIlkArt <= max_uint256;
+    require vatIlksIlkArt >= vatUrnsIlkUrnArt;
+    require vatUrnsIlkUrnArt == 0 || vatIlksIlkRate * vatUrnsIlkUrnArt >= vatIlksIlkDust;
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
     require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
-    require ink == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
+    require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     LockstakeEngine.FarmStatus farmsFarm = farms(farm);
 
@@ -842,8 +842,8 @@ rule lockNgt(address urn, uint256 ngtWad, uint16 ref) {
     mathint mkrNgtRate = mkrNgtRate();
 
     bytes32 ilk = ilk();
-    mathint inkBefore; mathint a;
-    inkBefore, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkBefore; mathint a;
+    vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
     mathint ngtTotalSupplyBefore = ngt.totalSupply();
     mathint ngtBalanceOfSenderBefore = ngt.balanceOf(e.msg.sender);
     mathint mkrTotalSupplyBefore = mkr.totalSupply();
@@ -865,8 +865,8 @@ rule lockNgt(address urn, uint256 ngtWad, uint16 ref) {
 
     lockNgt(e, urn, ngtWad, ref);
 
-    mathint inkAfter;
-    inkAfter, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkAfter;
+    vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
     mathint ngtTotalSupplyAfter = ngt.totalSupply();
     mathint ngtBalanceOfSenderAfter = ngt.balanceOf(e.msg.sender);
     mathint mkrTotalSupplyAfter = mkr.totalSupply();
@@ -879,7 +879,7 @@ rule lockNgt(address urn, uint256 ngtWad, uint16 ref) {
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
 
-    assert inkAfter == inkBefore + ngtWad/mkrNgtRate, "Assert 1";
+    assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore + ngtWad/mkrNgtRate, "Assert 1";
     assert ngtTotalSupplyAfter == ngtTotalSupplyBefore - ngtWad, "Assert 2";
     assert ngtBalanceOfSenderAfter == ngtBalanceOfSenderBefore - ngtWad, "Assert 3";
     assert mkrTotalSupplyAfter == mkrTotalSupplyBefore + ngtWad/mkrNgtRate, "Assert 4";
@@ -913,9 +913,9 @@ rule lockNgt_revert(address urn, uint256 ngtWad, uint16 ref) {
     address urnOwnersUrn = urnOwners(urn);
 
     bytes32 ilk = ilk();
-    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
-    ink, art = vat.urns(ilk, urn);
-    Art, rate, spot, a, dust = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt; mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkDust; mathint a;
+    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
+    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, a, vatIlksIlkDust = vat.ilks(ilk);
 
     // Happening in constructor
     require mkrNgtRate == to_mathint(mkrNgt.rate());
@@ -942,16 +942,16 @@ rule lockNgt_revert(address urn, uint256 ngtWad, uint16 ref) {
     require lsmkr.totalSupply() + ngtWad/mkrNgtRate <= to_mathint(mkr.totalSupply());
     // Practical Vat assumptions
     require vat.live() == 1;
-    require rate >= RAY() && rate <= max_int256();
-    require (ink + ngtWad/mkrNgtRate) * spot <= max_uint256;
-    require rate * Art <= max_uint256;
-    require Art >= art;
-    require art == 0 || rate * art >= dust;
+    require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
+    require (vatUrnsIlkUrnInk + ngtWad/mkrNgtRate) * vatIlksIlkSpot <= max_uint256;
+    require vatIlksIlkRate * vatIlksIlkArt <= max_uint256;
+    require vatIlksIlkArt >= vatUrnsIlkUrnArt;
+    require vatUrnsIlkUrnArt == 0 || vatIlksIlkRate * vatUrnsIlkUrnArt >= vatIlksIlkDust;
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
-    // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
+    // Safe to assume as Engine keeps the invariant (rule vatUrnsIlkUrnInkMatchesLsmkrFarm)
     require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
-    require ink == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
+    require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     LockstakeEngine.FarmStatus farmsFarm = farms(farm);
 
@@ -986,8 +986,8 @@ rule free(address urn, address to, uint256 wad) {
     mathint fee = fee();
 
     bytes32 ilk = ilk();
-    mathint inkBefore; mathint a;
-    inkBefore, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkBefore; mathint a;
+    vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
     mathint mkrTotalSupplyBefore = mkr.totalSupply();
     mathint mkrBalanceOfToBefore = mkr.balanceOf(to);
     mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
@@ -1006,8 +1006,8 @@ rule free(address urn, address to, uint256 wad) {
 
     free(e, urn, to, wad);
 
-    mathint inkAfter;
-    inkAfter, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkAfter;
+    vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
     mathint mkrTotalSupplyAfter = mkr.totalSupply();
     mathint mkrBalanceOfToAfter = mkr.balanceOf(to);
     mathint mkrBalanceOfVoteDelegateAfter = mkr.balanceOf(voteDelegate_);
@@ -1018,7 +1018,7 @@ rule free(address urn, address to, uint256 wad) {
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
 
-    assert inkAfter == inkBefore - wad, "Assert 1";
+    assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore - wad, "Assert 1";
     assert mkrTotalSupplyAfter == mkrTotalSupplyBefore - wad * fee / WAD(), "Assert 2";
     assert to != currentContract && to != voteDelegate_   ||
            to == currentContract && voteDelegate_ != addrZero() ||
@@ -1056,9 +1056,9 @@ rule free_revert(address urn, address to, uint256 wad) {
     mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
 
     bytes32 ilk = ilk();
-    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
-    ink, art = vat.urns(ilk, urn);
-    Art, rate, spot, a, dust = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt; mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkDust; mathint a;
+    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
+    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, a, vatIlksIlkDust = vat.ilks(ilk);
 
     // Hapenning in constructor
     require fee < WAD();
@@ -1073,31 +1073,31 @@ rule free_revert(address urn, address to, uint256 wad) {
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
     // TODO: this might be nice to prove in some sort
     require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
-    require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= ink;
-    require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= ink;
+    require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
+    require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
     require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
     require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
     // Practical Vat assumptions
     require vat.live() == 1;
-    require rate >= RAY() && rate <= max_int256();
-    require (ink - wad) * spot <= max_uint256;
-    require rate * Art <= max_uint256;
-    require Art >= art;
-    require art == 0 || rate * art >= dust;
+    require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
+    require (vatUrnsIlkUrnInk - wad) * vatIlksIlkSpot <= max_uint256;
+    require vatIlksIlkRate * vatIlksIlkArt <= max_uint256;
+    require vatIlksIlkArt >= vatUrnsIlkUrnArt;
+    require vatUrnsIlkUrnArt == 0 || vatIlksIlkRate * vatUrnsIlkUrnArt >= vatIlksIlkDust;
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
     require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
     require lsmkr.balanceOf(urn) > 0 => farm == addrZero();
     require stakingRewards.balanceOf(urn)  > 0 => farm != addrZero();
-    require ink == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
+    require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     free@withrevert(e, urn, to, wad);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
     bool revert3 = to_mathint(wad) > max_int256();
-    bool revert4 = ink < to_mathint(wad) || wad > 0 && (ink - wad) * spot < art * rate;
+    bool revert4 = vatUrnsIlkUrnInk < to_mathint(wad) || wad > 0 && (vatUrnsIlkUrnInk - wad) * vatIlksIlkSpot < vatUrnsIlkUrnArt * vatIlksIlkRate;
     bool revert5 = farm != 0 && wad == 0;
     bool revert6 = wad * fee > max_uint256;
 
@@ -1127,8 +1127,8 @@ rule freeNgt(address urn, address to, uint256 ngtWad) {
     mathint fee = fee();
 
     bytes32 ilk = ilk();
-    mathint inkBefore; mathint a;
-    inkBefore, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkBefore; mathint a;
+    vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
     mathint ngtTotalSupplyBefore = ngt.totalSupply();
     mathint ngtBalanceOfToBefore = ngt.balanceOf(to);
     mathint ngtBalanceOfOtherBefore = ngt.balanceOf(other3);
@@ -1151,8 +1151,8 @@ rule freeNgt(address urn, address to, uint256 ngtWad) {
 
     freeNgt(e, urn, to, ngtWad);
 
-    mathint inkAfter;
-    inkAfter, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkAfter;
+    vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
     mathint ngtTotalSupplyAfter = ngt.totalSupply();
     mathint ngtBalanceOfToAfter = ngt.balanceOf(to);
     mathint ngtBalanceOfOtherAfter = ngt.balanceOf(other3);
@@ -1165,7 +1165,7 @@ rule freeNgt(address urn, address to, uint256 ngtWad) {
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
 
-    assert inkAfter == inkBefore - ngtWad/mkrNgtRate, "Assert 1";
+    assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore - ngtWad/mkrNgtRate, "Assert 1";
     assert ngtTotalSupplyAfter == ngtTotalSupplyBefore + (ngtWad/mkrNgtRate - ngtWad/mkrNgtRate * fee / WAD()) * mkrNgtRate, "Assert 2";
     assert ngtBalanceOfToAfter == ngtBalanceOfToBefore + (ngtWad/mkrNgtRate - ngtWad/mkrNgtRate * fee / WAD()) * mkrNgtRate, "Assert 3";
     assert ngtBalanceOfOtherAfter == ngtBalanceOfOtherBefore, "Assert 4";
@@ -1203,9 +1203,9 @@ rule freeNgt_revert(address urn, address to, uint256 ngtWad) {
     mathint fee = fee();
 
     bytes32 ilk = ilk();
-    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
-    ink, art = vat.urns(ilk, urn);
-    Art, rate, spot, a, dust = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt; mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkDust; mathint a;
+    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
+    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, a, vatIlksIlkDust = vat.ilks(ilk);
 
     // Happening in constructor
     require mkrNgtRate == to_mathint(mkrNgt.rate());
@@ -1227,31 +1227,31 @@ rule freeNgt_revert(address urn, address to, uint256 ngtWad) {
     require ngt.totalSupply() + ngtWad <= max_uint256;
     // TODO: this might be nice to prove in some sort
     require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
-    require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= ink;
-    require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= ink;
+    require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
+    require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
     require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
     require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
     // Practical Vat assumptions
     require vat.live() == 1;
-    require rate >= RAY() && rate <= max_int256();
-    require (ink - ngtWad/mkrNgtRate) * spot <= max_uint256;
-    require rate * Art <= max_uint256;
-    require Art >= art;
-    require art == 0 || rate * art >= dust;
+    require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
+    require (vatUrnsIlkUrnInk - ngtWad/mkrNgtRate) * vatIlksIlkSpot <= max_uint256;
+    require vatIlksIlkRate * vatIlksIlkArt <= max_uint256;
+    require vatIlksIlkArt >= vatUrnsIlkUrnArt;
+    require vatUrnsIlkUrnArt == 0 || vatIlksIlkRate * vatUrnsIlkUrnArt >= vatIlksIlkDust;
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
     require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
     require lsmkr.balanceOf(urn) > 0 => farm == addrZero();
     require stakingRewards.balanceOf(urn)  > 0 => farm != addrZero();
-    require ink == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
+    require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     freeNgt@withrevert(e, urn, to, ngtWad);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
     bool revert3 = to_mathint(ngtWad/mkrNgtRate) > max_int256();
-    bool revert4 = ink < to_mathint(ngtWad/mkrNgtRate) || ngtWad/mkrNgtRate > 0 && (ink - ngtWad/mkrNgtRate) * spot < art * rate;
+    bool revert4 = vatUrnsIlkUrnInk < to_mathint(ngtWad/mkrNgtRate) || ngtWad/mkrNgtRate > 0 && (vatUrnsIlkUrnInk - ngtWad/mkrNgtRate) * vatIlksIlkSpot < vatUrnsIlkUrnArt * vatIlksIlkRate;
     bool revert5 = farm != 0 && ngtWad/mkrNgtRate == 0;
     bool revert6 = ngtWad/mkrNgtRate * fee > max_uint256;
 
@@ -1276,8 +1276,8 @@ rule freeNoFee(address urn, address to, uint256 wad) {
     require other2 != urn && other2 != farm;
 
     bytes32 ilk = ilk();
-    mathint inkBefore; mathint a;
-    inkBefore, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkBefore; mathint a;
+    vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
     mathint mkrTotalSupplyBefore = mkr.totalSupply();
     mathint mkrBalanceOfToBefore = mkr.balanceOf(to);
     mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
@@ -1294,8 +1294,8 @@ rule freeNoFee(address urn, address to, uint256 wad) {
 
     freeNoFee(e, urn, to, wad);
 
-    mathint inkAfter;
-    inkAfter, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkAfter;
+    vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
     mathint mkrTotalSupplyAfter = mkr.totalSupply();
     mathint mkrBalanceOfToAfter = mkr.balanceOf(to);
     mathint mkrBalanceOfVoteDelegateAfter = mkr.balanceOf(voteDelegate_);
@@ -1306,7 +1306,7 @@ rule freeNoFee(address urn, address to, uint256 wad) {
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
 
-    assert inkAfter == inkBefore - wad, "Assert 1";
+    assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore - wad, "Assert 1";
     assert mkrTotalSupplyAfter == mkrTotalSupplyBefore, "Assert 2";
     assert to != currentContract && to != voteDelegate_   ||
            to == currentContract && voteDelegate_ != addrZero() ||
@@ -1345,9 +1345,9 @@ rule freeNoFee_revert(address urn, address to, uint256 wad) {
     mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
 
     bytes32 ilk = ilk();
-    mathint ink; mathint art; mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
-    ink, art = vat.urns(ilk, urn);
-    Art, rate, spot, a, dust = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt; mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkDust; mathint a;
+    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
+    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, a, vatIlksIlkDust = vat.ilks(ilk);
 
     // Happening in urn init
     require vat.can(urn, currentContract) == 1;
@@ -1360,24 +1360,24 @@ rule freeNoFee_revert(address urn, address to, uint256 wad) {
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
     // TODO: this might be nice to prove in some sort
     require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
-    require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= ink;
-    require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= ink;
+    require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
+    require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
     require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
     require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
     // Practical Vat assumptions
     require vat.live() == 1;
-    require rate >= RAY() && rate <= max_int256();
-    require (ink - wad) * spot <= max_uint256;
-    require rate * Art <= max_uint256;
-    require Art >= art;
-    require art == 0 || rate * art >= dust;
+    require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
+    require (vatUrnsIlkUrnInk - wad) * vatIlksIlkSpot <= max_uint256;
+    require vatIlksIlkRate * vatIlksIlkArt <= max_uint256;
+    require vatIlksIlkArt >= vatUrnsIlkUrnArt;
+    require vatUrnsIlkUrnArt == 0 || vatIlksIlkRate * vatUrnsIlkUrnArt >= vatIlksIlkDust;
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
     require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
     require lsmkr.balanceOf(urn) > 0 => farm == addrZero();
     require stakingRewards.balanceOf(urn)  > 0 => farm != addrZero();
-    require ink == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
+    require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     freeNoFee@withrevert(e, urn, to, wad);
 
@@ -1385,7 +1385,7 @@ rule freeNoFee_revert(address urn, address to, uint256 wad) {
     bool revert2 = wardsSender != 1;
     bool revert3 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
     bool revert4 = to_mathint(wad) > max_int256();
-    bool revert5 = ink < to_mathint(wad) || wad > 0 && (ink - wad) * spot < art * rate;
+    bool revert5 = vatUrnsIlkUrnInk < to_mathint(wad) || wad > 0 && (vatUrnsIlkUrnInk - wad) * vatIlksIlkSpot < vatUrnsIlkUrnArt * vatIlksIlkRate;
     bool revert6 = farm != 0 && wad == 0;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
@@ -1400,10 +1400,10 @@ rule draw(address urn, address to, uint256 wad) {
     require other != to;
 
     bytes32 ilk = ilk();
-    mathint ArtBefore; mathint a;
-    ArtBefore, a, a, a, a = vat.ilks(ilk);
-    mathint artBefore;
-    a, artBefore = vat.urns(ilk, urn);
+    mathint vatIlksIlkArtBefore; mathint a;
+    vatIlksIlkArtBefore, a, a, a, a = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnArtBefore;
+    a, vatUrnsIlkUrnArtBefore = vat.urns(ilk, urn);
     mathint nstTotalSupplyBefore = nst.totalSupply();
     mathint nstBalanceOfToBefore = nst.balanceOf(to);
     mathint nstBalanceOfOtherBefore = nst.balanceOf(other);
@@ -1413,16 +1413,16 @@ rule draw(address urn, address to, uint256 wad) {
 
     draw(e, urn, to, wad);
 
-    mathint ArtAfter; mathint rateAfter;
-    ArtAfter, rateAfter, a, a, a = vat.ilks(ilk);
-    mathint artAfter;
-    a, artAfter = vat.urns(ilk, urn);
+    mathint vatIlksIlkArtAfter; mathint vatIlksIlkRateAfter;
+    vatIlksIlkArtAfter, vatIlksIlkRateAfter, a, a, a = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnArtAfter;
+    a, vatUrnsIlkUrnArtAfter = vat.urns(ilk, urn);
     mathint nstTotalSupplyAfter = nst.totalSupply();
     mathint nstBalanceOfToAfter = nst.balanceOf(to);
     mathint nstBalanceOfOtherAfter = nst.balanceOf(other);
 
-    assert ArtAfter == ArtBefore + _divup(wad * RAY(), rateAfter), "Assert 1";
-    assert artAfter == artBefore + _divup(wad * RAY(), rateAfter), "Assert 2";
+    assert vatIlksIlkArtAfter == vatIlksIlkArtBefore + _divup(wad * RAY(), vatIlksIlkRateAfter), "Assert 1";
+    assert vatUrnsIlkUrnArtAfter == vatUrnsIlkUrnArtBefore + _divup(wad * RAY(), vatIlksIlkRateAfter), "Assert 2";
     assert nstTotalSupplyAfter == nstTotalSupplyBefore + wad, "Assert 3";
     assert nstBalanceOfToAfter == nstBalanceOfToBefore + wad, "Assert 4";
     assert nstBalanceOfOtherAfter == nstBalanceOfOtherBefore, "Assert 5";
@@ -1436,21 +1436,21 @@ rule draw_revert(address urn, address to, uint256 wad) {
     mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
 
     bytes32 ilk = ilk();
-    mathint Line = vat.Line();
-    mathint debt = vat.debt();
-    mathint Art; mathint prev; mathint spot; mathint line; mathint dust; mathint a;
-    Art, prev, spot, line, dust = vat.ilks(ilk);
-    mathint ink; mathint art;
-    ink, art = vat.urns(ilk, urn);
+    mathint vatDebt = vat.debt();
+    mathint vatLine = vat.Line();
+    mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkLine; mathint vatIlksIlkDust; mathint a;
+    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, vatIlksIlkLine, vatIlksIlkDust = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt;
+    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
     mathint nstTotalSupply = nst.totalSupply();
     mathint nstBalanceOfTo = nst.balanceOf(to);
 
     storage init = lastStorage;
-    mathint rate = dripSummary(ilk);
+    mathint calcVatIlksIlkRateAfter = dripSummary(ilk);
     // Avoid division by zero
-    require rate > 0;
+    require calcVatIlksIlkRateAfter > 0;
 
-    mathint dart = _divup(wad * RAY(), rate);
+    mathint dart = _divup(wad * RAY(), calcVatIlksIlkRateAfter);
 
     // Happening in constructor
     require vat.can(currentContract, nstJoin) == 1;
@@ -1463,15 +1463,15 @@ rule draw_revert(address urn, address to, uint256 wad) {
     // Practical Vat assumptions
     require vat.live() == 1;
     require vat.wards(jug) == 1;
-    require rate >= RAY() && rate <= max_int256();
-    require ink * spot <= max_uint256;
-    require rate * Art <= max_uint256;
-    require Art >= art;
-    require Art + dart <= max_uint256;
-    require rate * dart <= max_int256();
-    require debt + Art * (rate - prev) + (rate * dart) <= max_int256();
-    require vat.dai(currentContract) + (dart * rate) <= max_uint256;
-    require vat.dai(nstJoin) + (dart * rate) <= max_uint256;
+    require calcVatIlksIlkRateAfter >= RAY() && calcVatIlksIlkRateAfter <= max_int256();
+    require vatUrnsIlkUrnInk * vatIlksIlkSpot <= max_uint256;
+    require calcVatIlksIlkRateAfter * vatIlksIlkArt <= max_uint256;
+    require vatIlksIlkArt >= vatUrnsIlkUrnArt;
+    require vatIlksIlkArt + dart <= max_uint256;
+    require calcVatIlksIlkRateAfter * dart <= max_int256();
+    require vatDebt + vatIlksIlkArt * (calcVatIlksIlkRateAfter - vatIlksIlkRate) + (calcVatIlksIlkRateAfter * dart) <= max_int256();
+    require vat.dai(currentContract) + (dart * calcVatIlksIlkRateAfter) <= max_uint256;
+    require vat.dai(nstJoin) + (dart * calcVatIlksIlkRateAfter) <= max_uint256;
     // Other assumptions
     require wad * RAY() <= max_uint256;
 
@@ -1480,9 +1480,9 @@ rule draw_revert(address urn, address to, uint256 wad) {
     bool revert1 = e.msg.value > 0;
     bool revert2 = urnOwnersUrn != e.msg.sender && urnCanUrnSender != 1;
     bool revert3 = to_mathint(dart) > max_int256();
-    bool revert4 = dart > 0 && ((Art + dart) * rate > line || debt + Art * (rate - prev) + (rate * dart) > Line);
-    bool revert5 = dart > 0 && ink * spot < (art + dart) * rate;
-    bool revert6 = art + dart > 0 && rate * (art + dart) < dust;
+    bool revert4 = dart > 0 && ((vatIlksIlkArt + dart) * calcVatIlksIlkRateAfter > vatIlksIlkLine || vatDebt + vatIlksIlkArt * (calcVatIlksIlkRateAfter - vatIlksIlkRate) + (calcVatIlksIlkRateAfter * dart) > vatLine);
+    bool revert5 = dart > 0 && vatUrnsIlkUrnInk * vatIlksIlkSpot < (vatUrnsIlkUrnArt + dart) * calcVatIlksIlkRateAfter;
+    bool revert6 = vatUrnsIlkUrnArt + dart > 0 && calcVatIlksIlkRateAfter * (vatUrnsIlkUrnArt + dart) < vatIlksIlkDust;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5 || revert6, "Revert rules failed";
@@ -1496,10 +1496,10 @@ rule wipe(address urn, uint256 wad) {
     require other != e.msg.sender;
 
     bytes32 ilk = ilk();
-    mathint ArtBefore; mathint rate; mathint a;
-    ArtBefore, rate, a, a, a = vat.ilks(ilk);
-    mathint artBefore;
-    a, artBefore = vat.urns(ilk, urn);
+    mathint vatIlksIlkArtBefore; mathint vatIlksIlkRate; mathint a;
+    vatIlksIlkArtBefore, vatIlksIlkRate, a, a, a = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnArtBefore;
+    a, vatUrnsIlkUrnArtBefore = vat.urns(ilk, urn);
     mathint nstTotalSupplyBefore = nst.totalSupply();
     mathint nstBalanceOfSenderBefore = nst.balanceOf(e.msg.sender);
     mathint nstBalanceOfOtherBefore = nst.balanceOf(other);
@@ -1509,16 +1509,16 @@ rule wipe(address urn, uint256 wad) {
 
     wipe(e, urn, wad);
 
-    mathint ArtAfter;
-    ArtAfter, a, a, a, a = vat.ilks(ilk);
-    mathint artAfter;
-    a, artAfter = vat.urns(ilk, urn);
+    mathint vatIlksIlkArtAfter;
+    vatIlksIlkArtAfter, a, a, a, a = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnArtAfter;
+    a, vatUrnsIlkUrnArtAfter = vat.urns(ilk, urn);
     mathint nstTotalSupplyAfter = nst.totalSupply();
     mathint nstBalanceOfSenderAfter = nst.balanceOf(e.msg.sender);
     mathint nstBalanceOfOtherAfter = nst.balanceOf(other);
 
-    assert ArtAfter == ArtBefore - wad * RAY() / rate, "Assert 1";
-    assert artAfter == artBefore - wad * RAY() / rate, "Assert 2";
+    assert vatIlksIlkArtAfter == vatIlksIlkArtBefore - wad * RAY() / vatIlksIlkRate, "Assert 1";
+    assert vatUrnsIlkUrnArtAfter == vatUrnsIlkUrnArtBefore - wad * RAY() / vatIlksIlkRate, "Assert 2";
     assert nstTotalSupplyAfter == nstTotalSupplyBefore - wad, "Assert 3";
     assert nstBalanceOfSenderAfter == nstBalanceOfSenderBefore - wad, "Assert 4";
     assert nstBalanceOfOtherAfter == nstBalanceOfOtherBefore, "Assert 5";
@@ -1529,19 +1529,18 @@ rule wipe_revert(address urn, uint256 wad) {
     env e;
 
     bytes32 ilk = ilk();
-    mathint Line = vat.Line();
-    mathint debt = vat.debt();
-    mathint Art; mathint rate; mathint spot; mathint line; mathint dust; mathint a;
-    Art, rate, spot, line, dust = vat.ilks(ilk);
-    mathint ink; mathint art;
-    ink, art = vat.urns(ilk, urn);
+    mathint vatDebt = vat.debt();
+    mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkLine; mathint vatIlksIlkDust; mathint a;
+    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, vatIlksIlkLine, vatIlksIlkDust = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt;
+    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
     mathint nstTotalSupply = nst.totalSupply();
     mathint nstBalanceOfSender = nst.balanceOf(e.msg.sender);
 
     // Avoid division by zero
-    require rate > 0;
+    require vatIlksIlkRate > 0;
 
-    mathint dart = wad * RAY() / rate;
+    mathint dart = wad * RAY() / vatIlksIlkRate;
 
     // Happening in constructor
     require nst.allowance(currentContract, nstJoin) == max_uint256;
@@ -1555,12 +1554,12 @@ rule wipe_revert(address urn, uint256 wad) {
     // Practical Vat assumptions
     require vat.live() == 1;
     require vat.wards(jug) == 1;
-    require rate >= RAY() && rate <= max_int256();
-    require ink * spot <= max_uint256;
-    require rate * Art <= max_uint256;
-    require Art >= art;
-    require rate * -dart >= min_int256();
-    require debt >= rate * dart;
+    require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
+    require vatUrnsIlkUrnInk * vatIlksIlkSpot <= max_uint256;
+    require vatIlksIlkRate * vatIlksIlkArt <= max_uint256;
+    require vatIlksIlkArt >= vatUrnsIlkUrnArt;
+    require vatIlksIlkRate * -dart >= min_int256();
+    require vatDebt >= vatIlksIlkRate * dart;
     require vat.dai(currentContract) + wad * RAY() <= max_uint256;
     require to_mathint(vat.dai(nstJoin)) >= wad * RAY();
     // Other assumptions
@@ -1570,8 +1569,8 @@ rule wipe_revert(address urn, uint256 wad) {
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = to_mathint(dart) > max_int256();
-    bool revert3 = art < dart;
-    bool revert4 = art - dart > 0 && rate * (art - dart) < dust;
+    bool revert3 = vatUrnsIlkUrnArt < dart;
+    bool revert4 = vatUrnsIlkUrnArt - dart > 0 && vatIlksIlkRate * (vatUrnsIlkUrnArt - dart) < vatIlksIlkDust;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4, "Revert rules failed";
@@ -1585,11 +1584,11 @@ rule wipeAll(address urn) {
     require other != e.msg.sender;
 
     bytes32 ilk = ilk();
-    mathint ArtBefore; mathint rate; mathint a;
-    ArtBefore, rate, a, a, a = vat.ilks(ilk);
-    mathint artBefore;
-    a, artBefore = vat.urns(ilk, urn);
-    mathint wad = _divup(artBefore * rate, RAY());
+    mathint vatIlksIlkArtBefore; mathint vatIlksIlkRate; mathint a;
+    vatIlksIlkArtBefore, vatIlksIlkRate, a, a, a = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnArtBefore;
+    a, vatUrnsIlkUrnArtBefore = vat.urns(ilk, urn);
+    mathint wad = _divup(vatUrnsIlkUrnArtBefore * vatIlksIlkRate, RAY());
     mathint nstTotalSupplyBefore = nst.totalSupply();
     mathint nstBalanceOfSenderBefore = nst.balanceOf(e.msg.sender);
     mathint nstBalanceOfOtherBefore = nst.balanceOf(other);
@@ -1599,16 +1598,16 @@ rule wipeAll(address urn) {
 
     wipeAll(e, urn);
 
-    mathint ArtAfter;
-    ArtAfter, a, a, a, a = vat.ilks(ilk);
-    mathint artAfter;
-    a, artAfter = vat.urns(ilk, urn);
+    mathint vatIlksIlkArtAfter;
+    vatIlksIlkArtAfter, a, a, a, a = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnArtAfter;
+    a, vatUrnsIlkUrnArtAfter = vat.urns(ilk, urn);
     mathint nstTotalSupplyAfter = nst.totalSupply();
     mathint nstBalanceOfSenderAfter = nst.balanceOf(e.msg.sender);
     mathint nstBalanceOfOtherAfter = nst.balanceOf(other);
 
-    assert ArtAfter == ArtBefore - artBefore, "Assert 1";
-    assert artAfter == 0, "Assert 2";
+    assert vatIlksIlkArtAfter == vatIlksIlkArtBefore - vatUrnsIlkUrnArtBefore, "Assert 1";
+    assert vatUrnsIlkUrnArtAfter == 0, "Assert 2";
     assert nstTotalSupplyAfter == nstTotalSupplyBefore - wad, "Assert 3";
     assert nstBalanceOfSenderAfter == nstBalanceOfSenderBefore - wad, "Assert 4";
     assert nstBalanceOfOtherAfter == nstBalanceOfOtherBefore, "Assert 5";
@@ -1619,16 +1618,15 @@ rule wipeAll_revert(address urn) {
     env e;
 
     bytes32 ilk = ilk();
-    mathint Line = vat.Line();
-    mathint debt = vat.debt();
-    mathint Art; mathint rate; mathint spot; mathint line; mathint dust; mathint a;
-    Art, rate, spot, line, dust = vat.ilks(ilk);
-    mathint ink; mathint art;
-    ink, art = vat.urns(ilk, urn);
+    mathint vatDebt = vat.debt();
+    mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkLine; mathint vatIlksIlkDust; mathint a;
+    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, vatIlksIlkLine, vatIlksIlkDust = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt;
+    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
     mathint nstTotalSupply = nst.totalSupply();
     mathint nstBalanceOfSender = nst.balanceOf(e.msg.sender);
 
-    mathint wad = _divup(art * rate, RAY());
+    mathint wad = _divup(vatUrnsIlkUrnArt * vatIlksIlkRate, RAY());
 
     // Happening in constructor
     require nst.allowance(currentContract, nstJoin) == max_uint256;
@@ -1642,12 +1640,12 @@ rule wipeAll_revert(address urn) {
     // Practical Vat assumptions
     require vat.live() == 1;
     require vat.wards(jug) == 1;
-    require rate >= RAY() && rate <= max_int256();
-    require ink * spot <= max_uint256;
-    require rate * Art <= max_uint256;
-    require Art >= art;
-    require rate * -art >= min_int256();
-    require debt >= rate * art;
+    require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
+    require vatUrnsIlkUrnInk * vatIlksIlkSpot <= max_uint256;
+    require vatIlksIlkRate * vatIlksIlkArt <= max_uint256;
+    require vatIlksIlkArt >= vatUrnsIlkUrnArt;
+    require vatIlksIlkRate * -vatUrnsIlkUrnArt >= min_int256();
+    require vatDebt >= vatIlksIlkRate * vatUrnsIlkUrnArt;
     require vat.dai(currentContract) + wad * RAY() <= max_uint256;
     require to_mathint(vat.dai(nstJoin)) >= wad * RAY();
     // Other assumptions
@@ -1656,7 +1654,7 @@ rule wipeAll_revert(address urn) {
     wipeAll@withrevert(e, urn);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = to_mathint(art) > max_int256();
+    bool revert2 = to_mathint(vatUrnsIlkUrnArt) > max_int256();
 
     assert lastReverted <=> revert1 || revert2, "Revert rules failed";
 }
@@ -1742,8 +1740,8 @@ rule onKick(address urn, uint256 wad) {
     require other3 != prevFarm && other3 != urn;
 
     bytes32 ilk = ilk();
-    mathint ink; mathint a;
-    ink, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInk; mathint a;
+    vatUrnsIlkUrnInk, a = vat.urns(ilk, urn);
 
     address urnVoteDelegatesOtherBefore = urnVoteDelegates(other);
     address urnFarmsOtherBefore = urnFarms(other);
@@ -1784,15 +1782,15 @@ rule onKick(address urn, uint256 wad) {
     assert urnAuctionsUrnAfter == urnAuctionsUrnBefore + 1, "Assert 5";
     assert urnAuctionsOtherAfter == urnAuctionsOtherBefore, "Assert 6";
     assert prevVoteDelegate == addrZero() => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore, "Assert 7";
-    assert prevVoteDelegate != addrZero() => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - ink - wad, "Assert 8";
+    assert prevVoteDelegate != addrZero() => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - vatUrnsIlkUrnInk - wad, "Assert 8";
     assert prevVoteDelegate == addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 9";
-    assert prevVoteDelegate != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + ink + wad, "Assert 10";
+    assert prevVoteDelegate != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + vatUrnsIlkUrnInk + wad, "Assert 10";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 11";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - wad, "Assert 12";
     assert prevFarm == addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "Assert 13";
-    assert prevFarm != addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - ink - wad, "Assert 14";
+    assert prevFarm != addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - vatUrnsIlkUrnInk - wad, "Assert 14";
     assert prevFarm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 15";
-    assert prevFarm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + ink, "Assert 16";
+    assert prevFarm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + vatUrnsIlkUrnInk, "Assert 16";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 17";
 }
 
@@ -1808,8 +1806,8 @@ rule onKick_revert(address urn, uint256 wad) {
 
     mathint wardsSender = wards(e.msg.sender);
     mathint urnAuctionsUrn = urnAuctions(urn);
-    mathint ink; mathint art;
-    ink, art = vat.urns(ilk(), urn);
+    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt;
+    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk(), urn);
 
     // Happening in urn init
     require lsmkr.allowance(urn, currentContract) == max_uint256;
@@ -1817,15 +1815,15 @@ rule onKick_revert(address urn, uint256 wad) {
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(urn) + lsmkr.balanceOf(currentContract);
     require stakingRewards.totalSupply() >= stakingRewards.balanceOf(urn);
     // VoteDelegate assumptions
-    require prevVoteDelegate == addrZero() || to_mathint(voteDelegate.stake(currentContract)) >= ink + wad;
+    require prevVoteDelegate == addrZero() || to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk + wad;
     require prevVoteDelegate == addrZero() || mkr.balanceOf(voteDelegate) >= voteDelegate.stake(currentContract);
     // StakingRewards assumptions
     require prevFarm == addrZero() && lsmkr.balanceOf(urn) >= wad ||
-            prevFarm != addrZero() && to_mathint(stakingRewards.balanceOf(urn)) >= ink + wad && to_mathint(lsmkr.balanceOf(prevFarm)) >= ink + wad;
+            prevFarm != addrZero() && to_mathint(stakingRewards.balanceOf(urn)) >= vatUrnsIlkUrnInk + wad && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUrnInk + wad;
     // LockstakeClipper assumption
     require wad > 0;
-    // Practical assumption (ink + wad should be the same than the ink prev to the kick call)
-    require ink + wad <= max_uint256;
+    // Practical assumption (vatUrnsIlkUrnInk + wad should be the same than the vatUrnsIlkUrnInk prev to the kick call)
+    require vatUrnsIlkUrnInk + wad <= max_uint256;
 
     onKick@withrevert(e, urn, wad);
 
@@ -1894,8 +1892,8 @@ rule onRemove(address urn, uint256 sold, uint256 left) {
     mathint fee = fee();
     mathint urnAuctionsUrnBefore = urnAuctions(urn);
     mathint urnAuctionsOtherBefore = urnAuctions(other);
-    mathint inkBefore; mathint a;
-    inkBefore, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkBefore; mathint a;
+    vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
     mathint mkrTotalSupplyBefore = mkr.totalSupply();
     mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other2);
@@ -1916,8 +1914,8 @@ rule onRemove(address urn, uint256 sold, uint256 left) {
 
     mathint urnAuctionsUrnAfter = urnAuctions(urn);
     mathint urnAuctionsOtherAfter = urnAuctions(other);
-    mathint inkAfter;
-    inkAfter, a = vat.urns(ilk, urn);
+    mathint vatUrnsIlkUrnInkAfter;
+    vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
     mathint mkrTotalSupplyAfter = mkr.totalSupply();
     mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other2);
@@ -1927,8 +1925,8 @@ rule onRemove(address urn, uint256 sold, uint256 left) {
 
     assert urnAuctionsUrnAfter == urnAuctionsUrnBefore - 1, "Assert 1";
     assert urnAuctionsOtherAfter == urnAuctionsOtherBefore, "Assert 2";
-    assert refund > 0 => inkAfter == inkBefore + refund, "Assert 3";
-    assert refund == 0 => inkAfter == inkBefore, "Assert 4";
+    assert refund > 0 => vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore + refund, "Assert 3";
+    assert refund == 0 => vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore, "Assert 4";
     assert mkrTotalSupplyAfter == mkrTotalSupplyBefore - burn, "Assert 5";
     assert mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - burn, "Assert 6";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 7";
@@ -1947,10 +1945,10 @@ rule onRemove_revert(address urn, uint256 sold, uint256 left) {
     bytes32 ilk = ilk();
     mathint fee = fee();
     mathint urnAuctionsUrn = urnAuctions(urn);
-    mathint Art; mathint rate; mathint spot; mathint dust; mathint a;
-    Art, rate, spot, a, dust = vat.ilks(ilk);
-    mathint ink; mathint art;
-    ink, art = vat.urns(ilk, urn);
+    mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkDust; mathint a;
+    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, a, vatIlksIlkDust = vat.ilks(ilk);
+    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt;
+    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
     mathint mkrTotalSupply = mkr.totalSupply();
     mathint mkrBalanceOfEngine = mkr.balanceOf(currentContract);
     mathint lsmkrTotalSupply = lsmkr.totalSupply();
@@ -1973,12 +1971,12 @@ rule onRemove_revert(address urn, uint256 sold, uint256 left) {
 
     // Practical Vat assumptions
     require vat.live() == 1;
-    require rate >= RAY() && rate <= max_int256();
-    require ink + refund <= max_uint256;
-    require (ink + refund) * spot <= max_uint256;
-    require rate * Art <= max_uint256;
-    require Art >= art;
-    require art == 0 || rate * art >= dust;
+    require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
+    require vatUrnsIlkUrnInk + refund <= max_uint256;
+    require (vatUrnsIlkUrnInk + refund) * vatIlksIlkSpot <= max_uint256;
+    require vatIlksIlkRate * vatIlksIlkArt <= max_uint256;
+    require vatIlksIlkArt >= vatUrnsIlkUrnArt;
+    require vatUrnsIlkUrnArt == 0 || vatIlksIlkRate * vatUrnsIlkUrnArt >= vatIlksIlkDust;
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
     // Practical token assumptions

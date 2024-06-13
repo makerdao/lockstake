@@ -609,6 +609,12 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     mathint countBefore = count();
     uint256 otherUint256;
     require otherUint256 != id;
+    mathint activeLastBefore;
+    if (countBefore > 0) {
+        activeLastBefore = active(assert_uint256(countBefore - 1));
+    } else {
+        activeLastBefore = 0;
+    }
 
     mathint salesIdPosBefore; mathint salesIdTabBefore; mathint salesIdLotBefore; mathint salesIdTotBefore; address salesIdUsrBefore; mathint salesIdTicBefore; mathint salesIdTopBefore;
     salesIdPosBefore, salesIdTabBefore, salesIdLotBefore, salesIdTotBefore, salesIdUsrBefore, salesIdTicBefore, salesIdTopBefore = sales(id);
@@ -667,6 +673,9 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     mathint calcLotAfter = salesIdLotBefore - slice;
     bool isRemoved = calcLotAfter == 0 || calcTabAfter == 0;
     mathint fee = lockstakeEngine.fee();
+    // Happening in kick
+    require salesIdLotBefore <= max_int256();
+    require salesIdTotBefore >= salesIdLotBefore;
     // Happening in Engine constructor
     require fee < WAD();
     mathint sold = calcLotAfter == 0 ? salesIdTotBefore : (calcTabAfter == 0 ? salesIdTotBefore - calcLotAfter : 0);
@@ -706,7 +715,7 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     assert salesIdUsrAfter == (isRemoved ? addrZero() : salesIdUsrBefore), "Assert 6";
     assert salesIdTicAfter == (isRemoved ? 0 : salesIdTicBefore), "Assert 7";
     assert salesIdTopAfter == (isRemoved ? 0 : salesIdTopBefore), "Assert 8";
-    assert salesOtherPosAfter == (otherUint256 == active(assert_uint256(countBefore - 1)) && isRemoved ? salesIdPosBefore : salesOtherPosBefore), "Assert 9";
+    assert salesOtherPosAfter == (to_mathint(otherUint256) == activeLastBefore && isRemoved ? salesIdPosBefore : salesOtherPosBefore), "Assert 9";
     assert salesOtherTabAfter == salesOtherTabBefore, "Assert 10";
     assert salesOtherLotAfter == salesOtherLotBefore, "Assert 11";
     assert salesOtherTotAfter == salesOtherTotBefore, "Assert 12";
@@ -902,4 +911,107 @@ rule upchost_revert() {
     bool revert2 = vatIlksIlkDust * dogChopIlk > max_uint256;
 
     assert lastReverted <=> revert1 || revert2, "Revert rules failed";
+}
+
+// Verify correct storage changes for non reverting yank
+rule yank(uint256 id) {
+    env e;
+
+    require e.msg.sender != currentContract;
+
+    bytes32 ilk = ilk();
+    // address vow = vow();
+
+    mathint countBefore = count();
+    uint256 otherUint256;
+    require otherUint256 != id;
+    mathint activeLastBefore;
+    if (countBefore > 0) {
+        activeLastBefore = active(assert_uint256(countBefore - 1));
+    } else {
+        activeLastBefore = 0;
+    }
+    mathint a; address b;
+    mathint salesIdPosBefore; mathint salesIdTabBefore; mathint salesIdLotBefore; address salesIdUsrBefore;
+    salesIdPosBefore, salesIdTabBefore, salesIdLotBefore, a, salesIdUsrBefore, a, a = sales(id);
+    mathint salesOtherPosBefore; mathint salesOtherTabBefore; mathint salesOtherLotBefore; mathint salesOtherTotBefore; address salesOtherUsrBefore; mathint salesOtherTicBefore; mathint salesOtherTopBefore;
+    salesOtherPosBefore, salesOtherTabBefore, salesOtherLotBefore, salesOtherTotBefore, salesOtherUsrBefore, salesOtherTicBefore, salesOtherTopBefore = sales(otherUint256);
+    mathint dogDirtBefore = dog.Dirt();
+    mathint dogIlkDirtBefore;
+    b, a, a, dogIlkDirtBefore = dog.ilks(ilk);
+    mathint vatGemIlkClipperBefore = vat.gem(ilk, currentContract);
+    mathint vatGemIlkSenderBefore = vat.gem(ilk, e.msg.sender);
+    mathint engineUrnAuctionsUsrBefore = lockstakeEngine.urnAuctions(salesIdUsrBefore);
+
+    yank(e, id);
+
+    mathint countAfter = count();
+    mathint salesIdPosAfter; mathint salesIdTabAfter; mathint salesIdLotAfter; mathint salesIdTotAfter; address salesIdUsrAfter; mathint salesIdTicAfter; mathint salesIdTopAfter;
+    salesIdPosAfter, salesIdTabAfter, salesIdLotAfter, salesIdTotAfter, salesIdUsrAfter, salesIdTicAfter, salesIdTopAfter = sales(id);
+    mathint salesOtherPosAfter; mathint salesOtherTabAfter; mathint salesOtherLotAfter; mathint salesOtherTotAfter; address salesOtherUsrAfter; mathint salesOtherTicAfter; mathint salesOtherTopAfter;
+    salesOtherPosAfter, salesOtherTabAfter, salesOtherLotAfter, salesOtherTotAfter, salesOtherUsrAfter, salesOtherTicAfter, salesOtherTopAfter = sales(otherUint256);
+    mathint dogDirtAfter = dog.Dirt();
+    mathint dogIlkDirtAfter;
+    b, a, a, dogIlkDirtAfter = dog.ilks(ilk);
+    mathint vatGemIlkClipperAfter = vat.gem(ilk, currentContract);
+    mathint vatGemIlkSenderAfter = vat.gem(ilk, e.msg.sender);
+    mathint engineUrnAuctionsUsrAfter = lockstakeEngine.urnAuctions(salesIdUsrBefore);
+
+    assert countAfter == countBefore - 1, "Assert 1";
+    assert salesIdPosAfter == 0, "Assert 2";
+    assert salesIdTabAfter == 0, "Assert 3";
+    assert salesIdLotAfter == 0, "Assert 4";
+    assert salesIdTotAfter == 0, "Assert 5";
+    assert salesIdUsrAfter == addrZero(), "Assert 6";
+    assert salesIdTicAfter == 0, "Assert 7";
+    assert salesIdTopAfter == 0, "Assert 8";
+    assert salesOtherPosAfter == (to_mathint(otherUint256) == activeLastBefore ? salesIdPosBefore : salesOtherPosBefore), "Assert 9";
+    assert salesOtherTabAfter == salesOtherTabBefore, "Assert 10";
+    assert salesOtherLotAfter == salesOtherLotBefore, "Assert 11";
+    assert salesOtherTotAfter == salesOtherTotBefore, "Assert 12";
+    assert salesOtherUsrAfter == salesOtherUsrBefore, "Assert 13";
+    assert salesOtherTicAfter == salesOtherTicBefore, "Assert 14";
+    assert salesOtherTopAfter == salesOtherTopBefore, "Assert 15";
+    assert dogDirtAfter == dogDirtBefore - salesIdTabBefore, "Assert 16";
+    assert dogIlkDirtAfter == dogIlkDirtBefore - salesIdTabBefore, "Assert 17";
+    assert vatGemIlkClipperAfter == vatGemIlkClipperBefore - salesIdLotBefore, "Assert 18";
+    assert vatGemIlkSenderAfter == vatGemIlkSenderBefore + salesIdLotBefore, "Assert 19";
+    assert engineUrnAuctionsUsrAfter == engineUrnAuctionsUsrBefore - 1, "Assert 20";
+}
+
+// Verify revert rules on yank
+rule yank_revert(uint256 id) {
+    env e;
+
+    require e.msg.sender != currentContract;
+
+    mathint wardsSender = wards(e.msg.sender);
+    mathint locked = lockedGhost();
+    bytes32 ilk = ilk();
+
+    mathint a; mathint salesIdTab; mathint salesIdLot; address salesIdUsr;
+    a, salesIdTab, salesIdLot, a, salesIdUsr, a, a = sales(id);
+
+    mathint dogDirt = dog.Dirt();
+    address b; mathint dogIlkDirt;
+    b, a, a, dogIlkDirt = dog.ilks(ilk);
+
+    mathint vatGemIlkClipper = vat.gem(ilk, currentContract);
+
+    // LockstakeEngine assumptions
+    require lockstakeEngine.urnAuctions(salesIdUsr) > 0;
+    // Dog assumptions
+    require dogDirt >= salesIdTab;
+    require dogIlkDirt >= salesIdTab;
+
+    yank(e, id);
+
+    bool revert1 = e.msg.value > 0;
+    bool revert2 = wardsSender != 1;
+    bool revert3 = locked != 0;
+    bool revert4 = salesIdUsr == addrZero();
+    bool revert5 = vatGemIlkClipper < salesIdLot;
+
+    assert lastReverted <=> revert1 || revert2 || revert3 ||
+                            revert4 || revert5, "Revert rules failed";
 }

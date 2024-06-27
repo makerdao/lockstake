@@ -134,7 +134,7 @@ For the mentioned examples of `chop` and `fee` we get:
 `mat > 1.13 / 0.85 ~= 133%`
 
 Note that in practice the `mat` value is expected to be significantly larger and have buffers over this rough calculation.
-It should take into account market fluctuations and protocol safety, especially for using the governance token as collateral.
+It should take into account market fluctuations and protocol safety, especially considering that the governance token is used as collateral.
 
 **Trusted Farms and Reward Tokens**
 

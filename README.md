@@ -133,6 +133,9 @@ From ① and ② we get the requirement on `mat`:
 For the mentioned examples of `chop` and `fee` we get:
 `mat > 1.13 / 0.85 ~= 133%`
 
+Note that in practice the `mat` value is expected to be significantly larger and have buffers over this rough calculation.
+It should take into account market fluctuations and protocol safety, especially considering that the governance token is used as collateral.
+
 **Trusted Farms and Reward Tokens**
 
 It is assumed that the farm owner is trusted, the reward token implementation is non-malicious, and that the reward token minter/s are not malicious. Therefore, theoretic attacks, in which for example the reward rate is inflated to a point where the farm mechanics block liquidations, are assumed non-feasible.
@@ -223,4 +226,5 @@ Up to date implementation: https://github.com/makerdao/endgame-toolkit/commit/1a
 * In many of the modules, such as the splitter and the flappers, NST can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.
 * The LSE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.
 * Freeing very small amounts could bypass the exit fees (due to the rounding down) but since the LSE is meant to only be deployed on Ethereum, this is assumed to not be economically viable.
+* As opposed to other collateral types, if a user notices an upcoming governance action that can hurt their position (or that they just don't like), they can not exit their position without losing the exit fee.
 * It is assumed that MKR to/from NGT conversions are not blocked.

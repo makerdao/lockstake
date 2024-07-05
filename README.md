@@ -180,8 +180,6 @@ Since the VoteDelegate code is being modified (as described above), the factory 
 
 Note that it is important for the LSE to only allow using VoteDelegate contracts from the factory, so it can be made sure that liquidations can not be blocked.
 
-Up to date implementation: https://github.com/makerdao/vote-delegate/tree/v2/src
-
 ## 4. Keepers Support
 
 In general participating in MKR liquidations should be pretty straightforward using the existing on-chain liquidity. However there is a small caveat:
@@ -206,8 +204,6 @@ The Splitter implements rate-limiting using a `hop` parameter.
 * `burn` - The percentage of the `vow.bump` to be moved to the underlying `flapper`. For example, a value of 0.70 \* `WAD` corresponds to a funneling 70% of the DAI to the burn engine.
 * `hop` - Minimal time between kicks.
 
-Up to date implementation: https://github.com/makerdao/dss-flappers/commit/c946c39ec94bff29c6a118cd702ffaa0f23f3d4a```
-
 ## 6. StakingRewards
 
 The LSE uses a Maker modified [version](https://github.com/makerdao/endgame-toolkit/blob/master/README.md#stakingrewards) of the Synthetix Staking Reward as the farm for distributing NST to stakers.
@@ -219,8 +215,6 @@ The StakingRewards contract `setRewardsDuration` function was modified to enable
 **Configurable Parameters:**
 * `rewardsDistribution` - The address which is allowed to start a rewards distribution. Will be set to the splitter.
 * `rewardsDuration` - The amount of seconds each distribution should take.
-
-Up to date implementation: https://github.com/makerdao/endgame-toolkit/commit/1a857ee888d859b3b08e52ee12f721d1f3ce80c6
 
 ## General Notes
 * In many of the modules, such as the splitter and the flappers, NST can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.

@@ -222,3 +222,8 @@ The StakingRewards contract `setRewardsDuration` function was modified to enable
 * Freeing very small amounts could bypass the exit fees (due to the rounding down) but since the LSE is meant to only be deployed on Ethereum, this is assumed to not be economically viable.
 * As opposed to other collateral types, if a user notices an upcoming governance action that can hurt their position (or that they just don't like), they can not exit their position without losing the exit fee.
 * It is assumed that MKR to/from NGT conversions are not blocked.
+
+## Sherlock Contest:
+
+You can find general (and particular for this repository) scope, definitions, rules, disclaimers and known issues that apply to the Sherlock contest [here](https://github.com/makerdao/sherlock-contest/blob/master/README.md).
+Content listed there should be regarded as if it was in this readme.

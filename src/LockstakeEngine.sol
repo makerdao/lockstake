@@ -75,6 +75,7 @@ contract LockstakeEngine is Multicall {
     mapping(address urn  => address farm)                            public urnFarms;
     mapping(address urn  => uint256 auctionsCount)                   public urnAuctions;
     JugLike                                                          public jug;
+    uint256                                                          public fee;
 
     // --- constants and enums ---
 
@@ -92,7 +93,6 @@ contract LockstakeEngine is Multicall {
     bytes32                 immutable public ilk;
     GemLike                 immutable public mkr;
     GemLike                 immutable public lsmkr;
-    uint256                 immutable public fee;
     MkrNgtLike              immutable public mkrNgt;
     GemLike                 immutable public ngt;
     uint256                 immutable public mkrNgtRate;
@@ -103,6 +103,7 @@ contract LockstakeEngine is Multicall {
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event File(bytes32 indexed what, address data);
+    event File(bytes32 indexed what, uint256 data);
     event AddFarm(address farm);
     event DelFarm(address farm);
     event Open(address indexed owner, uint256 indexed index, address urn);
@@ -136,8 +137,7 @@ contract LockstakeEngine is Multicall {
 
     // --- constructor ---
 
-    constructor(address voteDelegateFactory_, address nstJoin_, bytes32 ilk_, address mkrNgt_, address lsmkr_, uint256 fee_) {
-        require(fee_ < WAD, "LockstakeEngine/fee-equal-or-greater-wad");
+    constructor(address voteDelegateFactory_, address nstJoin_, bytes32 ilk_, address mkrNgt_, address lsmkr_) {
         voteDelegateFactory = VoteDelegateFactoryLike(voteDelegateFactory_);
         nstJoin = NstJoinLike(nstJoin_);
         vat = nstJoin.vat();
@@ -148,7 +148,6 @@ contract LockstakeEngine is Multicall {
         ngt = mkrNgt.ngt();
         mkrNgtRate = mkrNgt.rate();
         lsmkr = GemLike(lsmkr_);
-        fee = fee_;
         urnImplementation = address(new LockstakeUrn(address(vat), lsmkr_));
         vat.hope(nstJoin_);
         nst.approve(nstJoin_, type(uint256).max);
@@ -202,6 +201,14 @@ contract LockstakeEngine is Multicall {
     function file(bytes32 what, address data) external auth {
         if (what == "jug") {
             jug = JugLike(data);
+        } else revert("LockstakeEngine/file-unrecognized-param");
+        emit File(what, data);
+    }
+
+    function file(bytes32 what, uint256 data) external auth {
+        if (what == "fee") {
+            require(data < WAD, "LockstakeEngine/fee-equal-or-greater-wad");
+            fee = data;
         } else revert("LockstakeEngine/file-unrecognized-param");
         emit File(what, data);
     }
@@ -439,7 +446,8 @@ contract LockstakeEngine is Multicall {
         uint256 burn;
         uint256 refund;
         if (left > 0) {
-            burn = _min(sold * fee / (WAD - fee), left);
+            uint256 fee_ = fee;
+            burn = _min(sold * fee_ / (WAD - fee_), left);
             mkr.burn(address(this), burn);
             unchecked { refund = left - burn; }
             if (refund > 0) {

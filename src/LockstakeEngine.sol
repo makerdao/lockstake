@@ -263,8 +263,8 @@ contract LockstakeEngine is Multicall {
         require(prevVoteDelegate != voteDelegate, "LockstakeEngine/same-vote-delegate");
         (uint256 ink, uint256 art) = vat.urns(ilk, urn);
         if (art > 0 && voteDelegate != address(0)) {
-            (, uint256 rate, uint256 spot,,) = vat.ilks(ilk);
-            require(ink * spot >= art * rate, "LockstakeEngine/urn-unsafe");
+            (,, uint256 spot,,) = vat.ilks(ilk);
+            require(ink * spot >= art * jug.drip(ilk), "LockstakeEngine/urn-unsafe");
         }
         _selectVoteDelegate(urn, ink, prevVoteDelegate, voteDelegate);
         emit SelectVoteDelegate(owner, index, voteDelegate);

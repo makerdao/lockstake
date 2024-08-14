@@ -185,7 +185,8 @@ contract LockstakeEngineIntegrationTest is DssTest {
         handler = new LockstakeHandler(
             vm,
             address(engine),
-            urn,
+            address(this),
+            0,
             address(spot),
             address(dog),
             pauseProxy,

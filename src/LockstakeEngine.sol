@@ -34,6 +34,7 @@ interface VatLike {
     function hope(address) external;
     function slip(bytes32, address, int256) external;
     function frob(bytes32, address, address, address, int256, int256) external;
+    function grab(bytes32, address, address, address, int256, int256) external;
 }
 
 interface NstJoinLike {
@@ -453,7 +454,7 @@ contract LockstakeEngine is Multicall {
                 // The following is ensured by the dog and clip but we still prefer to be explicit
                 require(refund <= uint256(type(int256).max), "LockstakeEngine/overflow");
                 vat.slip(ilk, urn, int256(refund));
-                vat.frob(ilk, urn, urn, address(0), int256(refund), 0);
+                vat.grab(ilk, urn, urn, address(0), int256(refund), 0);
                 lsmkr.mint(urn, refund);
             }
         }

@@ -38,7 +38,7 @@ There is also support for locking and freeing NGT instead of MKR.
 * `selectFarm(address owner, uint256 index, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `owner-index` `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
 * `draw(address owner, uint256 index, address to, uint256 wad)` - Generate `wad` amount of NST using the `owner-index` `urn`’s MKR as collateral and send it to the `to` address.
 * `wipe(address owner, uint256 index, uint256 wad)` - Repay `wad` amount of NST backed by the `owner-index` `urn`’s MKR.
-* `wipeAll(address urn)` - Repay the amount of NST that is needed to wipe the `owner-index` `urn`’s entire debt.
+* `wipeAll(address owner, uint256 index)` - Repay the amount of NST that is needed to wipe the `owner-index` `urn`’s entire debt.
 * `getReward(address owner, uint256 index, address farm, address to)` - Claim the reward generated from a farm on behalf of the `owner-index` `urn` and send it to the specified `to` address.
 * `multicall(bytes[] calldata data)` - Batch multiple methods in a single call to the contract.
 

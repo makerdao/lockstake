@@ -225,7 +225,7 @@ contract LockstakeEngine is Multicall {
     // --- getters ---
 
     function isUrnAuth(address owner, uint256 index, address usr) external view returns (bool ok) {
-        ok = _urnAuth(owner, ownerUrns[owner][index], usr);
+        ok = _urnAuth(owner, _getUrn(owner, index), usr);
     }
 
     // --- urn management functions ---

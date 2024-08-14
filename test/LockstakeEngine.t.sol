@@ -505,6 +505,8 @@ contract LockstakeEngineTest is DssTest {
         mkr.transfer(urnAuthed, 100_000 * 10**18);
         ngt.transfer(urnAuthed, 100_000 * 24_000 * 10**18);
         vm.startPrank(urnOwner);
+        vm.expectRevert("LockstakeEngine/invalid-urn");
+        engine.isUrnAuth(urnOwner, 0, urnOwner);
         address urn = engine.open(0);
         assertTrue(engine.isUrnAuth(urnOwner, 0, urnOwner));
         assertTrue(!engine.isUrnAuth(urnOwner, 0, urnAuthed));

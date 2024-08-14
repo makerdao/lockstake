@@ -177,7 +177,7 @@ contract LockstakeEngine is Multicall {
         require(urn != address(0), "LockstakeEngine/invalid-urn");
     }
 
-    function _getUrnAndCheckAuthed(address owner, uint256 index) internal view returns (address urn) {
+    function _getAuthedUrn(address owner, uint256 index) internal view returns (address urn) {
         urn = _getUrn(owner, index);
         require(_urnAuth(owner, urn, msg.sender), "LockstakeEngine/urn-not-authorized");
     }
@@ -241,13 +241,13 @@ contract LockstakeEngine is Multicall {
     }
 
     function hope(address owner, uint256 index, address usr) external {
-        address urn = _getUrnAndCheckAuthed(owner, index);
+        address urn = _getAuthedUrn(owner, index);
         urnCan[urn][usr] = 1;
         emit Hope(owner, index, usr);
     }
 
     function nope(address owner, uint256 index, address usr) external {
-        address urn = _getUrnAndCheckAuthed(owner, index);
+        address urn = _getAuthedUrn(owner, index);
         urnCan[urn][usr] = 0;
         emit Nope(owner, index, usr);
     }
@@ -255,7 +255,7 @@ contract LockstakeEngine is Multicall {
     // --- delegation/staking functions ---
 
     function selectVoteDelegate(address owner, uint256 index, address voteDelegate) external {
-        address urn = _getUrnAndCheckAuthed(owner, index);
+        address urn = _getAuthedUrn(owner, index);
         require(urnAuctions[urn] == 0, "LockstakeEngine/urn-in-auction");
         require(voteDelegate == address(0) || voteDelegateFactory.created(voteDelegate) == 1, "LockstakeEngine/not-valid-vote-delegate");
         address prevVoteDelegate = urnVoteDelegates[urn];
@@ -283,7 +283,7 @@ contract LockstakeEngine is Multicall {
     }
 
     function selectFarm(address owner, uint256 index, address farm, uint16 ref) external {
-        address urn = _getUrnAndCheckAuthed(owner, index);
+        address urn = _getAuthedUrn(owner, index);
         require(urnAuctions[urn] == 0, "LockstakeEngine/urn-in-auction");
         require(farm == address(0) || farms[farm] == FarmStatus.ACTIVE, "LockstakeEngine/farm-unsupported-or-deleted");
         address prevFarm = urnFarms[urn];
@@ -338,14 +338,14 @@ contract LockstakeEngine is Multicall {
     }
 
     function free(address owner, uint256 index, address to, uint256 wad) external returns (uint256 freed) {
-        address urn = _getUrnAndCheckAuthed(owner, index);
+        address urn = _getAuthedUrn(owner, index);
         freed = _free(urn, wad, fee);
         mkr.transfer(to, freed);
         emit Free(owner, index, to, wad, freed);
     }
 
     function freeNgt(address owner, uint256 index, address to, uint256 ngtWad) external returns (uint256 ngtFreed) {
-        address urn = _getUrnAndCheckAuthed(owner, index);
+        address urn = _getAuthedUrn(owner, index);
         uint256 wad = ngtWad / mkrNgtRate;
         uint256 freed = _free(urn, wad, fee);
         ngtFreed = freed * mkrNgtRate;
@@ -354,7 +354,7 @@ contract LockstakeEngine is Multicall {
     }
 
     function freeNoFee(address owner, uint256 index, address to, uint256 wad) external auth {
-        address urn = _getUrnAndCheckAuthed(owner, index);
+        address urn = _getAuthedUrn(owner, index);
         _free(urn, wad, 0);
         mkr.transfer(to, wad);
         emit FreeNoFee(owner, index, to, wad);
@@ -383,7 +383,7 @@ contract LockstakeEngine is Multicall {
     // --- loan functions ---
 
     function draw(address owner, uint256 index, address to, uint256 wad) external {
-        address urn = _getUrnAndCheckAuthed(owner, index);
+        address urn = _getAuthedUrn(owner, index);
         uint256 rate = jug.drip(ilk);
         uint256 dart = _divup(wad * RAY, rate);
         require(dart <= uint256(type(int256).max), "LockstakeEngine/overflow");
@@ -418,7 +418,7 @@ contract LockstakeEngine is Multicall {
     // --- staking rewards function ---
 
     function getReward(address owner, uint256 index, address farm, address to) external returns (uint256 amt) {
-        address urn = _getUrnAndCheckAuthed(owner, index);
+        address urn = _getAuthedUrn(owner, index);
         require(farms[farm] > FarmStatus.UNSUPPORTED, "LockstakeEngine/farm-unsupported");
         amt = LockstakeUrn(urn).getReward(farm, to);
         emit GetReward(owner, index, farm, to, amt);

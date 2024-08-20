@@ -125,8 +125,9 @@ contract LockstakeEngineIntegrationTest is DssTest {
         vm.prank(voter1); voterDelegate1 = delFactory.create();
 
         vm.startPrank(pauseProxy);
-        engine = new LockstakeEngine(address(delFactory), address(nstJoin), ilk, address(mkrNgt), address(lsmkr), 15 * WAD / 100);
+        engine = new LockstakeEngine(address(delFactory), address(nstJoin), ilk, address(mkrNgt), address(lsmkr));
         engine.file("jug", jug);
+        engine.file("fee", 15 * WAD / 100);
         vat.rely(address(engine));
         vat.init(ilk);
         JugLike(jug).init(ilk);

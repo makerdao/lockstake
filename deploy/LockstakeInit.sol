@@ -36,6 +36,7 @@ interface LockstakeEngineLike {
     function ngt() external view returns (address);
     function rely(address) external;
     function file(bytes32, address) external;
+    function file(bytes32, uint256) external;
     function addFarm(address) external;
 }
 
@@ -150,7 +151,6 @@ library LockstakeInit {
         require(engine.ilk()                 == cfg.ilk,                   "Engine ilk mismatch");
         require(engine.mkr()                 == cfg.mkr,                   "Engine mkr mismatch");
         require(engine.lsmkr()               == lockstakeInstance.lsmkr,   "Engine lsmkr mismatch");
-        require(engine.fee()                 == cfg.fee,                   "Engine fee mismatch");
         require(engine.mkrNgt()              == cfg.mkrNgt,                "Engine mkrNgt mismatch");
         require(engine.ngt()                 == cfg.ngt,                   "Engine ngt mismatch");
         require(clipper.ilk()                == cfg.ilk,                   "Clipper ilk mismatch");
@@ -207,6 +207,7 @@ library LockstakeInit {
         LockstakeMkrLike(lockstakeInstance.lsmkr).rely(address(engine));
 
         engine.file("jug", address(dss.jug));
+        engine.file("fee", cfg.fee);
         for (uint256 i = 0; i < cfg.farms.length; i++) {
             require(StakingRewardsLike(cfg.farms[i]).stakingToken() == lockstakeInstance.lsmkr, "Farm staking token mismatch");
             engine.addFarm(cfg.farms[i]);

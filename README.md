@@ -222,4 +222,4 @@ The StakingRewards contract `setRewardsDuration` function was modified to enable
 * The LSE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.
 * Freeing very small amounts could bypass the exit fees (due to the rounding down) but since the LSE is meant to only be deployed on Ethereum, this is assumed to not be economically viable.
 * As opposed to other collateral types, if a user notices an upcoming governance action that can hurt their position (or that they just don't like), they can not exit their position without losing the exit fee.
-* It is assumed that MKR to/from NGT conversions are not blocked.
+* It is assumed that MKR to/from NGT conversions are not blocked. 

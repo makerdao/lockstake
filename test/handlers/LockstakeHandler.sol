@@ -48,8 +48,9 @@ contract LockstakeHandler is StdUtils, StdCheats {
     LockstakeClipper public clip;
 
     address   public pauseProxy;
+    address   public owner;
+    uint256   public index;
     address   public urn;
-    address   public urnOwner;
     address[] public voteDelegates;
     address[] public farms;
     uint256   public mkrNgtRate;
@@ -66,7 +67,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
     }
 
     modifier callAsUrnOwner() {
-        vm.startPrank(urnOwner);
+        vm.startPrank(owner);
         _;
         vm.stopPrank();
     }
@@ -80,7 +81,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
     constructor(
         Vm vm_,
         address engine_,
-        address urn_,
+        address owner_,
+        uint256 index_,
         address spot_,
         address dog_,
         address pauseProxy_,
@@ -101,8 +103,9 @@ contract LockstakeHandler is StdUtils, StdCheats {
 
         (address clip_, , , ) = dog.ilks(ilk);
         clip       = LockstakeClipper(clip_);
-        urn        = urn_;
-        urnOwner   = engine.urnOwners(urn);
+        owner      = owner_;
+        index      = index_;
+        urn        = engine.ownerUrns(owner, index);
         mkrNgtRate = engine.mkrNgtRate();
 
         vat.hope(address(clip));
@@ -201,12 +204,12 @@ contract LockstakeHandler is StdUtils, StdCheats {
 
     function selectFarm(uint16 ref, uint256 farmIndex) callAsUrnOwner() external {
         numCalls["selectFarm"]++;
-        engine.selectFarm(urn, _getRandomFarm(farmIndex), ref);
+        engine.selectFarm(owner, index, _getRandomFarm(farmIndex), ref);
     }
 
     function selectVoteDelegate(uint256 voteDelegateIndex) callAsUrnOwner() external {
         numCalls["selectVoteDelegate"]++;
-        engine.selectVoteDelegate(urn, _getRandomVoteDelegate(voteDelegateIndex));
+        engine.selectVoteDelegate(owner, index, _getRandomVoteDelegate(voteDelegateIndex));
     }
 
     function lock(uint256 wad, uint16 ref) external callAsAnyone {
@@ -224,7 +227,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         deal(address(mkr), anyone, wad);
         mkr.approve(address(engine), wad);
 
-        engine.lock(urn, wad, ref);
+        engine.lock(owner, index, wad, ref);
     }
 
     function lockNgt(uint256 ngtWad, uint16 ref) external callAsAnyone {
@@ -245,7 +248,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         deal(address(ngt), anyone, ngtWad);
         ngt.approve(address(engine), ngtWad);
 
-        engine.lockNgt(urn, ngtWad, ref);
+        engine.lockNgt(owner, index, ngtWad, ref);
     }
 
     function free(address to, uint256 wad) external callAsUrnOwner() {
@@ -257,7 +260,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         (, uint256 rate, uint256 spotPrice,,) = vat.ilks(ilk);
         wad = bound(wad, 0, ink - _divup(art * rate, spotPrice));
 
-        engine.free(urn, to, wad);
+        engine.free(owner, index, to, wad);
     }
 
     function freeNgt(address to, uint256 ngtWad) external callAsUrnOwner() {
@@ -267,7 +270,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         (, uint256 rate, uint256 spotPrice,,) = vat.ilks(ilk);
         ngtWad = bound(ngtWad, 0, (ink - _divup(art * rate, spotPrice)) * mkrNgtRate);
 
-        engine.freeNgt(urn, to, ngtWad);
+        engine.freeNgt(owner, index, to, ngtWad);
     }
 
     function draw(uint256 wad) external callAsUrnOwner() {
@@ -286,7 +289,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
                                                         )
                                                     ));
 
-        engine.draw(urn, address(this), wad);
+        engine.draw(owner, index, address(this), wad);
     }
 
     function wipe(uint256 wad) external callAsAnyone {
@@ -303,7 +306,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         deal(address(nst), anyone, wad);
         nst.approve(address(engine), wad);
 
-        engine.wipe(urn, wad);
+        engine.wipe(owner, index, wad);
     }
 
     function dropPriceAndBark() external {

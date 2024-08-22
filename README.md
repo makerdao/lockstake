@@ -27,19 +27,19 @@ There is also support for locking and freeing NGT instead of MKR.
 **User Functions:**
 
 * `open(uint256 index)` - Create a new `urn` for the sender. The `index` parameter specifies how many `urn`s have been created so far by the user (should be 0 for the first call). It is used to avoid race conditions.
-* `hope(address urn, address usr)` - Allow `usr` to also manage the sender's controlled `urn`.
-* `nope(address urn, address usr)` - Disallow `usr` from managing the sender's controlled `urn`.
-* `lock(address urn, uint256 wad, uint16 ref)` - Deposit `wad` amount of MKR into the `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
-* `lockNgt(address urn, uint256 ngtWad, uint16 ref)` - Deposit `ngtWad` amount of NGT. The NGT is first converted to MKR, which then gets deposited into the `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
-* `free(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed.
-* `freeNgt(address urn, address to, uint256 ngtWad)` - Withdraw `ngtWad - ngtWad % mkrNgtRate` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. Note that freeing NGT is possible even if the position was previously entered via regular locking (using MKR), and vice-vera.
-* `freeNoFee(address urn, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `urn` to the `to` address without paying any fee. This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. This function can only be called by an address which was both authorized on the contract by governance and for which the urn owner has called `hope`. It is useful for implementing a migration contract that will move the funds to another engine contract (if ever needed).
-* `selectVoteDelegate(address urn, address voteDelegate)` - Choose which delegate contract to delegate the `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
-* `selectFarm(address urn, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
-* `draw(address urn, address to, uint256 wad)` - Generate `wad` amount of NST using the `urn`’s MKR as collateral and send it to the `to` address.
-* `wipe(address urn, uint256 wad)` - Repay `wad` amount of NST backed by the `urn`’s MKR.
-* `wipeAll(address urn)` - Repay the amount of NST that is needed to wipe the `urn`s entire debt. 
-* `getReward(address urn, address farm, address to)` - Claim the reward generated from a farm on behalf of the `urn` and send it to the specified `to` address.
+* `hope(address owner, uint256 index, address usr)` - Allow `usr` to also manage the `owner-index` `urn`.
+* `nope(address owner, uint256 index, address usr)` - Disallow `usr` from managing the `owner-index` `urn`.
+* `lock(address owner, uint256 index, uint256 wad, uint16 ref)` - Deposit `wad` amount of MKR into the `owner-index` `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
+* `lockNgt(address owner, uint256 index, uint256 ngtWad, uint16 ref)` - Deposit `ngtWad` amount of NGT. The NGT is first converted to MKR, which then gets deposited into the `owner-index` `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
+* `free(address owner, uint256 index, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `owner-index` `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed.
+* `freeNgt(address owner, uint256 index, address to, uint256 ngtWad)` - Withdraw `ngtWad - ngtWad % mkrNgtRate` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `owner-index` `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. Note that freeing NGT is possible even if the position was previously entered via regular locking (using MKR), and vice-vera.
+* `freeNoFee(address owner, uint256 index, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `owner-index` `urn` to the `to` address without paying any fee. This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. This function can only be called by an address which was both authorized on the contract by governance and for which the urn owner has called `hope`. It is useful for implementing a migration contract that will move the funds to another engine contract (if ever needed).
+* `selectVoteDelegate(address owner, uint256 index, address voteDelegate)` - Choose which delegate contract to delegate the `owner-index` `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
+* `selectFarm(address owner, uint256 index, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `owner-index` `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
+* `draw(address owner, uint256 index, address to, uint256 wad)` - Generate `wad` amount of NST using the `owner-index` `urn`’s MKR as collateral and send it to the `to` address.
+* `wipe(address owner, uint256 index, uint256 wad)` - Repay `wad` amount of NST backed by the `owner-index` `urn`’s MKR.
+* `wipeAll(address owner, uint256 index)` - Repay the amount of NST that is needed to wipe the `owner-index` `urn`’s entire debt.
+* `getReward(address owner, uint256 index, address farm, address to)` - Claim the reward generated from a farm on behalf of the `owner-index` `urn` and send it to the specified `to` address.
 * `multicall(bytes[] calldata data)` - Batch multiple methods in a single call to the contract.
 
 **Sequence Diagram:**
@@ -61,18 +61,18 @@ sequenceDiagram
     engine-->>urn0: (creation)
     engine-->>user: return `urn0` address
        
-    user->>engine: lock(`urn0`, 10, 0)
+    user->>engine: lock(`user`, 0, 10, 0)
     engine-->>vat: vat.frob(ilk, `urn0`, `urn0`, address(0), 10, 0) // lock collateral
     
-    user->>engine: selectVoteDelegate(`urn0`, `delegate0`)
+    user->>engine: selectVoteDelegate(`user`, 0, `delegate0`)
     engine-->>delegate0: lock(10)
     
-    user->>engine: selectFarm(`urn0`, `farm0`, `ref`)
+    user->>engine: selectFarm(`user`, 0, `farm0`, `ref`)
     engine-->>urn0: stake(`farm0`, 10, `ref`)
     urn0-->>farm0: stake(10, `ref`);
     
        
-    user->>engine: draw(`urn0`, `user`, 1000)
+    user->>engine: draw(`user`, 0, `user`, 1000)
     engine-->>vat: vat.frob(ilk, `urn0`, address(0), address(this), 0, 1000) // borrow
 ```
 
@@ -80,11 +80,11 @@ sequenceDiagram
 
 LockstakeEngine implements a function, which allows batching several function calls.
 
-For example, a typical flow for a user (or an app/front-end) would be to first query `index=usrAmts(usr)` and `urn=getUrn(usr, index)` off-chain to retrieve the expected `index` and `urn` address, then use these to perform a multicall sequence that includes `open`, `selectFarm`, `lock` and `stake`.
+For example, a typical flow for a user (or an app/front-end) would be to first query `index=ownerUrnsCount(usr)` off-chain to retrieve the expected `index`, then use it to perform a multicall sequence that includes `open`, `selectFarm`, `lock` and `stake`.
 
 This way, locking and farm-staking can be achieved in only 2 transactions (including the token approval).
 
-Note that since the `index` is first fetched off-chain and there is no support for passing return values between batched calls, there could be race conditions for calling `open`. For example, `open` can be called twice by the user (e.g. in two different contexts) with the second `usrAmts` query happening before the first `open` call has been confirmed. This would lead to both calls using the same `urn` for `selectFarm`, `lock` and `stake`.
+Note that since the `index` is first fetched off-chain and there is no support for passing return values between batched calls, there could be race conditions for calling `open`. For example, `open` can be called twice by the user (e.g. in two different contexts) with the second `ownerUrnsCount` query happening before the first `open` call has been confirmed. This would lead to both calls using the same `urn` for `selectFarm`, `lock` and `stake`.
 
 To mitigate this, the `index` parameter for `open` is used to make sure the multicall transaction creates the intended `urn`.
 

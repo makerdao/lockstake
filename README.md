@@ -104,6 +104,7 @@ The following functions are called from the LockstakeClipper (see below) through
 
 * `farms` - Whitelisted set of farms to choose from.
 * `jug` - The Dai lending rate calculation module.
+* `fee` - Exit fee.
 
 
 ## 2. LockstakeClipper

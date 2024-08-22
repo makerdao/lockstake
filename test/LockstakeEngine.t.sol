@@ -114,7 +114,6 @@ contract LockstakeEngineTest is DssTest {
             address(voteDelegateFactory),
             address(nstJoin),
             ilk,
-            15 * WAD / 100,
             address(mkrNgt),
             bytes4(abi.encodeWithSignature("newLinearDecrease(address)"))
         );
@@ -324,7 +323,6 @@ contract LockstakeEngineTest is DssTest {
             address(voteDelegateFactory),
             address(nstJoin),
             "eee",
-            15 * WAD / 100,
             address(mkrNgt),
             bytes4(abi.encodeWithSignature("newStairstepExponentialDecrease(address)"))
         );
@@ -343,11 +341,9 @@ contract LockstakeEngineTest is DssTest {
 
     function testConstructor() public {
         address lsmkr2 = address(new GemMock(0));
-        vm.expectRevert("LockstakeEngine/fee-equal-or-greater-wad");
-        new LockstakeEngine(address(voteDelegateFactory), address(nstJoin), "aaa", address(mkrNgt), lsmkr2, WAD);
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        LockstakeEngine e = new LockstakeEngine(address(voteDelegateFactory), address(nstJoin), "aaa", address(mkrNgt), lsmkr2, 100);
+        LockstakeEngine e = new LockstakeEngine(address(voteDelegateFactory), address(nstJoin), "aaa", address(mkrNgt), lsmkr2);
         assertEq(address(e.voteDelegateFactory()), address(voteDelegateFactory));
         assertEq(address(e.nstJoin()), address(nstJoin));
         assertEq(address(e.vat()), address(dss.vat));
@@ -355,7 +351,6 @@ contract LockstakeEngineTest is DssTest {
         assertEq(e.ilk(), "aaa");
         assertEq(address(e.mkr()), address(mkr));
         assertEq(address(e.lsmkr()), lsmkr2);
-        assertEq(e.fee(), 100);
         assertEq(address(e.mkrNgt()), address(mkrNgt));
         assertEq(address(e.ngt()), address(ngt));
         assertEq(e.mkrNgtRate(), 24_000);
@@ -375,6 +370,10 @@ contract LockstakeEngineTest is DssTest {
 
     function testFile() public {
         checkFileAddress(address(engine), "LockstakeEngine", ["jug"]);
+        checkFileUint(address(engine), "LockstakeEngine", ["fee"]);
+
+        vm.expectRevert("LockstakeEngine/fee-equal-or-greater-wad");
+        vm.prank(pauseProxy); engine.file("fee", WAD);
     }
 
     function testModifiers() public {

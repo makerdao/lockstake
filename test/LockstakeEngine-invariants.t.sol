@@ -9,10 +9,10 @@ import { LockstakeMkr } from "src/LockstakeMkr.sol";
 import { PipMock } from "test/mocks/PipMock.sol";
 import { VoteDelegateFactoryMock, VoteDelegateMock } from "test/mocks/VoteDelegateMock.sol";
 import { GemMock } from "test/mocks/GemMock.sol";
-import { NstMock } from "test/mocks/NstMock.sol";
-import { NstJoinMock } from "test/mocks/NstJoinMock.sol";
+import { UsdsMock } from "test/mocks/UsdsMock.sol";
+import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
 import { StakingRewardsMock } from "test/mocks/StakingRewardsMock.sol";
-import { MkrNgtMock } from "test/mocks/MkrNgtMock.sol";
+import { MkrSkyMock } from "test/mocks/MkrSkyMock.sol";
 import { LockstakeHandler } from "test/handlers/LockstakeHandler.sol";
 
 interface ChainlogLike {
@@ -67,14 +67,14 @@ contract LockstakeEngineIntegrationTest is DssTest {
     LockstakeClipper    public clip;
     PipMock             public pip;
     VoteDelegateFactoryMock public delFactory;
-    NstMock             public nst;
-    NstJoinMock         public nstJoin;
+    UsdsMock            public usds;
+    UsdsJoinMock        public usdsJoin;
     LockstakeMkr        public lsmkr;
     GemMock             public rTok;
     StakingRewardsMock  public farm0;
     StakingRewardsMock  public farm1;
-    MkrNgtMock          public mkrNgt;
-    GemMock             public ngt;
+    MkrSkyMock          public mkrSky;
+    GemMock             public sky;
     bytes32             public ilk = "LSE";
     address             public voter0;
     address             public voter1;
@@ -108,14 +108,14 @@ contract LockstakeEngineIntegrationTest is DssTest {
         dog = DogLike(ChainlogLike(LOG).getAddress("MCD_DOG"));
         mkr = new GemMock(0);
         jug = ChainlogLike(LOG).getAddress("MCD_JUG");
-        nst = new NstMock();
-        nstJoin = new NstJoinMock(address(vat), address(nst));
+        usds = new UsdsMock();
+        usdsJoin = new UsdsJoinMock(address(vat), address(usds));
         lsmkr = new LockstakeMkr();
         rTok = new GemMock(0);
         farm0 = new StakingRewardsMock(address(rTok), address(lsmkr));
         farm1 = new StakingRewardsMock(address(rTok), address(lsmkr));
-        ngt = new GemMock(0);
-        mkrNgt = new MkrNgtMock(address(mkr), address(ngt), 25_000);
+        sky = new GemMock(0);
+        mkrSky = new MkrSkyMock(address(mkr), address(sky), 25_000);
 
         pip = new PipMock();
         delFactory = new VoteDelegateFactoryMock(address(mkr));
@@ -125,7 +125,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
         vm.prank(voter1); voterDelegate1 = delFactory.create();
 
         vm.startPrank(pauseProxy);
-        engine = new LockstakeEngine(address(delFactory), address(nstJoin), ilk, address(mkrNgt), address(lsmkr));
+        engine = new LockstakeEngine(address(delFactory), address(usdsJoin), ilk, address(mkrSky), address(lsmkr));
         engine.file("jug", jug);
         engine.file("fee", 15 * WAD / 100);
         vat.rely(address(engine));
@@ -169,10 +169,10 @@ contract LockstakeEngineIntegrationTest is DssTest {
         lsmkr.rely(address(engine));
 
         deal(address(mkr), address(this), 100_000 * 10**18, true);
-        deal(address(ngt), address(this), 100_000 * 25_000 * 10**18, true);
+        deal(address(sky), address(this), 100_000 * 25_000 * 10**18, true);
 
-        // Add some existing DAI assigned to nstJoin to avoid a particular error
-        stdstore.target(address(vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(100_000 * RAD);
+        // Add some existing DAI assigned to usdsJoin to avoid a particular error
+        stdstore.target(address(vat)).sig("dai(address)").with_key(address(usdsJoin)).depth(0).checked_write(100_000 * RAD);
 
         address[] memory voteDelegates = new address[](2);
         voteDelegates[0] = voterDelegate0;
@@ -267,9 +267,9 @@ contract LockstakeEngineIntegrationTest is DssTest {
         console.log("selectFarm", handler.numCalls("selectFarm"));
         console.log("selectVoteDelegate", handler.numCalls("selectVoteDelegate"));
         console.log("lock", handler.numCalls("lock"));
-        console.log("lockNgt", handler.numCalls("lockNgt"));
+        console.log("lockSky", handler.numCalls("lockSky"));
         console.log("free", handler.numCalls("free"));
-        console.log("freeNgt", handler.numCalls("freeNgt"));
+        console.log("freeSky", handler.numCalls("freeSky"));
         console.log("draw", handler.numCalls("draw"));
         console.log("wipe", handler.numCalls("wipe"));
         console.log("dropPriceAndBark", handler.numCalls("dropPriceAndBark"));
@@ -277,8 +277,8 @@ contract LockstakeEngineIntegrationTest is DssTest {
         console.log("yank", handler.numCalls("yank"));
         console.log("warp", handler.numCalls("warp"));
         console.log("total count", handler.numCalls("addFarm") + handler.numCalls("selectFarm") + handler.numCalls("selectVoteDelegate") +
-                                   handler.numCalls("lock") + handler.numCalls("lockNgt") + handler.numCalls("free") +
-                                   handler.numCalls("freeNgt") + handler.numCalls("draw") + handler.numCalls("wipe") +
+                                   handler.numCalls("lock") + handler.numCalls("lockSky") + handler.numCalls("free") +
+                                   handler.numCalls("freeSky") + handler.numCalls("draw") + handler.numCalls("wipe") +
                                    handler.numCalls("dropPriceAndBark") + handler.numCalls("take") + handler.numCalls("yank") +
                                    handler.numCalls("warp"));
     }

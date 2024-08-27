@@ -38,8 +38,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
 
     LockstakeEngine  public engine;
     GemMock          public mkr;
-    GemMock          public ngt;
-    GemMock          public nst;
+    GemMock          public sky;
+    GemMock          public usds;
     bytes32          public ilk;
     VatLike          public vat;
     JugLike          public jug;
@@ -53,7 +53,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
     address   public urn;
     address[] public voteDelegates;
     address[] public farms;
-    uint256   public mkrNgtRate;
+    uint256   public mkrSkyRate;
     address   public anyone = address(123);
 
     mapping(bytes32 => uint256) public numCalls;
@@ -92,8 +92,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
         vm         = vm_;
         engine     = LockstakeEngine(engine_);
         mkr        = GemMock(address(engine.mkr()));
-        ngt        = GemMock(address(engine.ngt()));
-        nst        = GemMock(address(engine.nst()));
+        sky        = GemMock(address(engine.sky()));
+        usds       = GemMock(address(engine.usds()));
         pauseProxy = pauseProxy_;
         ilk        = engine.ilk();
         vat        = VatLike(address(engine.vat()));
@@ -106,7 +106,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
         owner      = owner_;
         index      = index_;
         urn        = engine.ownerUrns(owner, index);
-        mkrNgtRate = engine.mkrNgtRate();
+        mkrSkyRate = engine.mkrSkyRate();
 
         vat.hope(address(clip));
 
@@ -230,25 +230,25 @@ contract LockstakeHandler is StdUtils, StdCheats {
         engine.lock(owner, index, wad, ref);
     }
 
-    function lockNgt(uint256 ngtWad, uint16 ref) external callAsAnyone {
-        numCalls["lockNgt"]++;
+    function lockSky(uint256 skyWad, uint16 ref) external callAsAnyone {
+        numCalls["lockSky"]++;
 
-        // ngtWad = bound(ngtWad, 0, uint256(type(int256).max) / 10**18) * 10**18;
+        // skyWad = bound(skyWad, 0, uint256(type(int256).max) / 10**18) * 10**18;
         (uint256 ink,) = vat.urns(ilk, urn);
         (,, uint256 spotPrice,,) = vat.ilks(ilk);
-        ngtWad = bound(ngtWad, 0, _min(
+        skyWad = bound(skyWad, 0, _min(
                                     uint256(type(int256).max),
                                     _min(
                                         type(uint256).max / spotPrice - ink,
-                                        type(uint256).max / mkrNgtRate
+                                        type(uint256).max / mkrSkyRate
                                     )
                                 ) / 10**18
-                      ) * 10**18 * mkrNgtRate;
+                      ) * 10**18 * mkrSkyRate;
 
-        deal(address(ngt), anyone, ngtWad);
-        ngt.approve(address(engine), ngtWad);
+        deal(address(sky), anyone, skyWad);
+        sky.approve(address(engine), skyWad);
 
-        engine.lockNgt(owner, index, ngtWad, ref);
+        engine.lockSky(owner, index, skyWad, ref);
     }
 
     function free(address to, uint256 wad) external callAsUrnOwner() {
@@ -263,14 +263,14 @@ contract LockstakeHandler is StdUtils, StdCheats {
         engine.free(owner, index, to, wad);
     }
 
-    function freeNgt(address to, uint256 ngtWad) external callAsUrnOwner() {
-        numCalls["freeNgt"]++;
+    function freeSky(address to, uint256 skyWad) external callAsUrnOwner() {
+        numCalls["freeSky"]++;
 
         (uint256 ink, uint256 art ) = vat.urns(ilk, urn);
         (, uint256 rate, uint256 spotPrice,,) = vat.ilks(ilk);
-        ngtWad = bound(ngtWad, 0, (ink - _divup(art * rate, spotPrice)) * mkrNgtRate);
+        skyWad = bound(skyWad, 0, (ink - _divup(art * rate, spotPrice)) * mkrSkyRate);
 
-        engine.freeNgt(owner, index, to, ngtWad);
+        engine.freeSky(owner, index, to, skyWad);
     }
 
     function draw(uint256 wad) external callAsUrnOwner() {
@@ -303,8 +303,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
                                         )
                                     : 0);
 
-        deal(address(nst), anyone, wad);
-        nst.approve(address(engine), wad);
+        deal(address(usds), anyone, wad);
+        usds.approve(address(engine), wad);
 
         engine.wipe(owner, index, wad);
     }

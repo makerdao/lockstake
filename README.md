@@ -6,12 +6,12 @@ A technical description of the components of the LockStake Engine (LSE).
 
 The LockstakeEngine is the main contract in the set of contracts that implement and support the LSE. On a high level, it supports locking MKR in the contract, and using it to:
 * Vote through a delegate contract.
-* Farm NST or SDAO tokens.
-* Borrow NST through a vault.
+* Farm USDS or SDAO tokens.
+* Borrow USDS through a vault.
 
 When withdrawing back the MKR the user has to pay an exit fee.
 
-There is also support for locking and freeing NGT instead of MKR.
+There is also support for locking and freeing SKY instead of MKR.
 
 **System Attributes:**
 
@@ -20,7 +20,7 @@ There is also support for locking and freeing NGT instead of MKR.
 * MKR cannot be moved outside of an `urn` or between `urn`s without paying the exit fee.
 * At any time the `urn`'s entire locked MKR amount is either staked or not, and is either delegated or not.
 * Staking rewards are not part of the collateral, and are still claimable after freeing from the engine, changing a farm or being liquidated.
-* The entire locked MKR amount is also credited as collateral for the user. However, the user itself decides if and how much NST to borrow, and should be aware of liquidation risk.
+* The entire locked MKR amount is also credited as collateral for the user. However, the user itself decides if and how much USDS to borrow, and should be aware of liquidation risk.
 * A user can delegate control of an `urn` that it controls to another EOA/contract. This is helpful for supporting manager-type contracts that can be built on top of the engine.
 * Once a vault goes into liquidation, its MKR is undelegated and unstaked. It and can only be re-delegated or re-staked once there are no more auctions for it.
 
@@ -30,15 +30,15 @@ There is also support for locking and freeing NGT instead of MKR.
 * `hope(address owner, uint256 index, address usr)` - Allow `usr` to also manage the `owner-index` `urn`.
 * `nope(address owner, uint256 index, address usr)` - Disallow `usr` from managing the `owner-index` `urn`.
 * `lock(address owner, uint256 index, uint256 wad, uint16 ref)` - Deposit `wad` amount of MKR into the `owner-index` `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
-* `lockNgt(address owner, uint256 index, uint256 ngtWad, uint16 ref)` - Deposit `ngtWad` amount of NGT. The NGT is first converted to MKR, which then gets deposited into the `owner-index` `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
+* `lockSky(address owner, uint256 index, uint256 skyWad, uint16 ref)` - Deposit `skyWad` amount of SKY. The SKY is first converted to MKR, which then gets deposited into the `owner-index` `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
 * `free(address owner, uint256 index, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `owner-index` `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed.
-* `freeNgt(address owner, uint256 index, address to, uint256 ngtWad)` - Withdraw `ngtWad - ngtWad % mkrNgtRate` amount of NGT to the `to` address. In practice, a proportional amount of MKR is first freed from the `owner-index` `urn` (minus the exit fee), then gets converted to NGT and sent out. This will undelegate the MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. Note that freeing NGT is possible even if the position was previously entered via regular locking (using MKR), and vice-vera.
+* `freeSky(address owner, uint256 index, address to, uint256 skyWad)` - Withdraw `skyWad - skyWad % mkrSkyRate` amount of SKY to the `to` address. In practice, a proportional amount of MKR is first freed from the `owner-index` `urn` (minus the exit fee), then gets converted to SKY and sent out. This will undelegate the MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. Note that freeing SKY is possible even if the position was previously entered via regular locking (using MKR), and vice-vera.
 * `freeNoFee(address owner, uint256 index, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `owner-index` `urn` to the `to` address without paying any fee. This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. This function can only be called by an address which was both authorized on the contract by governance and for which the urn owner has called `hope`. It is useful for implementing a migration contract that will move the funds to another engine contract (if ever needed).
 * `selectVoteDelegate(address owner, uint256 index, address voteDelegate)` - Choose which delegate contract to delegate the `owner-index` `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
 * `selectFarm(address owner, uint256 index, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `owner-index` `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
-* `draw(address owner, uint256 index, address to, uint256 wad)` - Generate `wad` amount of NST using the `owner-index` `urn`’s MKR as collateral and send it to the `to` address.
-* `wipe(address owner, uint256 index, uint256 wad)` - Repay `wad` amount of NST backed by the `owner-index` `urn`’s MKR.
-* `wipeAll(address owner, uint256 index)` - Repay the amount of NST that is needed to wipe the `owner-index` `urn`’s entire debt.
+* `draw(address owner, uint256 index, address to, uint256 wad)` - Generate `wad` amount of USDS using the `owner-index` `urn`’s MKR as collateral and send it to the `to` address.
+* `wipe(address owner, uint256 index, uint256 wad)` - Repay `wad` amount of USDS backed by the `owner-index` `urn`’s MKR.
+* `wipeAll(address owner, uint256 index)` - Repay the amount of USDS that is needed to wipe the `owner-index` `urn`’s entire debt.
 * `getReward(address owner, uint256 index, address farm, address to)` - Claim the reward generated from a farm on behalf of the `owner-index` `urn` and send it to the specified `to` address.
 * `multicall(bytes[] calldata data)` - Batch multiple methods in a single call to the contract.
 
@@ -188,11 +188,11 @@ In general participating in MKR liquidations should be pretty straightforward us
 Current Makerdao ecosystem keepers expect receiving collateral in the form of `vat.gem` (usually to a keeper arbitrage callee contract), which they then need to `exit` to ERC20 from. However the LSE liquidation mechanism sends the MKR directly in the form of ERC20, which requires a slight change in the keepers mode of operation.
 
 For example, keepers using the Maker supplied [exchange-callee for Uniswap V2](https://github.com/makerdao/exchange-callees/blob/3b080ecd4169fe09a59be51e2f85ddcea3242461/src/UniswapV2Callee.sol#L109) would need to use a version that gets the `gem` instead of the `gemJoin` and does not call `gemJoin.exit`.
-Additionaly, the callee might need to convert the MKR to NGT, in case it interacts with the NST/NGT Uniswap pool.
+Additionaly, the callee might need to convert the MKR to SKY, in case it interacts with the USDS/SKY Uniswap pool.
 
 ## 5. Splitter
 
-The Splitter contract is in charge of distributing the Surplus Buffer funds on each `vow.flap` to the Smart Burn Engine (SBE) and the LSE's NST farm. The total amount sent each time is `vow.bump`.
+The Splitter contract is in charge of distributing the Surplus Buffer funds on each `vow.flap` to the Smart Burn Engine (SBE) and the LSE's USDS farm. The total amount sent each time is `vow.bump`.
 
 To accomplish this, it exposes a `kick` operation to be triggered periodically. Its logic withdraws DAI from the `vow` and splits it in two parts. The first part (`burn`) is sent to the underlying `flapper` contract to be processed by the SBE. The second part (`WAD - burn`) is distributed as reward to a `farm` contract. Note that `burn == 1 WAD` indicates funneling 100% of the DAI to the SBE without sending any rewards to the farm.
 
@@ -207,7 +207,7 @@ The Splitter implements rate-limiting using a `hop` parameter.
 
 ## 6. StakingRewards
 
-The LSE uses a Maker modified [version](https://github.com/makerdao/endgame-toolkit/blob/master/README.md#stakingrewards) of the Synthetix Staking Reward as the farm for distributing NST to stakers.
+The LSE uses a Maker modified [version](https://github.com/makerdao/endgame-toolkit/blob/master/README.md#stakingrewards) of the Synthetix Staking Reward as the farm for distributing USDS to stakers.
 
 For compatibility with the SBE, the assumption is that the duration of each farming distribution (`farm.rewardsDuration`) is similar to the flapper's cooldown period (`flap.hop`). This in practice divides the overall farming reward distribution to a set of smaller non overlapping distributions. It also allows for periods where there is no distribution at all.
 
@@ -218,8 +218,8 @@ The StakingRewards contract `setRewardsDuration` function was modified to enable
 * `rewardsDuration` - The amount of seconds each distribution should take.
 
 ## General Notes
-* In many of the modules, such as the splitter and the flappers, NST can replace DAI. This will usually require a deployment of the contract with NstJoin as a replacement of the DaiJoin address.
+* In many of the modules, such as the splitter and the flappers, USDS can replace DAI. This will usually require a deployment of the contract with UsdsJoin as a replacement of the DaiJoin address.
 * The LSE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.
 * Freeing very small amounts could bypass the exit fees (due to the rounding down) but since the LSE is meant to only be deployed on Ethereum, this is assumed to not be economically viable.
 * As opposed to other collateral types, if a user notices an upcoming governance action that can hurt their position (or that they just don't like), they can not exit their position without losing the exit fee.
-* It is assumed that MKR to/from NGT conversions are not blocked.
+* It is assumed that MKR to/from SKY conversions are not blocked.

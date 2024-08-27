@@ -12,10 +12,10 @@ import { LockstakeClipper } from "src/LockstakeClipper.sol";
 import { LockstakeUrn } from "src/LockstakeUrn.sol";
 import { VoteDelegateFactoryMock, VoteDelegateMock } from "test/mocks/VoteDelegateMock.sol";
 import { GemMock } from "test/mocks/GemMock.sol";
-import { NstMock } from "test/mocks/NstMock.sol";
-import { NstJoinMock } from "test/mocks/NstJoinMock.sol";
+import { UsdsMock } from "test/mocks/UsdsMock.sol";
+import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
 import { StakingRewardsMock } from "test/mocks/StakingRewardsMock.sol";
-import { MkrNgtMock } from "test/mocks/MkrNgtMock.sol";
+import { MkrSkyMock } from "test/mocks/MkrSkyMock.sol";
 
 interface CalcFabLike {
     function newLinearDecrease(address) external returns (address);
@@ -41,13 +41,13 @@ contract LockstakeEngineTest is DssTest {
     address                 calc;
     MedianAbstract          pip;
     VoteDelegateFactoryMock voteDelegateFactory;
-    NstMock                 nst;
-    NstJoinMock             nstJoin;
+    UsdsMock                usds;
+    UsdsJoinMock            usdsJoin;
     GemMock                 rTok;
     StakingRewardsMock      farm;
     StakingRewardsMock      farm2;
-    MkrNgtMock              mkrNgt;
-    GemMock                 ngt;
+    MkrSkyMock              mkrSky;
+    GemMock                 sky;
     bytes32                 ilk = "LSE";
     address                 voter;
     address                 voteDelegate;
@@ -66,9 +66,9 @@ contract LockstakeEngineTest is DssTest {
     event SelectVoteDelegate(address indexed owner, uint256 indexed index, address indexed voteDelegate_);
     event SelectFarm(address indexed owner, uint256 indexed index, address indexed farm, uint16 ref);
     event Lock(address indexed owner, uint256 indexed index, uint256 wad, uint16 ref);
-    event LockNgt(address indexed owner, uint256 indexed index, uint256 ngtWad, uint16 ref);
+    event LockSky(address indexed owner, uint256 indexed index, uint256 skyWad, uint16 ref);
     event Free(address indexed owner, uint256 indexed index, address to, uint256 wad, uint256 freed);
-    event FreeNgt(address indexed owner, uint256 indexed index, address to, uint256 ngtWad, uint256 ngtFreed);
+    event FreeSky(address indexed owner, uint256 indexed index, address to, uint256 skyWad, uint256 skyFreed);
     event FreeNoFee(address indexed owner, uint256 indexed index, address to, uint256 wad);
     event Draw(address indexed owner, uint256 indexed index, address to, uint256 wad);
     event Wipe(address indexed owner, uint256 indexed index, uint256 wad);
@@ -92,13 +92,13 @@ contract LockstakeEngineTest is DssTest {
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
         pip = MedianAbstract(dss.chainlog.getAddress("PIP_MKR"));
         mkr = DSTokenAbstract(dss.chainlog.getAddress("MCD_GOV"));
-        nst = new NstMock();
-        nstJoin = new NstJoinMock(address(dss.vat), address(nst));
+        usds = new UsdsMock();
+        usdsJoin = new UsdsJoinMock(address(dss.vat), address(usds));
         rTok = new GemMock(0);
-        ngt = new GemMock(0);
-        mkrNgt = new MkrNgtMock(address(mkr), address(ngt), 24_000);
+        sky = new GemMock(0);
+        mkrSky = new MkrSkyMock(address(mkr), address(sky), 24_000);
         vm.startPrank(pauseProxy);
-        MkrAuthorityLike(mkr.authority()).rely(address(mkrNgt));
+        MkrAuthorityLike(mkr.authority()).rely(address(mkrSky));
         vm.stopPrank();
 
         voteDelegateFactory = new VoteDelegateFactoryMock(address(mkr));
@@ -112,9 +112,9 @@ contract LockstakeEngineTest is DssTest {
             address(this),
             pauseProxy,
             address(voteDelegateFactory),
-            address(nstJoin),
+            address(usdsJoin),
             ilk,
-            address(mkrNgt),
+            address(mkrSky),
             bytes4(abi.encodeWithSignature("newLinearDecrease(address)"))
         );
 
@@ -132,11 +132,11 @@ contract LockstakeEngineTest is DssTest {
         cfg = LockstakeConfig({
             ilk: ilk,
             voteDelegateFactory: address(voteDelegateFactory),
-            nstJoin: address(nstJoin),
-            nst: address(nstJoin.nst()),
+            usdsJoin: address(usdsJoin),
+            usds: address(usdsJoin.usds()),
             mkr: address(mkr),
-            mkrNgt: address(mkrNgt),
-            ngt: address(ngt),
+            mkrSky: address(mkrSky),
+            sky: address(sky),
             farms: farms,
             fee: 15 * WAD / 100,
             maxLine: 10_000_000 * 10**45,
@@ -169,10 +169,10 @@ contract LockstakeEngineTest is DssTest {
         vm.stopPrank();
 
         deal(address(mkr), address(this), 100_000 * 10**18, true);
-        deal(address(ngt), address(this), 100_000 * 24_000 * 10**18, true);
+        deal(address(sky), address(this), 100_000 * 24_000 * 10**18, true);
 
-        // Add some existing DAI assigned to nstJoin to avoid a particular error
-        stdstore.target(address(dss.vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(100_000 * RAD);
+        // Add some existing DAI assigned to usdsJoin to avoid a particular error
+        stdstore.target(address(dss.vat)).sig("dai(address)").with_key(address(usdsJoin)).depth(0).checked_write(100_000 * RAD);
     }
 
     function _ink(bytes32 ilk_, address urn) internal view returns (uint256 ink) {
@@ -230,14 +230,14 @@ contract LockstakeEngineTest is DssTest {
     function testDeployAndInit() public {
         assertEq(address(engine.voteDelegateFactory()), address(voteDelegateFactory));
         assertEq(address(engine.vat()), address(dss.vat));
-        assertEq(address(engine.nstJoin()), address(nstJoin));
-        assertEq(address(engine.nst()), address(nst));
+        assertEq(address(engine.usdsJoin()), address(usdsJoin));
+        assertEq(address(engine.usds()), address(usds));
         assertEq(engine.ilk(), ilk);
         assertEq(address(engine.mkr()), address(mkr));
         assertEq(engine.fee(), 15 * WAD / 100);
-        assertEq(address(engine.mkrNgt()), address(mkrNgt));
-        assertEq(address(engine.ngt()), address(ngt));
-        assertEq(engine.mkrNgtRate(), 24_000);
+        assertEq(address(engine.mkrSky()), address(mkrSky));
+        assertEq(address(engine.sky()), address(sky));
+        assertEq(engine.mkrSkyRate(), 24_000);
         assertEq(LockstakeUrn(engine.urnImplementation()).engine(), address(engine));
         assertEq(address(LockstakeUrn(engine.urnImplementation()).vat()), address(dss.vat));
         assertEq(address(LockstakeUrn(engine.urnImplementation()).lsmkr()), address(lsmkr));
@@ -321,9 +321,9 @@ contract LockstakeEngineTest is DssTest {
             address(this),
             pauseProxy,
             address(voteDelegateFactory),
-            address(nstJoin),
+            address(usdsJoin),
             "eee",
-            address(mkrNgt),
+            address(mkrSky),
             bytes4(abi.encodeWithSignature("newStairstepExponentialDecrease(address)"))
         );
         cfg.ilk = "eee";
@@ -343,24 +343,24 @@ contract LockstakeEngineTest is DssTest {
         address lsmkr2 = address(new GemMock(0));
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        LockstakeEngine e = new LockstakeEngine(address(voteDelegateFactory), address(nstJoin), "aaa", address(mkrNgt), lsmkr2);
+        LockstakeEngine e = new LockstakeEngine(address(voteDelegateFactory), address(usdsJoin), "aaa", address(mkrSky), lsmkr2);
         assertEq(address(e.voteDelegateFactory()), address(voteDelegateFactory));
-        assertEq(address(e.nstJoin()), address(nstJoin));
+        assertEq(address(e.usdsJoin()), address(usdsJoin));
         assertEq(address(e.vat()), address(dss.vat));
-        assertEq(address(e.nst()), address(nst));
+        assertEq(address(e.usds()), address(usds));
         assertEq(e.ilk(), "aaa");
         assertEq(address(e.mkr()), address(mkr));
         assertEq(address(e.lsmkr()), lsmkr2);
-        assertEq(address(e.mkrNgt()), address(mkrNgt));
-        assertEq(address(e.ngt()), address(ngt));
-        assertEq(e.mkrNgtRate(), 24_000);
+        assertEq(address(e.mkrSky()), address(mkrSky));
+        assertEq(address(e.sky()), address(sky));
+        assertEq(e.mkrSkyRate(), 24_000);
         assertEq(LockstakeUrn(e.urnImplementation()).engine(), address(e));
         assertEq(address(LockstakeUrn(e.urnImplementation()).vat()), address(dss.vat));
         assertEq(address(LockstakeUrn(e.urnImplementation()).lsmkr()), lsmkr2);
-        assertEq(dss.vat.can(address(e), address(nstJoin)), 1);
-        assertEq(nst.allowance(address(e), address(nstJoin)), type(uint256).max);
-        assertEq(ngt.allowance(address(e), address(mkrNgt)),  type(uint256).max);
-        assertEq(mkr.allowance(address(e), address(mkrNgt)),  type(uint256).max);
+        assertEq(dss.vat.can(address(e), address(usdsJoin)), 1);
+        assertEq(usds.allowance(address(e), address(usdsJoin)), type(uint256).max);
+        assertEq(sky.allowance(address(e), address(mkrSky)),  type(uint256).max);
+        assertEq(mkr.allowance(address(e), address(mkrSky)),  type(uint256).max);
         assertEq(e.wards(address(this)), 1);
     }
 
@@ -456,11 +456,11 @@ contract LockstakeEngineTest is DssTest {
         vm.expectRevert("LockstakeEngine/invalid-urn");
         engine.lock(address(this), 1, 1, 1);
         vm.expectRevert("LockstakeEngine/invalid-urn");
-        engine.lockNgt(address(this), 1, 1, 1);
+        engine.lockSky(address(this), 1, 1, 1);
         vm.expectRevert("LockstakeEngine/invalid-urn");
         engine.free(address(this), 1, address(123), 1);
         vm.expectRevert("LockstakeEngine/invalid-urn");
-        engine.freeNgt(address(this), 1, address(123), 1);
+        engine.freeSky(address(this), 1, address(123), 1);
         vm.expectRevert("LockstakeEngine/invalid-urn");
         vm.prank(pauseProxy); engine.freeNoFee(address(this), 1, address(123), 1);
         vm.expectRevert("LockstakeEngine/invalid-urn");
@@ -487,7 +487,7 @@ contract LockstakeEngineTest is DssTest {
         vm.expectRevert("LockstakeEngine/urn-not-authorized");
         engine.free(address(123), 0, address(123), 1);
         vm.expectRevert("LockstakeEngine/urn-not-authorized");
-        engine.freeNgt(address(123), 0, address(123), 1);
+        engine.freeSky(address(123), 0, address(123), 1);
         vm.expectRevert("LockstakeEngine/urn-not-authorized");
         vm.prank(pauseProxy); engine.freeNoFee(address(123), 0, address(123), 1);
         vm.expectRevert("LockstakeEngine/urn-not-authorized");
@@ -504,7 +504,7 @@ contract LockstakeEngineTest is DssTest {
         engine.rely(authedAndUrnAuthed);
         vm.stopPrank();
         mkr.transfer(urnAuthed, 100_000 * 10**18);
-        ngt.transfer(urnAuthed, 100_000 * 24_000 * 10**18);
+        sky.transfer(urnAuthed, 100_000 * 24_000 * 10**18);
         vm.startPrank(urnOwner);
         address urn = engine.open(0);
         assertTrue(engine.isUrnAuth(urnOwner, 0, urnOwner));
@@ -526,15 +526,15 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_ink(ilk, urn), 100_000 * 10**18);
         engine.free(urnOwner, 0, address(this), 50_000 * 10**18);
         assertEq(_ink(ilk, urn), 50_000 * 10**18);
-        ngt.approve(address(engine), 100_000 * 24_000 * 10**18);
-        engine.lockNgt(urnOwner, 0, 100_000 * 24_000 * 10**18, 0);
+        sky.approve(address(engine), 100_000 * 24_000 * 10**18);
+        engine.lockSky(urnOwner, 0, 100_000 * 24_000 * 10**18, 0);
         assertEq(_ink(ilk, urn), 150_000 * 10**18);
-        engine.freeNgt(urnOwner, 0, address(this), 50_000 * 24_000 * 10**18);
+        engine.freeSky(urnOwner, 0, address(this), 50_000 * 24_000 * 10**18);
         assertEq(_ink(ilk, urn), 100_000 * 10**18);
         engine.selectVoteDelegate(urnOwner, 0, voteDelegate);
         assertEq(engine.urnVoteDelegates(urn), voteDelegate);
         engine.draw(urnOwner, 0, address(urnAuthed), 1);
-        nst.approve(address(engine), 1);
+        usds.approve(address(engine), 1);
         engine.wipe(urnOwner, 0, 1);
         engine.selectFarm(urnOwner, 0, address(farm), 0);
         engine.getReward(urnOwner, 0, address(farm), address(0));
@@ -719,10 +719,10 @@ contract LockstakeEngineTest is DssTest {
         _testLockFree(true, true);
     }
 
-    function _testLockFreeNgt(bool withDelegate, bool withStaking) internal {
-        uint256 initialNgtSupply = ngt.totalSupply();
+    function _testLockFreeSky(bool withDelegate, bool withStaking) internal {
+        uint256 initialSkySupply = sky.totalSupply();
         address urn = engine.open(0);
-        // Note: overflow cannot be reached for lockNgt and freeNgt as with these functions and the value of rate (>=3) the MKR amount will be always lower
+        // Note: overflow cannot be reached for lockSky and freeSky as with these functions and the value of rate (>=3) the MKR amount will be always lower
         if (withDelegate) {
             engine.selectVoteDelegate(address(this), 0, voteDelegate);
         }
@@ -731,10 +731,10 @@ contract LockstakeEngineTest is DssTest {
         }
         assertEq(_ink(ilk, urn), 0);
         assertEq(lsmkr.balanceOf(urn), 0);
-        ngt.approve(address(engine), 100_000 * 24_000 * 10**18);
+        sky.approve(address(engine), 100_000 * 24_000 * 10**18);
         vm.expectEmit(true, true, true, true);
-        emit LockNgt(address(this), 0, 100_000 * 24_000 * 10**18, 5);
-        engine.lockNgt(address(this), 0, 100_000 * 24_000 * 10**18, 5);
+        emit LockSky(address(this), 0, 100_000 * 24_000 * 10**18, 5);
+        engine.lockSky(address(this), 0, 100_000 * 24_000 * 10**18, 5);
         assertEq(_ink(ilk, urn), 100_000 * 10**18);
         if (withStaking) {
             assertEq(lsmkr.balanceOf(address(farm)), 100_000 * 10**18);
@@ -742,17 +742,17 @@ contract LockstakeEngineTest is DssTest {
         } else {
             assertEq(lsmkr.balanceOf(urn), 100_000 * 10**18);
         }
-        assertEq(ngt.balanceOf(address(this)), 0);
+        assertEq(sky.balanceOf(address(this)), 0);
         if (withDelegate) {
             assertEq(mkr.balanceOf(address(engine)), 0);
             assertEq(mkr.balanceOf(voteDelegate), 100_000 * 10**18); // Remains in voteDelegate as it is a mock (otherwise it would be in the Chief)
         } else {
             assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
         }
-        assertEq(ngt.totalSupply(), initialNgtSupply - 100_000 * 24_000 * 10**18);
+        assertEq(sky.totalSupply(), initialSkySupply - 100_000 * 24_000 * 10**18);
         vm.expectEmit(true, true, true, true);
-        emit FreeNgt(address(this), 0, address(this), 40_000 * 24_000 * 10**18, 40_000 * 24_000 * 10**18 * 85 / 100);
-        assertEq(engine.freeNgt(address(this), 0, address(this), 40_000 * 24_000 * 10**18), 40_000 * 24_000 * 10**18 * 85 / 100);
+        emit FreeSky(address(this), 0, address(this), 40_000 * 24_000 * 10**18, 40_000 * 24_000 * 10**18 * 85 / 100);
+        assertEq(engine.freeSky(address(this), 0, address(this), 40_000 * 24_000 * 10**18), 40_000 * 24_000 * 10**18 * 85 / 100);
         assertEq(_ink(ilk, urn), 60_000 * 10**18);
         if (withStaking) {
             assertEq(lsmkr.balanceOf(address(farm)), 60_000 * 10**18);
@@ -760,7 +760,7 @@ contract LockstakeEngineTest is DssTest {
         } else {
             assertEq(lsmkr.balanceOf(urn), 60_000 * 10**18);
         }
-        assertEq(ngt.balanceOf(address(this)), 40_000 * 24_000 * 10**18 - 40_000 * 24_000 * 10**18 * 15 / 100);
+        assertEq(sky.balanceOf(address(this)), 40_000 * 24_000 * 10**18 - 40_000 * 24_000 * 10**18 * 15 / 100);
         if (withDelegate) {
             assertEq(mkr.balanceOf(address(engine)), 0);
             assertEq(mkr.balanceOf(voteDelegate), 60_000 * 10**18);
@@ -768,8 +768,8 @@ contract LockstakeEngineTest is DssTest {
             assertEq(mkr.balanceOf(address(engine)), 60_000 * 10**18);
         }
         vm.expectEmit(true, true, true, true);
-        emit FreeNgt(address(this), 0, address(123), 10_000 * 24_000 * 10**18, 10_000 * 24_000 * 10**18 * 85 / 100);
-        assertEq(engine.freeNgt(address(this), 0, address(123), 10_000 * 24_000 * 10**18), 10_000 * 24_000 * 10**18 * 85 / 100);
+        emit FreeSky(address(this), 0, address(123), 10_000 * 24_000 * 10**18, 10_000 * 24_000 * 10**18 * 85 / 100);
+        assertEq(engine.freeSky(address(this), 0, address(123), 10_000 * 24_000 * 10**18), 10_000 * 24_000 * 10**18 * 85 / 100);
         assertEq(_ink(ilk, urn), 50_000 * 10**18);
         if (withStaking) {
             assertEq(lsmkr.balanceOf(address(farm)), 50_000 * 10**18);
@@ -777,36 +777,36 @@ contract LockstakeEngineTest is DssTest {
         } else {
             assertEq(lsmkr.balanceOf(urn), 50_000 * 10**18);
         }
-        assertEq(ngt.balanceOf(address(123)), 10_000 * 24_000 * 10**18 - 10_000 * 24_000 * 10**18 * 15 / 100);
+        assertEq(sky.balanceOf(address(123)), 10_000 * 24_000 * 10**18 - 10_000 * 24_000 * 10**18 * 15 / 100);
         if (withDelegate) {
             assertEq(mkr.balanceOf(address(engine)), 0);
             assertEq(mkr.balanceOf(voteDelegate), 50_000 * 10**18);
         } else {
             assertEq(mkr.balanceOf(address(engine)), 50_000 * 10**18);
         }
-        assertEq(ngt.totalSupply(), initialNgtSupply - (100_000 - 50_000) * 24_000 * 10**18 - 50_000 * 24_000 * 10**18 * 15 / 100);
+        assertEq(sky.totalSupply(), initialSkySupply - (100_000 - 50_000) * 24_000 * 10**18 - 50_000 * 24_000 * 10**18 * 15 / 100);
         if (withStaking) {
-            ngt.approve(address(engine), 24_000);
+            sky.approve(address(engine), 24_000);
             vm.prank(pauseProxy); engine.delFarm(address(farm));
             vm.expectRevert("LockstakeEngine/farm-deleted");
-            engine.lockNgt(address(this), 0, 24_000, 0);
+            engine.lockSky(address(this), 0, 24_000, 0);
         }
     }
 
-    function testLockFreeNgtNoDelegateNoStaking() public {
-        _testLockFreeNgt(false, false);
+    function testLockFreeSkyNoDelegateNoStaking() public {
+        _testLockFreeSky(false, false);
     }
 
-    function testLockFreeNgtWithDelegateNoStaking() public {
-        _testLockFreeNgt(true, false);
+    function testLockFreeSkyWithDelegateNoStaking() public {
+        _testLockFreeSky(true, false);
     }
 
-    function testLockFreeNgtNoDelegateWithStaking() public {
-        _testLockFreeNgt(false, true);
+    function testLockFreeSkyNoDelegateWithStaking() public {
+        _testLockFreeSky(false, true);
     }
 
-    function testLockFreeNgtWithDelegateWithStaking() public {
-        _testLockFreeNgt(true, true);
+    function testLockFreeSkyWithDelegateWithStaking() public {
+        _testLockFreeSky(true, true);
     }
 
     function _testFreeNoFee(bool withDelegate, bool withStaking) internal {
@@ -903,7 +903,7 @@ contract LockstakeEngineTest is DssTest {
         engine.draw(address(this), 0, address(this), 50 * 10**18);
         assertEq(_art(ilk, urn), 50 * 10**18);
         assertEq(_rate(ilk), 10**27);
-        assertEq(nst.balanceOf(address(this)), 50 * 10**18);
+        assertEq(usds.balanceOf(address(this)), 50 * 10**18);
         vm.warp(block.timestamp + 1);
         vm.expectEmit(true, true, true, true);
         emit Draw(address(this), 0, address(this), 50 * 10**18);
@@ -913,39 +913,39 @@ contract LockstakeEngineTest is DssTest {
         assertEq(art, expectedArt);
         uint256 rate = _rate(ilk);
         assertEq(rate, 100000001 * 10**27 / 100000000);
-        assertEq(nst.balanceOf(address(this)), 100 * 10**18);
+        assertEq(usds.balanceOf(address(this)), 100 * 10**18);
         assertGt(art * rate, 100.0000005 * 10**45);
         assertLt(art * rate, 100.0000006 * 10**45);
-        vm.expectRevert("Nst/insufficient-balance");
+        vm.expectRevert("Usds/insufficient-balance");
         engine.wipe(address(this), 0, 100.0000006 * 10**18);
         address anyone = address(1221121);
-        deal(address(nst), anyone, 100.0000006 * 10**18, true);
-        assertEq(nst.balanceOf(anyone), 100.0000006 * 10**18);
-        vm.prank(anyone); nst.approve(address(engine), 100.0000006 * 10**18);
+        deal(address(usds), anyone, 100.0000006 * 10**18, true);
+        assertEq(usds.balanceOf(anyone), 100.0000006 * 10**18);
+        vm.prank(anyone); usds.approve(address(engine), 100.0000006 * 10**18);
         vm.expectRevert();
         vm.prank(anyone); engine.wipe(address(this), 0, 100.0000006 * 10**18); // It will try to wipe more art than existing, then reverts
         vm.expectEmit(true, true, true, true);
         emit Wipe(address(this), 0, 100.0000005 * 10**18);
         vm.prank(anyone); engine.wipe(address(this), 0, 100.0000005 * 10**18);
-        assertEq(nst.balanceOf(anyone), 0.0000001 * 10**18);
+        assertEq(usds.balanceOf(anyone), 0.0000001 * 10**18);
         assertEq(_art(ilk, urn), 1); // Dust which is impossible to wipe via this regular function
         emit Wipe(address(this), 0, _divup(rate, RAY));
         vm.prank(anyone); assertEq(engine.wipeAll(address(this), 0), _divup(rate, RAY));
         assertEq(_art(ilk, urn), 0);
-        assertEq(nst.balanceOf(anyone), 0.0000001 * 10**18 - _divup(rate, RAY));
+        assertEq(usds.balanceOf(anyone), 0.0000001 * 10**18 - _divup(rate, RAY));
         address other = address(123);
-        assertEq(nst.balanceOf(other), 0);
+        assertEq(usds.balanceOf(other), 0);
         emit Draw(address(this), 0, other, 50 * 10**18);
         engine.draw(address(this), 0, other, 50 * 10**18);
-        assertEq(nst.balanceOf(other), 50 * 10**18);
+        assertEq(usds.balanceOf(other), 50 * 10**18);
         // Check overflows
         stdstore.target(address(dss.vat)).sig("ilks(bytes32)").with_key(ilk).depth(1).checked_write(1);
         assertEq(_rate(ilk), 1);
         vm.expectRevert("LockstakeEngine/overflow");
         engine.draw(address(this), 0, address(this), uint256(type(int256).max) / RAY + 1);
-        stdstore.target(address(dss.vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(uint256(type(int256).max) + RAY);
-        deal(address(nst), address(this), uint256(type(int256).max) / RAY + 1, true);
-        nst.approve(address(engine), uint256(type(int256).max) / RAY + 1);
+        stdstore.target(address(dss.vat)).sig("dai(address)").with_key(address(usdsJoin)).depth(0).checked_write(uint256(type(int256).max) + RAY);
+        deal(address(usds), address(this), uint256(type(int256).max) / RAY + 1, true);
+        usds.approve(address(engine), uint256(type(int256).max) / RAY + 1);
         vm.expectRevert("LockstakeEngine/overflow");
         engine.wipe(address(this), 0, uint256(type(int256).max) / RAY + 1);
         stdstore.target(address(dss.vat)).sig("urns(bytes32,address)").with_key(ilk).with_key(urn).depth(1).checked_write(uint256(type(int256).max) + 1);

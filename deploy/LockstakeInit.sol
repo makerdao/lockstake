@@ -26,14 +26,14 @@ interface LockstakeMkrLike {
 interface LockstakeEngineLike {
     function voteDelegateFactory() external view returns (address);
     function vat() external view returns (address);
-    function nstJoin() external view returns (address);
-    function nst() external view returns (address);
+    function usdsJoin() external view returns (address);
+    function usds() external view returns (address);
     function ilk() external view returns (bytes32);
     function mkr() external view returns (address);
     function lsmkr() external view returns (address);
     function fee() external view returns (uint256);
-    function mkrNgt() external view returns (address);
-    function ngt() external view returns (address);
+    function mkrSky() external view returns (address);
+    function sky() external view returns (address);
     function rely(address) external;
     function file(bytes32, address) external;
     function file(bytes32, uint256) external;
@@ -98,11 +98,11 @@ interface IlkRegistryLike {
 struct LockstakeConfig {
     bytes32   ilk;
     address   voteDelegateFactory;
-    address   nstJoin;
-    address   nst;
+    address   usdsJoin;
+    address   usds;
     address   mkr;
-    address   mkrNgt;
-    address   ngt;
+    address   mkrSky;
+    address   sky;
     address[] farms;
     uint256   fee;
     uint256   maxLine;
@@ -146,13 +146,13 @@ library LockstakeInit {
         // Sanity checks
         require(engine.voteDelegateFactory() == cfg.voteDelegateFactory,   "Engine voteDelegateFactory mismatch");
         require(engine.vat()                 == address(dss.vat),          "Engine vat mismatch");
-        require(engine.nstJoin()             == cfg.nstJoin,               "Engine nstJoin mismatch");
-        require(engine.nst()                 == cfg.nst,                   "Engine nst mismatch");
+        require(engine.usdsJoin()            == cfg.usdsJoin,              "Engine usdsJoin mismatch");
+        require(engine.usds()                == cfg.usds,                  "Engine usds mismatch");
         require(engine.ilk()                 == cfg.ilk,                   "Engine ilk mismatch");
         require(engine.mkr()                 == cfg.mkr,                   "Engine mkr mismatch");
         require(engine.lsmkr()               == lockstakeInstance.lsmkr,   "Engine lsmkr mismatch");
-        require(engine.mkrNgt()              == cfg.mkrNgt,                "Engine mkrNgt mismatch");
-        require(engine.ngt()                 == cfg.ngt,                   "Engine ngt mismatch");
+        require(engine.mkrSky()              == cfg.mkrSky,                "Engine mkrSky mismatch");
+        require(engine.sky()                 == cfg.sky,                   "Engine sky mismatch");
         require(clipper.ilk()                == cfg.ilk,                   "Clipper ilk mismatch");
         require(clipper.vat()                == address(dss.vat),          "Clipper vat mismatch");
         require(clipper.engine()             == address(engine),           "Clipper engine mismatch");

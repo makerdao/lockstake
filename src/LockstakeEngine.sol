@@ -37,9 +37,9 @@ interface VatLike {
     function grab(bytes32, address, address, address, int256, int256) external;
 }
 
-interface NstJoinLike {
+interface UsdsJoinLike {
     function vat() external view returns (VatLike);
-    function nst() external view returns (GemLike);
+    function usds() external view returns (GemLike);
     function join(address, uint256) external;
     function exit(address, uint256) external;
 }
@@ -56,12 +56,12 @@ interface JugLike {
     function drip(bytes32) external returns (uint256);
 }
 
-interface MkrNgtLike {
+interface MkrSkyLike {
     function rate() external view returns (uint256);
     function mkr() external view returns (GemLike);
-    function ngt() external view returns (GemLike);
-    function ngtToMkr(address, uint256) external;
-    function mkrToNgt(address, uint256) external;
+    function sky() external view returns (GemLike);
+    function skyToMkr(address, uint256) external;
+    function mkrToSky(address, uint256) external;
 }
 
 contract LockstakeEngine is Multicall {
@@ -90,14 +90,14 @@ contract LockstakeEngine is Multicall {
 
     VoteDelegateFactoryLike immutable public voteDelegateFactory;
     VatLike                 immutable public vat;
-    NstJoinLike             immutable public nstJoin;
-    GemLike                 immutable public nst;
+    UsdsJoinLike            immutable public usdsJoin;
+    GemLike                 immutable public usds;
     bytes32                 immutable public ilk;
     GemLike                 immutable public mkr;
     GemLike                 immutable public lsmkr;
-    MkrNgtLike              immutable public mkrNgt;
-    GemLike                 immutable public ngt;
-    uint256                 immutable public mkrNgtRate;
+    MkrSkyLike              immutable public mkrSky;
+    GemLike                 immutable public sky;
+    uint256                 immutable public mkrSkyRate;
     address                 immutable public urnImplementation;
 
     // --- events ---   
@@ -114,9 +114,9 @@ contract LockstakeEngine is Multicall {
     event SelectVoteDelegate(address indexed owner, uint256 indexed index, address indexed voteDelegate);
     event SelectFarm(address indexed owner, uint256 indexed index, address indexed farm, uint16 ref);
     event Lock(address indexed owner, uint256 indexed index, uint256 wad, uint16 ref);
-    event LockNgt(address indexed owner, uint256 indexed index, uint256 ngtWad, uint16 ref);
+    event LockSky(address indexed owner, uint256 indexed index, uint256 skyWad, uint16 ref);
     event Free(address indexed owner, uint256 indexed index, address to, uint256 wad, uint256 freed);
-    event FreeNgt(address indexed owner, uint256 indexed index, address to, uint256 ngtWad, uint256 ngtFreed);
+    event FreeSky(address indexed owner, uint256 indexed index, address to, uint256 skyWad, uint256 skyFreed);
     event FreeNoFee(address indexed owner, uint256 indexed index, address to, uint256 wad);
     event Draw(address indexed owner, uint256 indexed index, address to, uint256 wad);
     event Wipe(address indexed owner, uint256 indexed index, uint256 wad);
@@ -134,22 +134,22 @@ contract LockstakeEngine is Multicall {
 
     // --- constructor ---
 
-    constructor(address voteDelegateFactory_, address nstJoin_, bytes32 ilk_, address mkrNgt_, address lsmkr_) {
+    constructor(address voteDelegateFactory_, address usdsJoin_, bytes32 ilk_, address mkrSky_, address lsmkr_) {
         voteDelegateFactory = VoteDelegateFactoryLike(voteDelegateFactory_);
-        nstJoin = NstJoinLike(nstJoin_);
-        vat = nstJoin.vat();
-        nst = nstJoin.nst();
+        usdsJoin = UsdsJoinLike(usdsJoin_);
+        vat = usdsJoin.vat();
+        usds = usdsJoin.usds();
         ilk = ilk_;
-        mkrNgt = MkrNgtLike(mkrNgt_);
-        mkr = mkrNgt.mkr();
-        ngt = mkrNgt.ngt();
-        mkrNgtRate = mkrNgt.rate();
+        mkrSky = MkrSkyLike(mkrSky_);
+        mkr = mkrSky.mkr();
+        sky = mkrSky.sky();
+        mkrSkyRate = mkrSky.rate();
         lsmkr = GemLike(lsmkr_);
         urnImplementation = address(new LockstakeUrn(address(vat), lsmkr_));
-        vat.hope(nstJoin_);
-        nst.approve(nstJoin_, type(uint256).max);
-        ngt.approve(address(mkrNgt), type(uint256).max);
-        mkr.approve(address(mkrNgt), type(uint256).max);
+        vat.hope(usdsJoin_);
+        usds.approve(usdsJoin_, type(uint256).max);
+        sky.approve(address(mkrSky), type(uint256).max);
+        mkr.approve(address(mkrSky), type(uint256).max);
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -320,12 +320,12 @@ contract LockstakeEngine is Multicall {
         emit Lock(owner, index, wad, ref);
     }
 
-    function lockNgt(address owner, uint256 index, uint256 ngtWad, uint16 ref) external {
+    function lockSky(address owner, uint256 index, uint256 skyWad, uint16 ref) external {
         address urn = _getUrn(owner, index);
-        ngt.transferFrom(msg.sender, address(this), ngtWad);
-        mkrNgt.ngtToMkr(address(this), ngtWad);
-        _lock(urn, ngtWad / mkrNgtRate, ref);
-        emit LockNgt(owner, index, ngtWad, ref);
+        sky.transferFrom(msg.sender, address(this), skyWad);
+        mkrSky.skyToMkr(address(this), skyWad);
+        _lock(urn, skyWad / mkrSkyRate, ref);
+        emit LockSky(owner, index, skyWad, ref);
     }
 
     function _lock(address urn, uint256 wad, uint16 ref) internal {
@@ -352,13 +352,13 @@ contract LockstakeEngine is Multicall {
         emit Free(owner, index, to, wad, freed);
     }
 
-    function freeNgt(address owner, uint256 index, address to, uint256 ngtWad) external returns (uint256 ngtFreed) {
+    function freeSky(address owner, uint256 index, address to, uint256 skyWad) external returns (uint256 skyFreed) {
         address urn = _getAuthedUrn(owner, index);
-        uint256 wad = ngtWad / mkrNgtRate;
+        uint256 wad = skyWad / mkrSkyRate;
         uint256 freed = _free(urn, wad, fee);
-        ngtFreed = freed * mkrNgtRate;
-        mkrNgt.mkrToNgt(to, freed);
-        emit FreeNgt(owner, index, to, ngtWad, ngtFreed);
+        skyFreed = freed * mkrSkyRate;
+        mkrSky.mkrToSky(to, freed);
+        emit FreeSky(owner, index, to, skyWad, skyFreed);
     }
 
     function freeNoFee(address owner, uint256 index, address to, uint256 wad) external auth {
@@ -396,14 +396,14 @@ contract LockstakeEngine is Multicall {
         uint256 dart = _divup(wad * RAY, rate);
         require(dart <= uint256(type(int256).max), "LockstakeEngine/overflow");
         vat.frob(ilk, urn, address(0), address(this), 0, int256(dart));
-        nstJoin.exit(to, wad);
+        usdsJoin.exit(to, wad);
         emit Draw(owner, index, to, wad);
     }
 
     function wipe(address owner, uint256 index, uint256 wad) external {
         address urn = _getUrn(owner, index);
-        nst.transferFrom(msg.sender, address(this), wad);
-        nstJoin.join(address(this), wad);
+        usds.transferFrom(msg.sender, address(this), wad);
+        usdsJoin.join(address(this), wad);
         (, uint256 rate,,,) = vat.ilks(ilk);
         uint256 dart = wad * RAY / rate;
         require(dart <= uint256(type(int256).max), "LockstakeEngine/overflow");
@@ -417,8 +417,8 @@ contract LockstakeEngine is Multicall {
         require(art <= uint256(type(int256).max), "LockstakeEngine/overflow");
         (, uint256 rate,,,) = vat.ilks(ilk);
         wad = _divup(art * rate, RAY);
-        nst.transferFrom(msg.sender, address(this), wad);
-        nstJoin.join(address(this), wad);
+        usds.transferFrom(msg.sender, address(this), wad);
+        usdsJoin.join(address(this), wad);
         vat.frob(ilk, urn, address(0), address(this), 0, -int256(art));
         emit Wipe(owner, index, wad);
     }

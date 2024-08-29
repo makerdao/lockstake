@@ -26,16 +26,17 @@ interface LockstakeMkrLike {
 interface LockstakeEngineLike {
     function voteDelegateFactory() external view returns (address);
     function vat() external view returns (address);
-    function nstJoin() external view returns (address);
-    function nst() external view returns (address);
+    function usdsJoin() external view returns (address);
+    function usds() external view returns (address);
     function ilk() external view returns (bytes32);
     function mkr() external view returns (address);
     function lsmkr() external view returns (address);
     function fee() external view returns (uint256);
-    function mkrNgt() external view returns (address);
-    function ngt() external view returns (address);
+    function mkrSky() external view returns (address);
+    function sky() external view returns (address);
     function rely(address) external;
     function file(bytes32, address) external;
+    function file(bytes32, uint256) external;
     function addFarm(address) external;
 }
 
@@ -76,6 +77,10 @@ interface ClipperMomLike {
     function setPriceTolerance(address, uint256) external;
 }
 
+interface StakingRewardsLike {
+    function stakingToken() external view returns (address);
+}
+
 interface IlkRegistryLike {
     function put(
         bytes32 _ilk,
@@ -93,11 +98,11 @@ interface IlkRegistryLike {
 struct LockstakeConfig {
     bytes32   ilk;
     address   voteDelegateFactory;
-    address   nstJoin;
-    address   nst;
+    address   usdsJoin;
+    address   usds;
     address   mkr;
-    address   mkrNgt;
-    address   ngt;
+    address   mkrSky;
+    address   sky;
     address[] farms;
     uint256   fee;
     uint256   maxLine;
@@ -127,6 +132,7 @@ library LockstakeInit {
     uint256 constant internal RATES_ONE_HUNDRED_PCT = 1000000021979553151239153027;
     uint256 constant internal WAD = 10**18;
     uint256 constant internal RAY = 10**27;
+    uint256 constant internal RAD = 10**45;
 
     function initLockstake(
         DssInstance        memory dss,
@@ -140,26 +146,27 @@ library LockstakeInit {
         // Sanity checks
         require(engine.voteDelegateFactory() == cfg.voteDelegateFactory,   "Engine voteDelegateFactory mismatch");
         require(engine.vat()                 == address(dss.vat),          "Engine vat mismatch");
-        require(engine.nstJoin()             == cfg.nstJoin,               "Engine nstJoin mismatch");
-        require(engine.nst()                 == cfg.nst,                   "Engine nst mismatch");
+        require(engine.usdsJoin()            == cfg.usdsJoin,              "Engine usdsJoin mismatch");
+        require(engine.usds()                == cfg.usds,                  "Engine usds mismatch");
         require(engine.ilk()                 == cfg.ilk,                   "Engine ilk mismatch");
         require(engine.mkr()                 == cfg.mkr,                   "Engine mkr mismatch");
         require(engine.lsmkr()               == lockstakeInstance.lsmkr,   "Engine lsmkr mismatch");
-        require(engine.fee()                 == cfg.fee,                   "Engine fee mismatch");
-        require(engine.mkrNgt()              == cfg.mkrNgt,                "Engine mkrNgt mismatch");
-        require(engine.ngt()                 == cfg.ngt,                   "Engine ngt mismatch");
+        require(engine.mkrSky()              == cfg.mkrSky,                "Engine mkrSky mismatch");
+        require(engine.sky()                 == cfg.sky,                   "Engine sky mismatch");
         require(clipper.ilk()                == cfg.ilk,                   "Clipper ilk mismatch");
         require(clipper.vat()                == address(dss.vat),          "Clipper vat mismatch");
         require(clipper.engine()             == address(engine),           "Clipper engine mismatch");
         require(clipper.dog()                == address(dss.dog),          "Clipper dog mismatch");
         require(clipper.spotter()            == address(dss.spotter),      "Clipper spotter mismatch");
 
+        require(cfg.gap <= cfg.maxLine, "gap greater than max line");
         require(cfg.dust <= cfg.hole, "dust greater than hole");
         require(cfg.duty >= RAY && cfg.duty <= RATES_ONE_HUNDRED_PCT, "duty out of boundaries");
         require(cfg.mat >= RAY && cfg.mat < 10 * RAY, "mat out of boundaries");
         require(cfg.buf >= RAY && cfg.buf < 10 * RAY, "buf out of boundaries");
         require(cfg.cusp < RAY, "cusp negative drop value");
         require(cfg.chip < WAD, "chip equal or greater than 100%");
+        require(cfg.tip <= 1_000 * RAD, "tip out of boundaries");
         require(cfg.chop >= WAD && cfg.chop < 2 * WAD, "chop out of boundaries");
         require(cfg.tolerance < RAY, "tolerance equal or greater than 100%");
 
@@ -200,7 +207,9 @@ library LockstakeInit {
         LockstakeMkrLike(lockstakeInstance.lsmkr).rely(address(engine));
 
         engine.file("jug", address(dss.jug));
+        engine.file("fee", cfg.fee);
         for (uint256 i = 0; i < cfg.farms.length; i++) {
+            require(StakingRewardsLike(cfg.farms[i]).stakingToken() == lockstakeInstance.lsmkr, "Farm staking token mismatch");
             engine.addFarm(cfg.farms[i]);
         }
         engine.rely(address(clipper));

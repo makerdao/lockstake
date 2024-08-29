@@ -38,8 +38,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
 
     LockstakeEngine  public engine;
     GemMock          public mkr;
-    GemMock          public ngt;
-    GemMock          public nst;
+    GemMock          public sky;
+    GemMock          public usds;
     bytes32          public ilk;
     VatLike          public vat;
     JugLike          public jug;
@@ -48,11 +48,12 @@ contract LockstakeHandler is StdUtils, StdCheats {
     LockstakeClipper public clip;
 
     address   public pauseProxy;
+    address   public owner;
+    uint256   public index;
     address   public urn;
-    address   public urnOwner;
     address[] public voteDelegates;
     address[] public farms;
-    uint256   public mkrNgtRate;
+    uint256   public mkrSkyRate;
     address   public anyone = address(123);
 
     mapping(bytes32 => uint256) public numCalls;
@@ -66,7 +67,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
     }
 
     modifier callAsUrnOwner() {
-        vm.startPrank(urnOwner);
+        vm.startPrank(owner);
         _;
         vm.stopPrank();
     }
@@ -80,7 +81,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
     constructor(
         Vm vm_,
         address engine_,
-        address urn_,
+        address owner_,
+        uint256 index_,
         address spot_,
         address dog_,
         address pauseProxy_,
@@ -90,8 +92,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
         vm         = vm_;
         engine     = LockstakeEngine(engine_);
         mkr        = GemMock(address(engine.mkr()));
-        ngt        = GemMock(address(engine.ngt()));
-        nst        = GemMock(address(engine.nst()));
+        sky        = GemMock(address(engine.sky()));
+        usds       = GemMock(address(engine.usds()));
         pauseProxy = pauseProxy_;
         ilk        = engine.ilk();
         vat        = VatLike(address(engine.vat()));
@@ -101,9 +103,10 @@ contract LockstakeHandler is StdUtils, StdCheats {
 
         (address clip_, , , ) = dog.ilks(ilk);
         clip       = LockstakeClipper(clip_);
-        urn        = urn_;
-        urnOwner   = engine.urnOwners(urn);
-        mkrNgtRate = engine.mkrNgtRate();
+        owner      = owner_;
+        index      = index_;
+        urn        = engine.ownerUrns(owner, index);
+        mkrSkyRate = engine.mkrSkyRate();
 
         vat.hope(address(clip));
 
@@ -201,12 +204,12 @@ contract LockstakeHandler is StdUtils, StdCheats {
 
     function selectFarm(uint16 ref, uint256 farmIndex) callAsUrnOwner() external {
         numCalls["selectFarm"]++;
-        engine.selectFarm(urn, _getRandomFarm(farmIndex), ref);
+        engine.selectFarm(owner, index, _getRandomFarm(farmIndex), ref);
     }
 
     function selectVoteDelegate(uint256 voteDelegateIndex) callAsUrnOwner() external {
         numCalls["selectVoteDelegate"]++;
-        engine.selectVoteDelegate(urn, _getRandomVoteDelegate(voteDelegateIndex));
+        engine.selectVoteDelegate(owner, index, _getRandomVoteDelegate(voteDelegateIndex));
     }
 
     function lock(uint256 wad, uint16 ref) external callAsAnyone {
@@ -224,28 +227,28 @@ contract LockstakeHandler is StdUtils, StdCheats {
         deal(address(mkr), anyone, wad);
         mkr.approve(address(engine), wad);
 
-        engine.lock(urn, wad, ref);
+        engine.lock(owner, index, wad, ref);
     }
 
-    function lockNgt(uint256 ngtWad, uint16 ref) external callAsAnyone {
-        numCalls["lockNgt"]++;
+    function lockSky(uint256 skyWad, uint16 ref) external callAsAnyone {
+        numCalls["lockSky"]++;
 
-        // ngtWad = bound(ngtWad, 0, uint256(type(int256).max) / 10**18) * 10**18;
+        // skyWad = bound(skyWad, 0, uint256(type(int256).max) / 10**18) * 10**18;
         (uint256 ink,) = vat.urns(ilk, urn);
         (,, uint256 spotPrice,,) = vat.ilks(ilk);
-        ngtWad = bound(ngtWad, 0, _min(
+        skyWad = bound(skyWad, 0, _min(
                                     uint256(type(int256).max),
                                     _min(
                                         type(uint256).max / spotPrice - ink,
-                                        type(uint256).max / mkrNgtRate
+                                        type(uint256).max / mkrSkyRate
                                     )
                                 ) / 10**18
-                      ) * 10**18 * mkrNgtRate;
+                      ) * 10**18 * mkrSkyRate;
 
-        deal(address(ngt), anyone, ngtWad);
-        ngt.approve(address(engine), ngtWad);
+        deal(address(sky), anyone, skyWad);
+        sky.approve(address(engine), skyWad);
 
-        engine.lockNgt(urn, ngtWad, ref);
+        engine.lockSky(owner, index, skyWad, ref);
     }
 
     function free(address to, uint256 wad) external callAsUrnOwner() {
@@ -257,17 +260,17 @@ contract LockstakeHandler is StdUtils, StdCheats {
         (, uint256 rate, uint256 spotPrice,,) = vat.ilks(ilk);
         wad = bound(wad, 0, ink - _divup(art * rate, spotPrice));
 
-        engine.free(urn, to, wad);
+        engine.free(owner, index, to, wad);
     }
 
-    function freeNgt(address to, uint256 ngtWad) external callAsUrnOwner() {
-        numCalls["freeNgt"]++;
+    function freeSky(address to, uint256 skyWad) external callAsUrnOwner() {
+        numCalls["freeSky"]++;
 
         (uint256 ink, uint256 art ) = vat.urns(ilk, urn);
         (, uint256 rate, uint256 spotPrice,,) = vat.ilks(ilk);
-        ngtWad = bound(ngtWad, 0, (ink - _divup(art * rate, spotPrice)) * mkrNgtRate);
+        skyWad = bound(skyWad, 0, (ink - _divup(art * rate, spotPrice)) * mkrSkyRate);
 
-        engine.freeNgt(urn, to, ngtWad);
+        engine.freeSky(owner, index, to, skyWad);
     }
 
     function draw(uint256 wad) external callAsUrnOwner() {
@@ -286,7 +289,7 @@ contract LockstakeHandler is StdUtils, StdCheats {
                                                         )
                                                     ));
 
-        engine.draw(urn, address(this), wad);
+        engine.draw(owner, index, address(this), wad);
     }
 
     function wipe(uint256 wad) external callAsAnyone {
@@ -300,10 +303,10 @@ contract LockstakeHandler is StdUtils, StdCheats {
                                         )
                                     : 0);
 
-        deal(address(nst), anyone, wad);
-        nst.approve(address(engine), wad);
+        deal(address(usds), anyone, wad);
+        usds.approve(address(engine), wad);
 
-        engine.wipe(urn, wad);
+        engine.wipe(owner, index, wad);
     }
 
     function dropPriceAndBark() external {

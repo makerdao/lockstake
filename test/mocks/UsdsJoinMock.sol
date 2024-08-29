@@ -8,22 +8,22 @@ interface VatLike {
     function move(address, address, uint256) external;
 }
 
-contract NstJoinMock {
+contract UsdsJoinMock {
     VatLike public vat;
-    GemMock public nst;
+    GemMock public usds;
 
-    constructor(address vat_, address nst_) {
-        vat = VatLike(vat_);
-        nst = GemMock(nst_);
+    constructor(address vat_, address usds_) {
+        vat  = VatLike(vat_);
+        usds = GemMock(usds_);
     }
 
     function join(address usr, uint256 wad) external {
         vat.move(address(this), usr, wad * 10**27);
-        nst.burn(msg.sender, wad);
+        usds.burn(msg.sender, wad);
     }
 
     function exit(address usr, uint256 wad) external {
         vat.move(msg.sender, address(this), wad * 10**27);
-        nst.mint(usr, wad);
+        usds.mint(usr, wad);
     }
 }

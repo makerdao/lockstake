@@ -4,7 +4,7 @@ pragma solidity ^0.8.21;
 
 import {GemMock} from "../../../test/mocks/GemMock.sol";
 
-contract NgtMock is GemMock {
+contract SkyMock is GemMock {
     
     constructor(uint256 initialSupply) GemMock(initialSupply) {
     }

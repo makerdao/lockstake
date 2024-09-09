@@ -989,29 +989,46 @@ rule yank_revert(uint256 id) {
     mathint locked = lockedGhost();
     bytes32 ilk = ilk();
 
-    mathint a; mathint salesIdTab; mathint salesIdLot; address salesIdUsr;
-    a, salesIdTab, salesIdLot, a, salesIdUsr, a, a = sales(id);
+    mathint count = count();
+    mathint activeLast;
+    if (count > 0) {
+        activeLast = active(assert_uint256(count - 1));
+    } else {
+        activeLast = 0;
+    }
 
+    mathint salesIdPos; mathint salesIdTab; mathint salesIdLot; address salesIdUsr; mathint a;
+    salesIdPos, salesIdTab, salesIdLot, a, salesIdUsr, a, a = sales(id);
+
+    mathint engineWardsClipper = lockstakeEngine.wards(currentContract);
+
+    mathint dogWardsClipper = dog.wards(currentContract);
     mathint dogDirt = dog.Dirt();
     address b; mathint dogIlkDirt;
     b, a, a, dogIlkDirt = dog.ilks(ilk);
 
     mathint vatGemIlkClipper = vat.gem(ilk, currentContract);
+    mathint vatGemIlkSender  = vat.gem(ilk, e.msg.sender);
 
     // LockstakeEngine assumptions
+    require engineWardsClipper == 1;
     require lockstakeEngine.urnAuctions(salesIdUsr) > 0;
     // Dog assumptions
+    require dogWardsClipper == 1;
     require dogDirt >= salesIdTab;
     require dogIlkDirt >= salesIdTab;
+    // Vat assumption
+    require vatGemIlkSender + salesIdLot <= max_uint256;
 
-    yank(e, id);
+    yank@withrevert(e, id);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
     bool revert3 = locked != 0;
     bool revert4 = salesIdUsr == addrZero();
     bool revert5 = vatGemIlkClipper < salesIdLot;
+    bool revert6 = count == 0 || to_mathint(id) != activeLast && salesIdPos > count - 1;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
-                            revert4 || revert5, "Revert rules failed";
+                            revert4 || revert5 || revert6, "Revert rules failed";
 }

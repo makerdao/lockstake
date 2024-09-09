@@ -10,25 +10,26 @@ contract MulticallExecutor {
     LockstakeEngine public engine;
 
     /// @dev Make two `hope` calls using the `multicall` function
-    function hopeAndHope(address urn1, address urn2, address usr) public {
+    function hopeAndHope(address owner1, uint256 index1, address owner2, uint256 index2, address usr) public {
 
         bytes[] memory calls = new bytes[](2);
-        calls[0] = abi.encodeWithSignature("hope(address,address)", urn1, usr);
-        calls[1] = abi.encodeWithSignature("hope(address,address)", urn2, usr);
+        calls[0] = abi.encodeWithSignature("hope(address,uint256,address)", owner1, index1, usr);
+        calls[1] = abi.encodeWithSignature("hope(address,uint256,address)", owner2, index2, usr);
         engine.multicall(calls);
     }
     
     /// @dev `hope` followed by `nope` call
-    function hopeAndNope(address urn, address usr) public {
+    function hopeAndNope(address owner, uint256 index, address usr) public {
         bytes[] memory calls = new bytes[](2);
-        calls[0] = abi.encodeWithSignature("hope(address,address)", urn, usr);
-        calls[1] = abi.encodeWithSignature("nope(address,address)", urn, usr);
+        calls[0] = abi.encodeWithSignature("hope(address,uint256,address)", owner, index, usr);
+        calls[1] = abi.encodeWithSignature("nope(address,uint256,address)", owner, index, usr);
         engine.multicall(calls);
     }
 
     /// @dev Standard multicall sequence
     function selectFarmAndLock(
-        address urn,
+        address owner,
+        uint256 index,
         address farm,
         uint16 ref,
         uint256 wad
@@ -36,10 +37,10 @@ contract MulticallExecutor {
 
         bytes[] memory calls = new bytes[](2);
         calls[0] = abi.encodeWithSignature(
-            "selectFarm(address,address,uint16)", urn, farm, ref
+            "selectFarm(address,uint256,address,uint16)", owner, index, farm, ref
         );
         calls[1] = abi.encodeWithSignature(
-            "lock(address,uint256,uint16)", urn, wad, ref
+            "lock(address,uint256,uint256,uint16)", owner, index, wad, ref
         );
         engine.multicall(calls);
     }

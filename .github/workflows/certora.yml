@@ -44,6 +44,6 @@ jobs:
         run: pip3 install certora-cli-beta
 
       - name: Verify ${{ matrix.lockstake }}
-        run: make certora-${{ matrix.lockstake }} --wait_for_results all
+        run: make certora-${{ matrix.lockstake }} results=1
         env:
           CERTORAKEY: ${{ secrets.CERTORAKEY }}

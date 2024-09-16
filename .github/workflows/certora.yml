@@ -13,7 +13,6 @@ jobs:
           - urn
           - lsmkr
           - engine
-          - engine-wipe-revert
           - engine-multicall
           - clipper
 

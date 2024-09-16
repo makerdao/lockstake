@@ -80,6 +80,8 @@ methods {
     function voteDelegateFactory.created(address) external returns (uint256) envfree;
     //
     function jug.drip(bytes32 ilk) external returns (uint256) => dripSummary(ilk);
+    function _.mul(uint256 x,int256 y) internal => cvlMul(x,y) expect int256;
+    function _.mul(uint256 x,uint256 y) internal => cvlUMul(x,y) expect uint256;
     function _.hope(address) external => DISPATCHER(true);
     function _.approve(address,uint256) external => DISPATCHER(true);
     function _.init() external => DISPATCHER(true);
@@ -103,6 +105,20 @@ definition WAD() returns mathint = 10^18;
 definition RAY() returns mathint = 10^27;
 definition _divup(mathint x, mathint y) returns mathint = x != 0 ? ((x - 1) / y) + 1 : 0;
 definition _min(mathint x, mathint y) returns mathint = x < y ? x : y;
+
+function cvlMul(uint256 x, int256 y) returns int256 {
+   require x <= max_int256();
+   mathint z = x * y;
+   require z <= max_int256();
+   require z >= min_int256();
+   return assert_int256(z);
+}
+
+function cvlUMul(uint256 x, uint256 y) returns uint256 {
+   mathint z = x * y;
+   require z <= max_uint256;
+   return assert_uint256(z);
+}
 
 persistent ghost address createdUrn;
 

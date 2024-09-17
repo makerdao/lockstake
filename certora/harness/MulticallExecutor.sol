@@ -4,12 +4,10 @@ pragma solidity ^0.8.21;
 import { LockstakeEngine } from "../../src/LockstakeEngine.sol";
 
 
-/// @title For testing the `LockstakeEngine.multicall` function
 contract MulticallExecutor {
 
     LockstakeEngine public engine;
 
-    /// @dev Make two `hope` calls using the `multicall` function
     function hopeAndHope(address owner1, uint256 index1, address owner2, uint256 index2, address usr) public {
 
         bytes[] memory calls = new bytes[](2);
@@ -18,7 +16,6 @@ contract MulticallExecutor {
         engine.multicall(calls);
     }
     
-    /// @dev `hope` followed by `nope` call
     function hopeAndNope(address owner, uint256 index, address usr) public {
         bytes[] memory calls = new bytes[](2);
         calls[0] = abi.encodeWithSignature("hope(address,uint256,address)", owner, index, usr);
@@ -26,12 +23,11 @@ contract MulticallExecutor {
         engine.multicall(calls);
     }
 
-    /// @dev Standard multicall sequence
     function selectFarmAndLock(
         address owner,
         uint256 index,
         address farm,
-        uint16 ref,
+        uint16  ref,
         uint256 wad
     ) public {
 

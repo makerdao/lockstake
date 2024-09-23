@@ -13,9 +13,9 @@ import { VoteDelegateFactory } from "test/integration/VoteDelegateFactory.sol";
 import { VoteDelegate } from "test/integration/VoteDelegate.sol";
 import { StakingRewards } from "test/integration/StakingRewards.sol";
 import { GemMock } from "test/mocks/GemMock.sol";
-import { NstMock } from "test/mocks/NstMock.sol";
-import { NstJoinMock } from "test/mocks/NstJoinMock.sol";
-import { MkrNgtMock } from "test/mocks/MkrNgtMock.sol";
+import { UsdsMock } from "test/mocks/UsdsMock.sol";
+import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
+import { MkrSkyMock } from "test/mocks/MkrSkyMock.sol";
 
 contract ClipperCalleeMock {
     function clipperCall(address, uint256, uint256, bytes calldata) external {}
@@ -34,12 +34,12 @@ contract LockstakeEngineBenchmarks is DssTest {
     MedianAbstract      pip;
     address             chief;
     VoteDelegateFactory delFactory;
-    NstMock             nst;
-    NstJoinMock         nstJoin;
+    UsdsMock            usds;
+    UsdsJoinMock        usdsJoin;
     GemMock             rTok;
     StakingRewards      farm;
-    MkrNgtMock          mkrNgt;
-    GemMock             ngt;
+    MkrSkyMock          mkrSky;
+    GemMock             sky;
     bytes32             ilk = "LSE";
     address             voter = address(123);
     address             voteDelegate;
@@ -55,10 +55,10 @@ contract LockstakeEngineBenchmarks is DssTest {
         pip = MedianAbstract(dss.chainlog.getAddress("PIP_MKR"));
         chief = dss.chainlog.getAddress("MCD_ADM");
         mkr = GemAbstract(dss.chainlog.getAddress("MCD_GOV"));
-        nst = new NstMock();
-        nstJoin = new NstJoinMock(address(dss.vat), address(nst));
-        ngt = new GemMock(0);
-        mkrNgt = new MkrNgtMock(address(mkr), address(ngt), 24_000);
+        usds = new UsdsMock();
+        usdsJoin = new UsdsJoinMock(address(dss.vat), address(usds));
+        sky = new GemMock(0);
+        mkrSky = new MkrSkyMock(address(mkr), address(sky), 24_000);
 
         delFactory = new VoteDelegateFactory(chief, address(0));
         vm.prank(voter); voteDelegate = delFactory.create();
@@ -71,10 +71,9 @@ contract LockstakeEngineBenchmarks is DssTest {
             address(this),
             pauseProxy,
             address(delFactory),
-            address(nstJoin),
+            address(usdsJoin),
             ilk,
-            15 * WAD / 100,
-            address(mkrNgt),
+            address(mkrSky),
             bytes4(abi.encodeWithSignature("newLinearDecrease(address)"))
         );
 
@@ -91,11 +90,11 @@ contract LockstakeEngineBenchmarks is DssTest {
         LockstakeConfig memory cfg = LockstakeConfig({
             ilk: ilk,
             voteDelegateFactory: address(delFactory),
-            nstJoin: address(nstJoin),
-            nst: address(nstJoin.nst()),
+            usdsJoin: address(usdsJoin),
+            usds: address(usdsJoin.usds()),
             mkr: address(mkr),
-            mkrNgt: address(mkrNgt),
-            ngt: address(ngt),
+            mkrSky: address(mkrSky),
+            sky: address(sky),
             farms: farms,
             fee: 15 * WAD / 100,
             maxLine: 10_000_000 * 10**45,
@@ -126,23 +125,23 @@ contract LockstakeEngineBenchmarks is DssTest {
         vm.stopPrank();
 
         deal(address(mkr), address(this), 200_000 * 10**18, true);
-        deal(address(ngt), address(this), 100_000 * 24_000 * 10**18, true);
+        deal(address(sky), address(this), 100_000 * 24_000 * 10**18, true);
 
-        // Add some existing DAI assigned to nstJoin to avoid a particular error
-        stdstore.target(address(dss.vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(100_000 * RAD);
+        // Add some existing DAI assigned to usdsJoin to avoid a particular error
+        stdstore.target(address(dss.vat)).sig("dai(address)").with_key(address(usdsJoin)).depth(0).checked_write(100_000 * RAD);
     }
 
     function _urnSetUp(bool withDelegate, bool withStaking) internal returns (address urn) {
         urn = engine.open(0);
         if (withDelegate) {
-            engine.selectVoteDelegate(urn, voteDelegate);
+            engine.selectVoteDelegate(address(this), 0, voteDelegate);
         }
         if (withStaking) {
-            engine.selectFarm(urn, address(farm), 0);
+            engine.selectFarm(address(this), 0, address(farm), 0);
         }
         mkr.approve(address(engine), 100_000 * 10**18);
-        engine.lock(urn, 100_000 * 10**18, 5);
-        engine.draw(urn, address(this), 2_000 * 10**18);
+        engine.lock(address(this), 0, 100_000 * 10**18, 5);
+        engine.draw(address(this), 0, address(this), 2_000 * 10**18);
     }
 
     function checkBenchmarkLiquidationCost(bool withDelegate, bool withStaking, uint256 numYays) private {

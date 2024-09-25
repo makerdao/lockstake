@@ -96,6 +96,7 @@ methods {
     function _.rewardsToken() external => DISPATCHER(true);
     function _.balanceOf(address) external => DISPATCHER(true);
     function _.transfer(address,uint256) external => DISPATCHER(true);
+    function _.transferFrom(address,address,uint256) external => DISPATCHER(true);
 }
 
 definition addrZero() returns address = 0x0000000000000000000000000000000000000000;
@@ -123,6 +124,12 @@ hook CREATE1(uint value, uint offset, uint length) address v {
     createdUrn = v;
 }
 
+persistent ghost address queriedUrn;
+
+hook Sload address v ownerUrns[KEY address owner][KEY uint256 index] {
+    queriedUrn = v;
+}
+
 ghost mathint duty;
 ghost mathint timeDiff;
 
@@ -138,7 +145,7 @@ function dripSummary(bytes32 ilk) returns uint256 {
 }
 
 // Verify that each storage layout is only modified in the corresponding functions
-rule storageAffected(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector  } {
+rule storageAffected(method f) filtered { f -> !f.isView && f.selector != sig:multicall(bytes[]).selector  } {
     env e;
 
     address anyAddr;
@@ -184,7 +191,7 @@ rule storageAffected(method f) filtered { f -> f.selector != sig:multicall(bytes
     assert jugAfter != jugBefore => f.selector == sig:file(bytes32,address).selector, "Assert 10";
 }
 
-rule vatGemKeepsUnchanged(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector  } {
+rule vatGemKeepsUnchanged(method f) filtered { f -> !f.isView && f.selector != sig:multicall(bytes[]).selector  } {
     env e;
 
     address anyAddr;
@@ -201,7 +208,104 @@ rule vatGemKeepsUnchanged(method f) filtered { f -> f.selector != sig:multicall(
     assert vatGemIlkAnyAfter == vatGemIlkAnyBefore, "Assert 1";
 }
 
-rule inkMatchesLsmkrFarm(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector  } {
+rule inkChangeMatchesMkrChange(method f) filtered { f -> !f.isView && f.selector != sig:multicall(bytes[]).selector } {
+    env e;
+
+    createdUrn = 0;
+    queriedUrn = 0;
+    storage init = lastStorage;
+    if (f.selector == sig:free(address,uint256,address,uint256).selector ||
+        f.selector == sig:freeNoFee(address,uint256,address,uint256).selector) {
+        address owner;
+        uint256 index;
+        address to;
+        uint256 wad;
+        require to != currentContract && to != voteDelegate && to != voteDelegate2;
+        if (f.selector == sig:free(address,uint256,address,uint256).selector) {
+            free(e, owner, index, to, wad);
+        } else {
+            freeNoFee(e, owner, index, to, wad);
+        }
+    } else {
+        calldataarg args;
+        f(e, args);
+    }
+    storage final = lastStorage;
+
+    address urn = createdUrn != 0 ? createdUrn : (queriedUrn != 0 ? queriedUrn : 0);
+    require urn != currentContract && urn != voteDelegate && urn != voteDelegate2;
+
+    address voteDelegateAfter = urnVoteDelegates(urn);
+
+    ilk() at init;
+
+    require e.msg.sender != currentContract && e.msg.sender != voteDelegate && e.msg.sender != voteDelegate2;
+    require mkrSkyRate() == mkrSky.rate();
+
+    bytes32 ilk = ilk();
+
+    address voteDelegateBefore = urnVoteDelegates(urn);
+    require voteDelegateBefore == addrZero() || voteDelegateBefore == voteDelegate;
+    mathint vatUrnsIlkUrnInkBefore; mathint a;
+    vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
+    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
+    mathint mkrBalanceOfVoteDelegateBeforeBefore = voteDelegateBefore == addrZero() ? 0 : mkr.balanceOf(voteDelegateBefore);
+    mathint mkrBalanceOfVoteDelegateAfterBefore = voteDelegateAfter == addrZero() ? 0 : mkr.balanceOf(voteDelegateAfter);
+    require mkr.balanceOf(e.msg.sender) + mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBeforeBefore + mkrBalanceOfVoteDelegateAfterBefore <= mkr.totalSupply();
+    require mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBeforeBefore >= vatUrnsIlkUrnInkBefore;
+
+    ilk() at final;
+
+    require voteDelegateAfter == addrZero() || voteDelegateAfter == voteDelegate || voteDelegateAfter == voteDelegate2;
+    mathint vatUrnsIlkUrnInkAfter;
+    vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
+    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
+    mathint mkrBalanceOfVoteDelegateBeforeAfter = voteDelegateBefore == addrZero() ? 0 : mkr.balanceOf(voteDelegateBefore);
+    mathint mkrBalanceOfVoteDelegateAfterAfter = voteDelegateAfter == addrZero() ? 0 : mkr.balanceOf(voteDelegateAfter);
+
+    // It checks that the ink change matches the MKR balance change + that is all or nothing delegated
+    assert urn != 0 && voteDelegateAfter == voteDelegateBefore && voteDelegateBefore == addrZero() =>
+        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == mkrBalanceOfEngineAfter - mkrBalanceOfEngineBefore, "Assert 1";
+    assert urn != 0 && voteDelegateAfter == voteDelegateBefore && voteDelegateBefore != addrZero() =>
+        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore &&
+        mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 2";
+    assert urn != 0 && voteDelegateAfter != voteDelegateBefore && voteDelegateBefore != addrZero() && voteDelegateAfter != addrZero() =>
+        mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore == mkrBalanceOfVoteDelegateAfterBefore - mkrBalanceOfVoteDelegateAfterAfter, "Assert3";
+}
+
+rule inkChangeMatchesLsmkrTotSupplyChange(method f) filtered { f -> !f.isView && f.selector != sig:multicall(bytes[]).selector  } {
+    env e;
+
+    createdUrn = 0;
+    queriedUrn = 0;
+    storage init = lastStorage;
+    calldataarg args;
+    f(e, args);
+    storage final = lastStorage;
+
+    ilk() at init;
+
+    address urn = createdUrn != 0 ? createdUrn : (queriedUrn != 0 ? queriedUrn : 0);
+
+    bytes32 ilk = ilk();
+
+    // Before execution
+    mathint vatUrnsIlkUrnInkBefore; mathint a;
+    vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn) at init;
+    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply() at init;
+    require lsmkrTotalSupplyBefore >= vatUrnsIlkUrnInkBefore;
+
+    ilk() at final;
+
+    // After execution
+    mathint vatUrnsIlkUrnInkAfter;
+    vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
+    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
+
+    assert urn != 0 => vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrTotalSupplyAfter - lsmkrTotalSupplyBefore, "Assert 1";
+}
+
+rule inkMatchesLsmkrFarm(method f) filtered { f -> !f.isView && f.selector != sig:multicall(bytes[]).selector  } {
     env e;
 
     address anyUrn;

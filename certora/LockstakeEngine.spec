@@ -359,7 +359,7 @@ rule inkChangeMatchesLsmkrChange(method f) filtered { f -> !f.isView && f.select
     assert urn != 0 && farmAfter == addrZero() =>
         lsmkrBalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && stakingRewardsBalanceOfUrnAfter == 0 && stakingRewards2BalanceOfUrnAfter == 0, "Assert 7";
     assert urn != 0 && farmAfter == stakingRewards =>
-        stakingRewardsBalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && lsmkrBalanceOfUrnAfter && stakingRewards2BalanceOfUrnAfter == 0, "Assert 8";
+        stakingRewardsBalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && lsmkrBalanceOfUrnAfter == 0 && stakingRewards2BalanceOfUrnAfter == 0, "Assert 8";
     assert urn != 0 && farmAfter == stakingRewards2 =>
         stakingRewards2BalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && lsmkrBalanceOfUrnAfter == 0 && stakingRewardsBalanceOfUrnAfter == 0, "Assert 9";
 }

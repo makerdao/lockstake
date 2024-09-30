@@ -119,20 +119,22 @@ function mulSummary(uint256 x, uint256 y) returns uint256 {
 }
 
 persistent ghost address createdUrn;
-
 hook CREATE1(uint value, uint offset, uint length) address v {
     createdUrn = v;
 }
 
 persistent ghost address queriedUrn;
-
 hook Sload address v ownerUrns[KEY address owner][KEY uint256 index] {
     queriedUrn = v;
 }
 
+persistent ghost address passedUrn;
+hook Sload uint256 v urnAuctions[KEY address urn] {
+    passedUrn = urn;
+}
+
 ghost mathint duty;
 ghost mathint timeDiff;
-
 function dripSummary(bytes32 ilk) returns uint256 {
     env e;
     require duty >= RAY();
@@ -213,7 +215,10 @@ rule inkChangeMatchesMkrChange(method f) filtered { f -> !f.isView && f.selector
 
     createdUrn = 0;
     queriedUrn = 0;
+    passedUrn = 0;
     storage init = lastStorage;
+    address onTakeWho;
+    uint256 onTakeWad;
     if (f.selector == sig:free(address,uint256,address,uint256).selector ||
         f.selector == sig:freeNoFee(address,uint256,address,uint256).selector) {
         address owner;
@@ -232,7 +237,7 @@ rule inkChangeMatchesMkrChange(method f) filtered { f -> !f.isView && f.selector
     }
     storage final = lastStorage;
 
-    address urn = createdUrn != 0 ? createdUrn : (queriedUrn != 0 ? queriedUrn : 0);
+    address urn = createdUrn != 0 ? createdUrn : (queriedUrn != 0 ? queriedUrn : (passedUrn != 0 ? passedUrn : 0));
     require urn != currentContract && urn != voteDelegate && urn != voteDelegate2;
 
     address voteDelegateAfter = urnVoteDelegates(urn);
@@ -249,6 +254,7 @@ rule inkChangeMatchesMkrChange(method f) filtered { f -> !f.isView && f.selector
     require voteDelegateBefore == addrZero() || voteDelegateBefore == voteDelegate;
     mathint vatUrnsIlkUrnInkBefore; mathint a;
     vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
+    mathint mkrTotalSupplyBefore = mkr.totalSupply();
     mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfVoteDelegateBeforeBefore = voteDelegateBefore == addrZero() ? 0 : mkr.balanceOf(voteDelegateBefore);
     mathint mkrBalanceOfVoteDelegateAfterBefore = voteDelegateAfter == addrZero() ? 0 : mkr.balanceOf(voteDelegateAfter);
@@ -259,17 +265,22 @@ rule inkChangeMatchesMkrChange(method f) filtered { f -> !f.isView && f.selector
 
     mathint vatUrnsIlkUrnInkAfter;
     vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
+    mathint mkrTotalSupplyAfter = mkr.totalSupply();
     mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
     mathint mkrBalanceOfVoteDelegateBeforeAfter = voteDelegateBefore == addrZero() ? 0 : mkr.balanceOf(voteDelegateBefore);
     mathint mkrBalanceOfVoteDelegateAfterAfter = voteDelegateAfter == addrZero() ? 0 : mkr.balanceOf(voteDelegateAfter);
+    require f.selector == sig:onRemove(address,uint256,uint256).selector => voteDelegateBefore == addrZero();
+    mathint burntOnRemove = f.selector == sig:onRemove(address,uint256,uint256).selector ? mkrTotalSupplyBefore - mkrTotalSupplyAfter + vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore : 0;
+    mathint transferredOnTake = f.selector == sig:onTake(address,address,uint256).selector ? mkrBalanceOfEngineBefore - mkrBalanceOfEngineAfter : 0;
+    mathint receivedOnTake = f.selector == sig:onTake(address,address,uint256).selector ? mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore : 0;
 
     // It checks that the ink change matches the MKR balance change + that is all or nothing delegated
-    assert urn != 0 && voteDelegateAfter == voteDelegateBefore && voteDelegateBefore == addrZero() =>
-        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == mkrBalanceOfEngineAfter - mkrBalanceOfEngineBefore, "Assert 1";
-    assert urn != 0 && voteDelegateAfter == voteDelegateBefore && voteDelegateBefore != addrZero() =>
-        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore &&
-        mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 2";
-    assert urn != 0 && voteDelegateAfter != voteDelegateBefore && voteDelegateBefore != addrZero() && voteDelegateAfter != addrZero() =>
+    assert voteDelegateAfter == voteDelegateBefore && voteDelegateBefore == addrZero() =>
+        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == mkrBalanceOfEngineAfter - mkrBalanceOfEngineBefore + burntOnRemove + transferredOnTake, "Assert 1";
+    assert voteDelegateAfter == voteDelegateBefore && voteDelegateBefore != addrZero() =>
+        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore - receivedOnTake &&
+        mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - transferredOnTake, "Assert 2";
+    assert voteDelegateAfter != voteDelegateBefore && voteDelegateBefore != addrZero() && voteDelegateAfter != addrZero() =>
         mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore == mkrBalanceOfVoteDelegateAfterBefore - mkrBalanceOfVoteDelegateAfterAfter, "Assert3";
 }
 
@@ -278,12 +289,13 @@ rule inkChangeMatchesLsmkrChange(method f) filtered { f -> !f.isView && f.select
 
     createdUrn = 0;
     queriedUrn = 0;
+    passedUrn = 0;
     storage init = lastStorage;
     calldataarg args;
     f(e, args);
     storage final = lastStorage;
 
-    address urn = createdUrn != 0 ? createdUrn : (queriedUrn != 0 ? queriedUrn : 0);
+    address urn = createdUrn != 0 ? createdUrn : (queriedUrn != 0 ? queriedUrn : (passedUrn != 0 ? passedUrn : 0));
 
     address farmAfter = urnFarms(urn);
     require farmAfter == addrZero() || farmAfter == stakingRewards || farmAfter == stakingRewards2;
@@ -315,12 +327,6 @@ rule inkChangeMatchesLsmkrChange(method f) filtered { f -> !f.isView && f.select
     mathint stakingRewardsBalanceOfUrnBefore = stakingRewards.balanceOf(urn);
     mathint stakingRewards2BalanceOfUrnBefore = stakingRewards2.balanceOf(urn);
 
-    require farmBefore != addrZero() => lsmkrBalanceOfUrnBefore == 0;
-    require farmBefore == stakingRewards => stakingRewards2BalanceOfUrnBefore == 0;
-    require farmBefore == stakingRewards2 => stakingRewardsBalanceOfUrnBefore == 0;
-    require farmBefore == addrZero() => stakingRewardsBalanceOfUrnBefore == 0 && stakingRewards2BalanceOfUrnBefore == 0;
-    require vatUrnsIlkUrnInkBefore == lsmkrBalanceOfUrnBefore + stakingRewardsBalanceOfUrnBefore + stakingRewards2BalanceOfUrnBefore;
-
     ilk() at final;
 
     mathint vatUrnsIlkUrnInkAfter;
@@ -342,25 +348,33 @@ rule inkChangeMatchesLsmkrChange(method f) filtered { f -> !f.isView && f.select
     mathint stakingRewardsBalanceOfUrnAfter = stakingRewards.balanceOf(urn);
     mathint stakingRewards2BalanceOfUrnAfter = stakingRewards2.balanceOf(urn);
 
-    assert urn != 0 => vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrTotalSupplyAfter - lsmkrTotalSupplyBefore, "Assert 1";
-    assert urn != 0 && farmAfter == farmBefore && farmBefore == addrZero() =>
-        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrBalanceOfUrnAfter - lsmkrBalanceOfUrnBefore, "Assert 2";
-    assert urn != 0 && farmAfter == farmBefore && farmBefore != addrZero() =>
+    require farmBefore != addrZero() => lsmkrBalanceOfUrnBefore == 0;
+    require farmBefore == stakingRewards => stakingRewards2BalanceOfUrnBefore == 0;
+    require farmBefore == stakingRewards2 => stakingRewardsBalanceOfUrnBefore == 0;
+    require farmBefore == addrZero() => stakingRewardsBalanceOfUrnBefore == 0 && stakingRewards2BalanceOfUrnBefore == 0;
+    mathint burntOnKick = f.selector == sig:onKick(address,uint256).selector ? lsmkrTotalSupplyBefore - lsmkrTotalSupplyAfter : 0;
+    require vatUrnsIlkUrnInkBefore == lsmkrBalanceOfUrnBefore + stakingRewardsBalanceOfUrnBefore + stakingRewards2BalanceOfUrnBefore - burntOnKick;
+    require f.selector == sig:onRemove(address,uint256,uint256).selector => farmBefore == addrZero();
+
+    assert vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrTotalSupplyAfter - lsmkrTotalSupplyBefore + burntOnKick, "Assert 1";
+    assert farmAfter == farmBefore && farmBefore == addrZero() =>
+        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrBalanceOfUrnAfter - lsmkrBalanceOfUrnBefore + burntOnKick, "Assert 2";
+    assert farmAfter == farmBefore && farmBefore != addrZero() =>
         vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrBalanceOfFarmBeforAfter - lsmkrBalanceOfFarmBeforeBefore, "Assert 3";
-    assert urn != 0 && farmAfter != farmBefore && farmBefore == addrZero() =>
+    assert farmAfter != farmBefore && farmBefore == addrZero() =>
         vatUrnsIlkUrnInkAfter == lsmkrBalanceOfFarmAfterAfter - lsmkrBalanceOfFarmAfterBefore &&
         vatUrnsIlkUrnInkBefore == lsmkrBalanceOfUrnBefore - lsmkrBalanceOfUrnAfter, "Assert 4";
-    assert urn != 0 && farmAfter != farmBefore && farmAfter == addrZero() =>
+    assert farmAfter != farmBefore && farmAfter == addrZero() =>
         vatUrnsIlkUrnInkAfter == lsmkrBalanceOfUrnAfter - lsmkrBalanceOfUrnBefore &&
-        vatUrnsIlkUrnInkBefore == lsmkrBalanceOfFarmBeforeBefore - lsmkrBalanceOfFarmBeforAfter, "Assert 5";
-    assert urn != 0 && farmAfter != farmBefore && farmBefore != addrZero() && farmAfter != addrZero() =>
+        vatUrnsIlkUrnInkBefore == lsmkrBalanceOfFarmBeforeBefore - lsmkrBalanceOfFarmBeforAfter - burntOnKick, "Assert 5";
+    assert farmAfter != farmBefore && farmBefore != addrZero() && farmAfter != addrZero() =>
         vatUrnsIlkUrnInkAfter == lsmkrBalanceOfFarmAfterAfter - lsmkrBalanceOfFarmAfterBefore &&
         vatUrnsIlkUrnInkBefore == lsmkrBalanceOfFarmBeforeBefore - lsmkrBalanceOfFarmBeforAfter, "Assert 6";
-    assert urn != 0 && farmAfter == addrZero() =>
+    assert farmAfter == addrZero() =>
         lsmkrBalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && stakingRewardsBalanceOfUrnAfter == 0 && stakingRewards2BalanceOfUrnAfter == 0, "Assert 7";
-    assert urn != 0 && farmAfter == stakingRewards =>
+    assert farmAfter == stakingRewards =>
         stakingRewardsBalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && lsmkrBalanceOfUrnAfter == 0 && stakingRewards2BalanceOfUrnAfter == 0, "Assert 8";
-    assert urn != 0 && farmAfter == stakingRewards2 =>
+    assert farmAfter == stakingRewards2 =>
         stakingRewards2BalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && lsmkrBalanceOfUrnAfter == 0 && stakingRewardsBalanceOfUrnAfter == 0, "Assert 9";
 }
 

@@ -147,7 +147,7 @@ function dripSummary(bytes32 ilk) returns uint256 {
 }
 
 // Verify that each storage layout is only modified in the corresponding functions
-rule storageAffected(method f) filtered { f.selector != sig:multicall(bytes[]).selector  } {
+rule storageAffected(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector  } {
     env e;
 
     address anyAddr;
@@ -193,7 +193,7 @@ rule storageAffected(method f) filtered { f.selector != sig:multicall(bytes[]).s
     assert jugAfter != jugBefore => f.selector == sig:file(bytes32,address).selector, "Assert 10";
 }
 
-rule vatGemKeepsUnchanged(method f) filtered { f.selector != sig:multicall(bytes[]).selector  } {
+rule vatGemKeepsUnchanged(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector  } {
     env e;
 
     address anyAddr;
@@ -210,7 +210,7 @@ rule vatGemKeepsUnchanged(method f) filtered { f.selector != sig:multicall(bytes
     assert vatGemIlkAnyAfter == vatGemIlkAnyBefore, "Assert 1";
 }
 
-rule inkChangeMatchesMkrChange(method f) filtered { f.selector != sig:multicall(bytes[]).selector } {
+rule inkChangeMatchesMkrChange(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector } {
     env e;
 
     createdUrn = 0;
@@ -284,7 +284,7 @@ rule inkChangeMatchesMkrChange(method f) filtered { f.selector != sig:multicall(
         mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore == mkrBalanceOfVoteDelegateAfterBefore - mkrBalanceOfVoteDelegateAfterAfter, "Assert3";
 }
 
-rule inkChangeMatchesLsmkrChange(method f) filtered { f.selector != sig:multicall(bytes[]).selector  } {
+rule inkChangeMatchesLsmkrChange(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector  } {
     env e;
 
     createdUrn = 0;

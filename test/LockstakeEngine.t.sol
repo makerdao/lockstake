@@ -39,7 +39,7 @@ contract LockstakeEngineTest is DssTest {
     LockstakeEngine         engine;
     LockstakeClipper        clip;
     address                 calc;
-    MedianAbstract          pip;
+    OsmAbstract             pip;
     VoteDelegateFactoryMock voteDelegateFactory;
     UsdsMock                usds;
     UsdsJoinMock            usdsJoin;
@@ -84,13 +84,21 @@ contract LockstakeEngineTest is DssTest {
         }
     }
 
+    function _setMedianPrice(uint256 price) internal {
+        vm.store(pip.src(), bytes32(uint256(1)), bytes32(price));
+        vm.warp(block.timestamp + 1 hours);
+        pip.poke();
+        vm.warp(block.timestamp + 1 hours);
+        pip.poke();
+    }
+
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
         dss = MCD.loadFromChainlog(LOG);
 
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
-        pip = MedianAbstract(dss.chainlog.getAddress("PIP_MKR"));
+        pip = OsmAbstract(dss.chainlog.getAddress("PIP_MKR"));
         mkr = DSTokenAbstract(dss.chainlog.getAddress("MCD_GOV"));
         usds = new UsdsMock();
         usdsJoin = new UsdsJoinMock(address(dss.vat), address(usds));
@@ -106,7 +114,7 @@ contract LockstakeEngineTest is DssTest {
         vm.prank(voter); voteDelegate = voteDelegateFactory.create();
 
         vm.prank(pauseProxy); pip.kiss(address(this));
-        vm.store(address(pip), bytes32(uint256(1)), bytes32(uint256(1_500 * 10**18)));
+        _setMedianPrice(1_500 * 10**18);
 
         LockstakeInstance memory instance = LockstakeDeploy.deployLockstake(
             address(this),
@@ -1039,7 +1047,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function _forceLiquidation(address urn) internal returns (uint256 id) {
-        vm.store(address(pip), bytes32(uint256(1)), bytes32(uint256(0.05 * 10**18))); // Force liquidation
+        _setMedianPrice(0.05 * 10**18); // Force liquidation
         dss.spotter.poke(ilk);
         assertEq(clip.kicks(), 0);
         assertEq(engine.urnAuctions(urn), 0);
@@ -1065,7 +1073,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.tot, 100_000 * 10**18);
         assertEq(sale.usr, address(urn));
         assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, pip.read() * (1.25 * 10**9));
+        assertEq(sale.top, uint256(pip.read()) * (1.25 * 10**9));
 
         assertEq(_ink(ilk, urn), 0);
         assertEq(_art(ilk, urn), 0);
@@ -1114,7 +1122,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.tot, 25_000 * 10**18);
         assertEq(sale.usr, address(urn));
         assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, pip.read() * (1.25 * 10**9));
+        assertEq(sale.top, uint256(pip.read()) * (1.25 * 10**9));
 
         assertEq(_ink(ilk, urn), 75_000 * 10**18);
         assertEq(_art(ilk, urn), 1_500 * 10**18);
@@ -1165,7 +1173,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.tot, 100_000 * 10**18);
         assertEq(sale.usr, address(urn));
         assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, pip.read() * (1.25 * 10**9));
+        assertEq(sale.top, uint256(pip.read()) * (1.25 * 10**9));
 
         assertEq(_ink(ilk, urn), 0);
         assertEq(_art(ilk, urn), 0);
@@ -1198,7 +1206,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.tot, 100_000 * 10**18);
         assertEq(sale.usr, address(urn));
         assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, pip.read() * (1.25 * 10**9));
+        assertEq(sale.top, uint256(pip.read()) * (1.25 * 10**9));
 
         assertEq(_ink(ilk, urn), 0);
         assertEq(_art(ilk, urn), 0);
@@ -1281,7 +1289,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.tot, 100_000 * 10**18);
         assertEq(sale.usr, address(urn));
         assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, pip.read() * (1.25 * 10**9));
+        assertEq(sale.top, uint256(pip.read()) * (1.25 * 10**9));
 
         assertEq(_ink(ilk, urn), 0);
         assertEq(_art(ilk, urn), 0);
@@ -1362,7 +1370,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sale.tot, 100_000 * 10**18);
         assertEq(sale.usr, address(urn));
         assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, pip.read() * (1.25 * 10**9));
+        assertEq(sale.top, uint256(pip.read()) * (1.25 * 10**9));
 
         assertEq(_ink(ilk, urn), 0);
         assertEq(_art(ilk, urn), 0);
@@ -1493,7 +1501,7 @@ contract LockstakeEngineTest is DssTest {
 
         address voteDelegate2 = voteDelegateFactory.create();
 
-        vm.store(address(pip), bytes32(uint256(1)), bytes32(uint256(0.05 * 10**18))); // Force urn unsafe
+        _setMedianPrice(0.05 * 10**18); // Force urn unsafe
         dss.spotter.poke(ilk);
 
         vm.expectRevert("LockstakeEngine/urn-unsafe");
@@ -1504,7 +1512,7 @@ contract LockstakeEngineTest is DssTest {
         vm.expectRevert("LockstakeEngine/urn-unsafe");
         engine.selectVoteDelegate(address(this), 0, voteDelegate2);
 
-        vm.store(address(pip), bytes32(uint256(1)), bytes32(uint256(1_500 * 10**18))); // Back to safety
+        _setMedianPrice(1_500 * 10**18); // Back to safety
         dss.spotter.poke(ilk);
 
         engine.selectVoteDelegate(address(this), 0, voteDelegate2);

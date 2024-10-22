@@ -12,3 +12,9 @@ docs/
 
 # Dotenv file
 .env
+
+# Certora
+.certora_internal
+
+# Vim
+.*.swp

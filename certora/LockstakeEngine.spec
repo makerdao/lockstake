@@ -99,7 +99,6 @@ methods {
     function _.transferFrom(address,address,uint256) external => DISPATCHER(true);
 }
 
-definition addrZero() returns address = 0x0000000000000000000000000000000000000000;
 definition max_int256() returns mathint = 2^255 - 1;
 definition min_int256() returns mathint = -2^255;
 definition WAD() returns mathint = 10^18;
@@ -241,7 +240,7 @@ rule inkChangeMatchesMkrChange(method f) filtered { f -> f.selector != sig:multi
     require urn != currentContract && urn != voteDelegate && urn != voteDelegate2;
 
     address voteDelegateAfter = urnVoteDelegates(urn);
-    require voteDelegateAfter == addrZero() || voteDelegateAfter == voteDelegate || voteDelegateAfter == voteDelegate2;
+    require voteDelegateAfter == 0 || voteDelegateAfter == voteDelegate || voteDelegateAfter == voteDelegate2;
 
     ilk() at init;
 
@@ -251,13 +250,13 @@ rule inkChangeMatchesMkrChange(method f) filtered { f -> f.selector != sig:multi
     bytes32 ilk = ilk();
 
     address voteDelegateBefore = urnVoteDelegates(urn);
-    require voteDelegateBefore == addrZero() || voteDelegateBefore == voteDelegate;
+    require voteDelegateBefore == 0 || voteDelegateBefore == voteDelegate;
     mathint vatUrnsIlkUrnInkBefore; mathint a;
     vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
     mathint mkrTotalSupplyBefore = mkr.totalSupply();
     mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfVoteDelegateBeforeBefore = voteDelegateBefore == addrZero() ? 0 : mkr.balanceOf(voteDelegateBefore);
-    mathint mkrBalanceOfVoteDelegateAfterBefore = voteDelegateAfter == addrZero() ? 0 : mkr.balanceOf(voteDelegateAfter);
+    mathint mkrBalanceOfVoteDelegateBeforeBefore = voteDelegateBefore == 0 ? 0 : mkr.balanceOf(voteDelegateBefore);
+    mathint mkrBalanceOfVoteDelegateAfterBefore = voteDelegateAfter == 0 ? 0 : mkr.balanceOf(voteDelegateAfter);
     require mkr.balanceOf(e.msg.sender) + mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBeforeBefore + mkrBalanceOfVoteDelegateAfterBefore <= mkr.totalSupply();
     require mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBeforeBefore >= vatUrnsIlkUrnInkBefore;
 
@@ -267,20 +266,20 @@ rule inkChangeMatchesMkrChange(method f) filtered { f -> f.selector != sig:multi
     vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
     mathint mkrTotalSupplyAfter = mkr.totalSupply();
     mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfVoteDelegateBeforeAfter = voteDelegateBefore == addrZero() ? 0 : mkr.balanceOf(voteDelegateBefore);
-    mathint mkrBalanceOfVoteDelegateAfterAfter = voteDelegateAfter == addrZero() ? 0 : mkr.balanceOf(voteDelegateAfter);
-    require f.selector == sig:onRemove(address,uint256,uint256).selector => voteDelegateBefore == addrZero();
+    mathint mkrBalanceOfVoteDelegateBeforeAfter = voteDelegateBefore == 0 ? 0 : mkr.balanceOf(voteDelegateBefore);
+    mathint mkrBalanceOfVoteDelegateAfterAfter = voteDelegateAfter == 0 ? 0 : mkr.balanceOf(voteDelegateAfter);
+    require f.selector == sig:onRemove(address,uint256,uint256).selector => voteDelegateBefore == 0;
     mathint burntOnRemove = f.selector == sig:onRemove(address,uint256,uint256).selector ? mkrTotalSupplyBefore - mkrTotalSupplyAfter + vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore : 0;
     mathint transferredOnTake = f.selector == sig:onTake(address,address,uint256).selector ? mkrBalanceOfEngineBefore - mkrBalanceOfEngineAfter : 0;
     mathint receivedOnTake = f.selector == sig:onTake(address,address,uint256).selector ? mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore : 0;
 
     // It checks that the ink change matches the MKR balance change + that is all or nothing delegated
-    assert voteDelegateAfter == voteDelegateBefore && voteDelegateBefore == addrZero() =>
+    assert voteDelegateAfter == voteDelegateBefore && voteDelegateBefore == 0 =>
         vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == mkrBalanceOfEngineAfter - mkrBalanceOfEngineBefore + burntOnRemove + transferredOnTake, "Assert 1";
-    assert voteDelegateAfter == voteDelegateBefore && voteDelegateBefore != addrZero() =>
+    assert voteDelegateAfter == voteDelegateBefore && voteDelegateBefore != 0 =>
         vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore - receivedOnTake &&
         mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - transferredOnTake, "Assert 2";
-    assert voteDelegateAfter != voteDelegateBefore && voteDelegateBefore != addrZero() && voteDelegateAfter != addrZero() =>
+    assert voteDelegateAfter != voteDelegateBefore && voteDelegateBefore != 0 && voteDelegateAfter != 0 =>
         mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore == mkrBalanceOfVoteDelegateAfterBefore - mkrBalanceOfVoteDelegateAfterAfter, "Assert3";
 }
 
@@ -298,29 +297,29 @@ rule inkChangeMatchesLsmkrChange(method f) filtered { f -> f.selector != sig:mul
     address urn = createdUrn != 0 ? createdUrn : (queriedUrn != 0 ? queriedUrn : (passedUrn != 0 ? passedUrn : 0));
 
     address farmAfter = urnFarms(urn);
-    require farmAfter == addrZero() || farmAfter == stakingRewards || farmAfter == stakingRewards2;
+    require farmAfter == 0 || farmAfter == stakingRewards || farmAfter == stakingRewards2;
 
     ilk() at init;
 
     bytes32 ilk = ilk();
 
     address farmBefore = urnFarms(urn);
-    require farmBefore == addrZero() || farmBefore == stakingRewards;
+    require farmBefore == 0 || farmBefore == stakingRewards;
     mathint vatUrnsIlkUrnInkBefore; mathint a;
     vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
     mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
     mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBeforeBefore = farmBefore == addrZero() ? 0 : lsmkr.balanceOf(farmBefore);
-    mathint lsmkrBalanceOfFarmAfterBefore = farmAfter == addrZero() ? 0 : lsmkr.balanceOf(farmAfter);
+    mathint lsmkrBalanceOfFarmBeforeBefore = farmBefore == 0 ? 0 : lsmkr.balanceOf(farmBefore);
+    mathint lsmkrBalanceOfFarmAfterBefore = farmAfter == 0 ? 0 : lsmkr.balanceOf(farmAfter);
     require lsmkrBalanceOfUrnBefore + lsmkrBalanceOfFarmBeforeBefore + lsmkrBalanceOfFarmAfterBefore <= lsmkrTotalSupplyBefore;
     require vatUrnsIlkUrnInkBefore <= lsmkrTotalSupplyBefore;
     mathint farmBeforeBalanceOfUrnBefore = 0;
-    if (farmBefore != addrZero()) {
+    if (farmBefore != 0) {
         farmBeforeBalanceOfUrnBefore = farmBefore.balanceOf(e, urn);
         require farmBeforeBalanceOfUrnBefore <= to_mathint(farmBefore.totalSupply(e));
     }
     mathint farmAfterBalanceOfUrnBefore = 0;
-    if (farmAfter != addrZero()) {
+    if (farmAfter != 0) {
         farmAfterBalanceOfUrnBefore = farmAfter.balanceOf(e, urn);
         require farmAfterBalanceOfUrnBefore <= to_mathint(farmAfter.totalSupply(e));
     }
@@ -333,44 +332,44 @@ rule inkChangeMatchesLsmkrChange(method f) filtered { f -> f.selector != sig:mul
     vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
     mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBeforAfter = farmBefore == addrZero() ? 0 : lsmkr.balanceOf(farmBefore);
-    mathint lsmkrBalanceOfFarmAfterAfter = farmAfter == addrZero() ? 0 : lsmkr.balanceOf(farmAfter);
+    mathint lsmkrBalanceOfFarmBeforAfter = farmBefore == 0 ? 0 : lsmkr.balanceOf(farmBefore);
+    mathint lsmkrBalanceOfFarmAfterAfter = farmAfter == 0 ? 0 : lsmkr.balanceOf(farmAfter);
     mathint farmBeforeBalanceOfUrnAfter = 0;
-    if (farmBefore != addrZero()) {
+    if (farmBefore != 0) {
         farmBeforeBalanceOfUrnAfter = farmBefore.balanceOf(e, urn);
         require farmBeforeBalanceOfUrnAfter <= to_mathint(farmBefore.totalSupply(e));
     }
     mathint farmAfterBalanceOfUrnAfter = 0;
-    if (farmAfter != addrZero()) {
+    if (farmAfter != 0) {
         farmAfterBalanceOfUrnAfter = farmAfter.balanceOf(e, urn);
         require farmAfterBalanceOfUrnAfter <= to_mathint(farmAfter.totalSupply(e));
     }
     mathint stakingRewardsBalanceOfUrnAfter = stakingRewards.balanceOf(urn);
     mathint stakingRewards2BalanceOfUrnAfter = stakingRewards2.balanceOf(urn);
 
-    require farmBefore != addrZero() => lsmkrBalanceOfUrnBefore == 0;
+    require farmBefore != 0 => lsmkrBalanceOfUrnBefore == 0;
     require farmBefore == stakingRewards => stakingRewards2BalanceOfUrnBefore == 0;
     require farmBefore == stakingRewards2 => stakingRewardsBalanceOfUrnBefore == 0;
-    require farmBefore == addrZero() => stakingRewardsBalanceOfUrnBefore == 0 && stakingRewards2BalanceOfUrnBefore == 0;
+    require farmBefore == 0 => stakingRewardsBalanceOfUrnBefore == 0 && stakingRewards2BalanceOfUrnBefore == 0;
     mathint burntOnKick = f.selector == sig:onKick(address,uint256).selector ? lsmkrTotalSupplyBefore - lsmkrTotalSupplyAfter : 0;
     require vatUrnsIlkUrnInkBefore == lsmkrBalanceOfUrnBefore + stakingRewardsBalanceOfUrnBefore + stakingRewards2BalanceOfUrnBefore - burntOnKick;
-    require f.selector == sig:onRemove(address,uint256,uint256).selector => farmBefore == addrZero();
+    require f.selector == sig:onRemove(address,uint256,uint256).selector => farmBefore == 0;
 
     assert vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrTotalSupplyAfter - lsmkrTotalSupplyBefore + burntOnKick, "Assert 1";
-    assert farmAfter == farmBefore && farmBefore == addrZero() =>
+    assert farmAfter == farmBefore && farmBefore == 0 =>
         vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrBalanceOfUrnAfter - lsmkrBalanceOfUrnBefore + burntOnKick, "Assert 2";
-    assert farmAfter == farmBefore && farmBefore != addrZero() =>
+    assert farmAfter == farmBefore && farmBefore != 0 =>
         vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrBalanceOfFarmBeforAfter - lsmkrBalanceOfFarmBeforeBefore, "Assert 3";
-    assert farmAfter != farmBefore && farmBefore == addrZero() =>
+    assert farmAfter != farmBefore && farmBefore == 0 =>
         vatUrnsIlkUrnInkAfter == lsmkrBalanceOfFarmAfterAfter - lsmkrBalanceOfFarmAfterBefore &&
         vatUrnsIlkUrnInkBefore == lsmkrBalanceOfUrnBefore - lsmkrBalanceOfUrnAfter, "Assert 4";
-    assert farmAfter != farmBefore && farmAfter == addrZero() =>
+    assert farmAfter != farmBefore && farmAfter == 0 =>
         vatUrnsIlkUrnInkAfter == lsmkrBalanceOfUrnAfter - lsmkrBalanceOfUrnBefore &&
         vatUrnsIlkUrnInkBefore == lsmkrBalanceOfFarmBeforeBefore - lsmkrBalanceOfFarmBeforAfter - burntOnKick, "Assert 5";
-    assert farmAfter != farmBefore && farmBefore != addrZero() && farmAfter != addrZero() =>
+    assert farmAfter != farmBefore && farmBefore != 0 && farmAfter != 0 =>
         vatUrnsIlkUrnInkAfter == lsmkrBalanceOfFarmAfterAfter - lsmkrBalanceOfFarmAfterBefore &&
         vatUrnsIlkUrnInkBefore == lsmkrBalanceOfFarmBeforeBefore - lsmkrBalanceOfFarmBeforAfter, "Assert 6";
-    assert farmAfter == addrZero() =>
+    assert farmAfter == 0 =>
         lsmkrBalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && stakingRewardsBalanceOfUrnAfter == 0 && stakingRewards2BalanceOfUrnAfter == 0, "Assert 7";
     assert farmAfter == stakingRewards =>
         stakingRewardsBalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && lsmkrBalanceOfUrnAfter == 0 && stakingRewards2BalanceOfUrnAfter == 0, "Assert 8";
@@ -387,30 +386,30 @@ rule inkMatchesLsmkrFarmOnKick(address urn, uint256 wad) {
     bytes32 ilk = ilk();
 
     address farmBefore = urnFarms(anyUrn);
-    require farmBefore == addrZero() || farmBefore == stakingRewards;
+    require farmBefore == 0 || farmBefore == stakingRewards;
 
     mathint vatUrnsIlkAnyUrnInkBefore; mathint a;
     vatUrnsIlkAnyUrnInkBefore, a = vat.urns(ilk, anyUrn);
 
     mathint lsmkrBalanceOfAnyUrnBefore = lsmkr.balanceOf(anyUrn);
-    mathint farmBalanceOfAnyUrnBefore = farmBefore == addrZero() ? 0 : stakingRewards.balanceOf(anyUrn);
+    mathint farmBalanceOfAnyUrnBefore = farmBefore == 0 ? 0 : stakingRewards.balanceOf(anyUrn);
 
     require stakingRewards2.balanceOf(anyUrn) == 0;
     require lsmkrBalanceOfAnyUrnBefore == 0 || farmBalanceOfAnyUrnBefore == 0;
-    require lsmkrBalanceOfAnyUrnBefore > 0 => farmBefore == addrZero();
-    require farmBalanceOfAnyUrnBefore  > 0 => farmBefore != addrZero();
+    require lsmkrBalanceOfAnyUrnBefore > 0 => farmBefore == 0;
+    require farmBalanceOfAnyUrnBefore  > 0 => farmBefore != 0;
     require vatUrnsIlkAnyUrnInkBefore == lsmkrBalanceOfAnyUrnBefore + farmBalanceOfAnyUrnBefore;
 
     onKick(e, urn, wad);
 
     address farmAfter = urnFarms(anyUrn);
-    require farmAfter == addrZero() || farmAfter == farmBefore || farmAfter != farmBefore && farmAfter == stakingRewards2;
+    require farmAfter == 0 || farmAfter == farmBefore || farmAfter != farmBefore && farmAfter == stakingRewards2;
 
     mathint vatUrnsIlkAnyUrnInkAfter;
     vatUrnsIlkAnyUrnInkAfter, a = vat.urns(ilk, anyUrn);
 
     mathint lsmkrBalanceOfAnyUrnAfter = lsmkr.balanceOf(anyUrn);
-    mathint farmBalanceOfAnyUrnAfter = farmAfter == addrZero() ? 0 : (farmAfter == farmBefore ? stakingRewards.balanceOf(anyUrn) : stakingRewards2.balanceOf(anyUrn));
+    mathint farmBalanceOfAnyUrnAfter = farmAfter == 0 ? 0 : (farmAfter == farmBefore ? stakingRewards.balanceOf(anyUrn) : stakingRewards2.balanceOf(anyUrn));
 
     assert urn != anyUrn => vatUrnsIlkAnyUrnInkAfter == lsmkrBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter, "Assert 1";
     assert urn == anyUrn => vatUrnsIlkAnyUrnInkAfter == lsmkrBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter + wad, "Assert 2";
@@ -654,7 +653,7 @@ rule hope_revert(address owner, uint256 index, address usr) {
     hope@withrevert(e, owner, index, usr);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = owner != e.msg.sender && urnCanUrnSender != 1;
 
     assert lastReverted <=> revert1 || revert2 || revert3, "Revert rules failed";
@@ -690,7 +689,7 @@ rule nope_revert(address owner, uint256 index, address usr) {
     nope@withrevert(e, owner, index, usr);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = owner != e.msg.sender && urnCanUrnSender != 1;
 
     assert lastReverted <=> revert1 || revert2 || revert3, "Revert rules failed";
@@ -701,9 +700,9 @@ rule selectVoteDelegate(address owner, uint256 index, address voteDelegate_) {
     env e;
 
     address urn = ownerUrns(owner, index);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address prevVoteDelegate = urnVoteDelegates(urn);
-    require prevVoteDelegate == addrZero() || prevVoteDelegate == voteDelegate2;
+    require prevVoteDelegate == 0 || prevVoteDelegate == voteDelegate2;
 
     address other;
     require other != urn;
@@ -734,13 +733,13 @@ rule selectVoteDelegate(address owner, uint256 index, address voteDelegate_) {
 
     assert urnVoteDelegatesUrnAfter == voteDelegate_, "Assert 1";
     assert urnVoteDelegatesOtherAfter == urnVoteDelegatesOtherBefore, "Assert 2";
-    assert prevVoteDelegate == addrZero() => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore, "Assert 3";
-    assert prevVoteDelegate != addrZero() => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - vatUrnsIlkUrnInk, "Assert 4";
-    assert voteDelegate_ == addrZero() => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore, "Assert 5";
-    assert voteDelegate_ != addrZero() => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore + vatUrnsIlkUrnInk, "Assert 6";
-    assert prevVoteDelegate == addrZero() && voteDelegate_ == addrZero() || prevVoteDelegate != addrZero() && voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 7";
-    assert prevVoteDelegate == addrZero() && voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - vatUrnsIlkUrnInk, "Assert 8";
-    assert prevVoteDelegate != addrZero() && voteDelegate_ == addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + vatUrnsIlkUrnInk, "Assert 9";
+    assert prevVoteDelegate == 0 => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore, "Assert 3";
+    assert prevVoteDelegate != 0 => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - vatUrnsIlkUrnInk, "Assert 4";
+    assert voteDelegate_ == 0 => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore, "Assert 5";
+    assert voteDelegate_ != 0 => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore + vatUrnsIlkUrnInk, "Assert 6";
+    assert prevVoteDelegate == 0 && voteDelegate_ == 0 || prevVoteDelegate != 0 && voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 7";
+    assert prevVoteDelegate == 0 && voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - vatUrnsIlkUrnInk, "Assert 8";
+    assert prevVoteDelegate != 0 && voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + vatUrnsIlkUrnInk, "Assert 9";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 10";
 }
 
@@ -749,9 +748,9 @@ rule selectVoteDelegate_revert(address owner, uint256 index, address voteDelegat
     env e;
 
     address urn = ownerUrns(owner, index);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address prevVoteDelegate = urnVoteDelegates(urn);
-    require prevVoteDelegate == addrZero() || prevVoteDelegate == voteDelegate2;
+    require prevVoteDelegate == 0 || prevVoteDelegate == voteDelegate2;
 
     mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
     mathint urnAuctions = urnAuctions(urn);
@@ -769,18 +768,18 @@ rule selectVoteDelegate_revert(address owner, uint256 index, address voteDelegat
     require vatUrnsIlkUrnInk * vatIlksIlkSpot <= max_uint256;
     require vatUrnsIlkUrnArt * calcVatIlksIlkRateAfter <= max_uint256;
     // TODO: this might be nice to prove in some sort
-    require prevVoteDelegate == addrZero() && to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk || prevVoteDelegate != addrZero() && to_mathint(mkr.balanceOf(prevVoteDelegate)) >= vatUrnsIlkUrnInk && to_mathint(voteDelegate2.stake(currentContract)) >= vatUrnsIlkUrnInk; // TODO: this might be interesting to be proved
+    require prevVoteDelegate == 0 && to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk || prevVoteDelegate != 0 && to_mathint(mkr.balanceOf(prevVoteDelegate)) >= vatUrnsIlkUrnInk && to_mathint(voteDelegate2.stake(currentContract)) >= vatUrnsIlkUrnInk; // TODO: this might be interesting to be proved
     require voteDelegate.stake(currentContract) + vatUrnsIlkUrnInk <= max_uint256;
 
     selectVoteDelegate@withrevert(e, owner, index, voteDelegate_);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = owner != e.msg.sender && urnCanUrnSender != 1;
     bool revert4 = urnAuctions > 0;
-    bool revert5 = voteDelegate_ != addrZero() && voteDelegateFactoryCreatedVoteDelegate != 1;
+    bool revert5 = voteDelegate_ != 0 && voteDelegateFactoryCreatedVoteDelegate != 1;
     bool revert6 = voteDelegate_ == prevVoteDelegate;
-    bool revert7 = vatUrnsIlkUrnArt > 0 && voteDelegate_ != addrZero() && vatUrnsIlkUrnInk * vatIlksIlkSpot < vatUrnsIlkUrnArt * calcVatIlksIlkRateAfter;
+    bool revert7 = vatUrnsIlkUrnArt > 0 && voteDelegate_ != 0 && vatUrnsIlkUrnInk * vatIlksIlkSpot < vatUrnsIlkUrnArt * calcVatIlksIlkRateAfter;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5 || revert6 ||
@@ -794,9 +793,9 @@ rule selectFarm(address owner, uint256 index, address farm, uint16 ref) {
     address urn = ownerUrns(owner, index);
     require urn == lockstakeUrn;
 
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
     address prevFarm = urnFarms(urn);
-    require prevFarm == addrZero() || prevFarm == stakingRewards2;
+    require prevFarm == 0 || prevFarm == stakingRewards2;
 
     address other;
     require other != urn;
@@ -827,13 +826,13 @@ rule selectFarm(address owner, uint256 index, address farm, uint16 ref) {
 
     assert urnFarmsUrnAfter == farm, "Assert 1";
     assert urnFarmsOtherAfter == urnFarmsOtherBefore, "Assert 2";
-    assert prevFarm == addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "Assert 3";
-    assert prevFarm != addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - vatUrnsIlkUrnInk, "Assert 4";
-    assert farm == addrZero() => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore, "Assert 5";
-    assert farm != addrZero() => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore + vatUrnsIlkUrnInk, "Assert 6";
-    assert prevFarm == addrZero() && farm == addrZero() || prevFarm != addrZero() && farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 7";
-    assert prevFarm == addrZero() && farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - vatUrnsIlkUrnInk, "Assert 8";
-    assert prevFarm != addrZero() && farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + vatUrnsIlkUrnInk, "Assert 9";
+    assert prevFarm == 0 => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "Assert 3";
+    assert prevFarm != 0 => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - vatUrnsIlkUrnInk, "Assert 4";
+    assert farm == 0 => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore, "Assert 5";
+    assert farm != 0 => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore + vatUrnsIlkUrnInk, "Assert 6";
+    assert prevFarm == 0 && farm == 0 || prevFarm != 0 && farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 7";
+    assert prevFarm == 0 && farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - vatUrnsIlkUrnInk, "Assert 8";
+    assert prevFarm != 0 && farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + vatUrnsIlkUrnInk, "Assert 9";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 10";
 }
 
@@ -844,9 +843,9 @@ rule selectFarm_revert(address owner, uint256 index, address farm, uint16 ref) {
     address urn = ownerUrns(owner, index);
     require urn == lockstakeUrn;
 
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
     address prevFarm = urnFarms(urn);
-    require prevFarm == addrZero() || prevFarm == stakingRewards2;
+    require prevFarm == 0 || prevFarm == stakingRewards2;
 
     address urnOwnersUrn = urnOwners(urn);
     mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
@@ -857,7 +856,7 @@ rule selectFarm_revert(address owner, uint256 index, address farm, uint16 ref) {
     vatUrnsIlkUrnInk, a = vat.urns(ilk, urn);
 
     // TODO: this might be nice to prove in some sort
-    require prevFarm == addrZero() && to_mathint(lsmkr.balanceOf(urn)) >= vatUrnsIlkUrnInk || prevFarm != addrZero() && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUrnInk && to_mathint(stakingRewards2.balanceOf(urn)) >= vatUrnsIlkUrnInk;
+    require prevFarm == 0 && to_mathint(lsmkr.balanceOf(urn)) >= vatUrnsIlkUrnInk || prevFarm != 0 && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUrnInk && to_mathint(stakingRewards2.balanceOf(urn)) >= vatUrnsIlkUrnInk;
     // Token invariants
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(farm) + lsmkr.balanceOf(urn);
     require stakingRewards2.totalSupply() >= stakingRewards2.balanceOf(urn);
@@ -868,10 +867,10 @@ rule selectFarm_revert(address owner, uint256 index, address farm, uint16 ref) {
     selectFarm@withrevert(e, owner, index, farm, ref);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = owner != e.msg.sender && urnCanUrnSender != 1;
     bool revert4 = urnAuctions > 0;
-    bool revert5 = farm != addrZero() && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
+    bool revert5 = farm != 0 && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
     bool revert6 = farm == prevFarm;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
@@ -886,9 +885,9 @@ rule lock(address owner, uint256 index, uint256 wad, uint16 ref) {
     require urn == lockstakeUrn;
 
     address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address farm = urnFarms(urn);
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -928,16 +927,16 @@ rule lock(address owner, uint256 index, uint256 wad, uint16 ref) {
 
     assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore + wad, "Assert 1";
     assert mkrBalanceOfSenderAfter == mkrBalanceOfSenderBefore - wad, "Assert 2";
-    assert voteDelegate_ == addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 3";
-    assert voteDelegate_ != addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore + wad, "Assert 4";
-    assert voteDelegate_ == addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + wad, "Assert 5";
-    assert voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 6";
+    assert voteDelegate_ == 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 3";
+    assert voteDelegate_ != 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore + wad, "Assert 4";
+    assert voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + wad, "Assert 5";
+    assert voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 6";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 7";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + wad, "Assert 8";
-    assert farm == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 9";
-    assert farm != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + wad, "Assert 10";
-    assert farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + wad, "Assert 11";
-    assert farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 12";
+    assert farm == 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 9";
+    assert farm != 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + wad, "Assert 10";
+    assert farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + wad, "Assert 11";
+    assert farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 12";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 13";
 }
 
@@ -949,9 +948,9 @@ rule lock_revert(address owner, uint256 index, uint256 wad, uint16 ref) {
     require urn == lockstakeUrn;
 
     address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address farm = urnFarms(urn);
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -993,10 +992,10 @@ rule lock_revert(address owner, uint256 index, uint256 wad, uint16 ref) {
     lock@withrevert(e, owner, index, wad, ref);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = to_mathint(wad) > max_int256();
-    bool revert4 = farm != addrZero() && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
-    bool revert5 = farm != addrZero() && wad == 0;
+    bool revert4 = farm != 0 && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
+    bool revert5 = farm != 0 && wad == 0;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5, "Revert rules failed";
@@ -1010,9 +1009,9 @@ rule lockSky(address owner, uint256 index, uint256 skyWad, uint16 ref) {
     require urn == lockstakeUrn;
 
     address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address farm = urnFarms(urn);
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -1065,16 +1064,16 @@ rule lockSky(address owner, uint256 index, uint256 skyWad, uint16 ref) {
     assert skyTotalSupplyAfter == skyTotalSupplyBefore - skyWad, "Assert 2";
     assert skyBalanceOfSenderAfter == skyBalanceOfSenderBefore - skyWad, "Assert 3";
     assert mkrTotalSupplyAfter == mkrTotalSupplyBefore + skyWad/mkrSkyRate, "Assert 4";
-    assert voteDelegate_ == addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 5";
-    assert voteDelegate_ != addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore + skyWad/mkrSkyRate, "Assert 6";
-    assert voteDelegate_ == addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + skyWad/mkrSkyRate, "Assert 7";
-    assert voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
+    assert voteDelegate_ == 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 5";
+    assert voteDelegate_ != 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore + skyWad/mkrSkyRate, "Assert 6";
+    assert voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + skyWad/mkrSkyRate, "Assert 7";
+    assert voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 9";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + skyWad/mkrSkyRate, "Assert 10";
-    assert farm == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
-    assert farm != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + skyWad/mkrSkyRate, "Assert 12";
-    assert farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + skyWad/mkrSkyRate, "Assert 13";
-    assert farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
+    assert farm == 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
+    assert farm != 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + skyWad/mkrSkyRate, "Assert 12";
+    assert farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + skyWad/mkrSkyRate, "Assert 13";
+    assert farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 15";
 }
 
@@ -1086,9 +1085,9 @@ rule lockSky_revert(address owner, uint256 index, uint256 skyWad, uint16 ref) {
     require urn == lockstakeUrn;
 
     address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address farm = urnFarms(urn);
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -1140,10 +1139,10 @@ rule lockSky_revert(address owner, uint256 index, uint256 skyWad, uint16 ref) {
     lockSky@withrevert(e, owner, index, skyWad, ref);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = skyWad/mkrSkyRate > max_int256();
-    bool revert4 = farm != addrZero() && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
-    bool revert5 = farm != addrZero() && skyWad/mkrSkyRate == 0;
+    bool revert4 = farm != 0 && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
+    bool revert5 = farm != 0 && skyWad/mkrSkyRate == 0;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5, "Revert rules failed";
@@ -1157,9 +1156,9 @@ rule free(address owner, uint256 index, address to, uint256 wad) {
     require urn == lockstakeUrn;
 
     address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address farm = urnFarms(urn);
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
 
     address other;
     require other != to && other != currentContract && other != voteDelegate_;
@@ -1204,20 +1203,20 @@ rule free(address owner, uint256 index, address to, uint256 wad) {
     assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore - wad, "Assert 1";
     assert mkrTotalSupplyAfter == mkrTotalSupplyBefore - wad * fee / WAD(), "Assert 2";
     assert to != currentContract && to != voteDelegate_   ||
-           to == currentContract && voteDelegate_ != addrZero() ||
-           to == voteDelegate_ && voteDelegate_ == addrZero() => mkrBalanceOfToAfter == mkrBalanceOfToBefore + (wad - wad * fee / WAD()), "Assert 3";
-    assert to == currentContract && voteDelegate_ == addrZero() ||
-           to == voteDelegate_ && voteDelegate_ != addrZero() => mkrBalanceOfToAfter == mkrBalanceOfToBefore - wad * fee / WAD(), "Assert 4";
-    assert to != voteDelegate_ && voteDelegate_ == addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 5";
-    assert to != voteDelegate_ && voteDelegate_ != addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore - wad, "Assert 6";
-    assert to != currentContract && voteDelegate_ == addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - wad, "Assert 7";
-    assert to != currentContract && voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
+           to == currentContract && voteDelegate_ != 0 ||
+           to == voteDelegate_ && voteDelegate_ == 0 => mkrBalanceOfToAfter == mkrBalanceOfToBefore + (wad - wad * fee / WAD()), "Assert 3";
+    assert to == currentContract && voteDelegate_ == 0 ||
+           to == voteDelegate_ && voteDelegate_ != 0 => mkrBalanceOfToAfter == mkrBalanceOfToBefore - wad * fee / WAD(), "Assert 4";
+    assert to != voteDelegate_ && voteDelegate_ == 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 5";
+    assert to != voteDelegate_ && voteDelegate_ != 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore - wad, "Assert 6";
+    assert to != currentContract && voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - wad, "Assert 7";
+    assert to != currentContract && voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 9";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - wad, "Assert 10";
-    assert farm == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
-    assert farm != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 12";
-    assert farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 13";
-    assert farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
+    assert farm == 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
+    assert farm != 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 12";
+    assert farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 13";
+    assert farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 15";
 }
 
@@ -1229,9 +1228,9 @@ rule free_revert(address owner, uint256 index, address to, uint256 wad) {
     require urn == lockstakeUrn;
 
     address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address farm = urnFarms(urn);
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -1256,8 +1255,8 @@ rule free_revert(address owner, uint256 index, address to, uint256 wad) {
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
     // TODO: this might be nice to prove in some sort
     require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
-    require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
-    require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
+    require voteDelegate_ != 0 => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
+    require voteDelegate_ == 0 => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
     require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
     require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
     // Practical Vat assumptions
@@ -1271,14 +1270,14 @@ rule free_revert(address owner, uint256 index, address to, uint256 wad) {
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
     require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
-    require lsmkr.balanceOf(urn) > 0 => farm == addrZero();
-    require stakingRewards.balanceOf(urn)  > 0 => farm != addrZero();
+    require lsmkr.balanceOf(urn) > 0 => farm == 0;
+    require stakingRewards.balanceOf(urn)  > 0 => farm != 0;
     require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     free@withrevert(e, owner, index, to, wad);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = owner != e.msg.sender && urnCanUrnSender != 1;
     bool revert4 = to_mathint(wad) > max_int256();
     bool revert5 = vatUrnsIlkUrnInk < to_mathint(wad) || wad > 0 && (vatUrnsIlkUrnInk - wad) * vatIlksIlkSpot < vatUrnsIlkUrnArt * vatIlksIlkRate;
@@ -1298,9 +1297,9 @@ rule freeSky(address owner, uint256 index, address to, uint256 skyWad) {
     require urn == lockstakeUrn;
 
     address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address farm = urnFarms(urn);
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
 
     address other;
     require other != currentContract && other != voteDelegate_;
@@ -1356,16 +1355,16 @@ rule freeSky(address owner, uint256 index, address to, uint256 skyWad) {
     assert skyBalanceOfToAfter == skyBalanceOfToBefore + (skyWad/mkrSkyRate - skyWad/mkrSkyRate * fee / WAD()) * mkrSkyRate, "Assert 3";
     assert skyBalanceOfOtherAfter == skyBalanceOfOtherBefore, "Assert 4";
     assert mkrTotalSupplyAfter == mkrTotalSupplyBefore - skyWad/mkrSkyRate, "Assert 5";
-    assert to != voteDelegate_ && voteDelegate_ == addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 6";
-    assert to != voteDelegate_ && voteDelegate_ != addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore - skyWad/mkrSkyRate, "Assert 7";
-    assert to != currentContract && voteDelegate_ == addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - skyWad/mkrSkyRate, "Assert 8";
-    assert to != currentContract && voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 9";
+    assert to != voteDelegate_ && voteDelegate_ == 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 6";
+    assert to != voteDelegate_ && voteDelegate_ != 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore - skyWad/mkrSkyRate, "Assert 7";
+    assert to != currentContract && voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - skyWad/mkrSkyRate, "Assert 8";
+    assert to != currentContract && voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 9";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 10";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - skyWad/mkrSkyRate, "Assert 11";
-    assert farm == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 12";
-    assert farm != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - skyWad/mkrSkyRate, "Assert 13";
-    assert farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - skyWad/mkrSkyRate, "Assert 14";
-    assert farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 15";
+    assert farm == 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 12";
+    assert farm != 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - skyWad/mkrSkyRate, "Assert 13";
+    assert farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - skyWad/mkrSkyRate, "Assert 14";
+    assert farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 15";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 16";
 }
 
@@ -1377,9 +1376,9 @@ rule freeSky_revert(address owner, uint256 index, address to, uint256 skyWad) {
     require urn == lockstakeUrn;
 
     address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address farm = urnFarms(urn);
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -1413,8 +1412,8 @@ rule freeSky_revert(address owner, uint256 index, address to, uint256 skyWad) {
     require sky.totalSupply() + skyWad <= max_uint256;
     // TODO: this might be nice to prove in some sort
     require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
-    require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
-    require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
+    require voteDelegate_ != 0 => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
+    require voteDelegate_ == 0 => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
     require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
     require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
     // Practical Vat assumptions
@@ -1428,14 +1427,14 @@ rule freeSky_revert(address owner, uint256 index, address to, uint256 skyWad) {
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
     require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
-    require lsmkr.balanceOf(urn) > 0 => farm == addrZero();
-    require stakingRewards.balanceOf(urn)  > 0 => farm != addrZero();
+    require lsmkr.balanceOf(urn) > 0 => farm == 0;
+    require stakingRewards.balanceOf(urn)  > 0 => farm != 0;
     require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     freeSky@withrevert(e, owner, index, to, skyWad);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = owner != e.msg.sender && urnCanUrnSender != 1;
     bool revert4 = to_mathint(skyWad/mkrSkyRate) > max_int256();
     bool revert5 = vatUrnsIlkUrnInk < to_mathint(skyWad/mkrSkyRate) || skyWad/mkrSkyRate > 0 && (vatUrnsIlkUrnInk - skyWad/mkrSkyRate) * vatIlksIlkSpot < vatUrnsIlkUrnArt * vatIlksIlkRate;
@@ -1455,9 +1454,9 @@ rule freeNoFee(address owner, uint256 index, address to, uint256 wad) {
     require urn == lockstakeUrn;
 
     address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address farm = urnFarms(urn);
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
 
     address other;
     require other != to && other != currentContract && other != voteDelegate_;
@@ -1498,20 +1497,20 @@ rule freeNoFee(address owner, uint256 index, address to, uint256 wad) {
     assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore - wad, "Assert 1";
     assert mkrTotalSupplyAfter == mkrTotalSupplyBefore, "Assert 2";
     assert to != currentContract && to != voteDelegate_   ||
-           to == currentContract && voteDelegate_ != addrZero() ||
-           to == voteDelegate_ && voteDelegate_ == addrZero() => mkrBalanceOfToAfter == mkrBalanceOfToBefore + wad, "Assert 3";
-    assert to == currentContract && voteDelegate_ == addrZero() ||
-           to == voteDelegate_ && voteDelegate_ != addrZero() => mkrBalanceOfToAfter == mkrBalanceOfToBefore, "Assert 4";
-    assert to != voteDelegate_ && voteDelegate_ == addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 5";
-    assert to != voteDelegate_ && voteDelegate_ != addrZero() => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore - wad, "Assert 6";
-    assert to != currentContract && voteDelegate_ == addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - wad, "Assert 7";
-    assert to != currentContract && voteDelegate_ != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
+           to == currentContract && voteDelegate_ != 0 ||
+           to == voteDelegate_ && voteDelegate_ == 0 => mkrBalanceOfToAfter == mkrBalanceOfToBefore + wad, "Assert 3";
+    assert to == currentContract && voteDelegate_ == 0 ||
+           to == voteDelegate_ && voteDelegate_ != 0 => mkrBalanceOfToAfter == mkrBalanceOfToBefore, "Assert 4";
+    assert to != voteDelegate_ && voteDelegate_ == 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 5";
+    assert to != voteDelegate_ && voteDelegate_ != 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore - wad, "Assert 6";
+    assert to != currentContract && voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - wad, "Assert 7";
+    assert to != currentContract && voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 9";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - wad, "Assert 10";
-    assert farm == addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
-    assert farm != addrZero() => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 12";
-    assert farm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 13";
-    assert farm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
+    assert farm == 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
+    assert farm != 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 12";
+    assert farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 13";
+    assert farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 15";
 }
 
@@ -1525,9 +1524,9 @@ rule freeNoFee_revert(address owner, uint256 index, address to, uint256 wad) {
     mathint wardsSender = wards(e.msg.sender);
 
     address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == addrZero() || voteDelegate_ == voteDelegate;
+    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
     address farm = urnFarms(urn);
-    require farm == addrZero() || farm == stakingRewards;
+    require farm == 0 || farm == stakingRewards;
 
     require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
 
@@ -1549,8 +1548,8 @@ rule freeNoFee_revert(address owner, uint256 index, address to, uint256 wad) {
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
     // TODO: this might be nice to prove in some sort
     require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
-    require voteDelegate_ != addrZero() => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
-    require voteDelegate_ == addrZero() => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
+    require voteDelegate_ != 0 => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
+    require voteDelegate_ == 0 => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
     require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
     require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
     // Practical Vat assumptions
@@ -1564,15 +1563,15 @@ rule freeNoFee_revert(address owner, uint256 index, address to, uint256 wad) {
     require vat.gem(ilk, urn) == 0;
     // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
     require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
-    require lsmkr.balanceOf(urn) > 0 => farm == addrZero();
-    require stakingRewards.balanceOf(urn)  > 0 => farm != addrZero();
+    require lsmkr.balanceOf(urn) > 0 => farm == 0;
+    require stakingRewards.balanceOf(urn)  > 0 => farm != 0;
     require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     freeNoFee@withrevert(e, owner, index, to, wad);
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
-    bool revert3 = urn == addrZero();
+    bool revert3 = urn == 0;
     bool revert4 = owner != e.msg.sender && urnCanUrnSender != 1;
     bool revert5 = to_mathint(wad) > max_int256();
     bool revert6 = vatUrnsIlkUrnInk < to_mathint(wad) || wad > 0 && (vatUrnsIlkUrnInk - wad) * vatIlksIlkSpot < vatUrnsIlkUrnArt * vatIlksIlkRate;
@@ -1670,7 +1669,7 @@ rule draw_revert(address owner, uint256 index, address to, uint256 wad) {
     draw@withrevert(e, owner, index, to, wad) at init;
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = owner != e.msg.sender && urnCanUrnSender != 1;
     bool revert4 = to_mathint(dart) > max_int256();
     bool revert5 = dart > 0 && ((vatIlksIlkArt + dart) * calcVatIlksIlkRateAfter > vatIlksIlkLine || vatDebt + vatIlksIlkArt * (calcVatIlksIlkRateAfter - vatIlksIlkRate) + (calcVatIlksIlkRateAfter * dart) > vatLine);
@@ -1764,7 +1763,7 @@ rule wipe_revert(address owner, uint256 index, uint256 wad) {
     wipe@withrevert(e, owner, index, wad);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = to_mathint(dart) > max_int256();
     bool revert4 = vatUrnsIlkUrnArt < dart;
     bool revert5 = vatUrnsIlkUrnArt - dart > 0 && vatIlksIlkRate * (vatUrnsIlkUrnArt - dart) < vatIlksIlkDust;
@@ -1853,7 +1852,7 @@ rule wipeAll_revert(address owner, uint256 index) {
     wipeAll@withrevert(e, owner, index);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = to_mathint(vatUrnsIlkUrnArt) > max_int256();
 
     assert lastReverted <=> revert1 || revert2 || revert3, "Revert rules failed";
@@ -1917,7 +1916,7 @@ rule getReward_revert(address owner, uint256 index, address farm, address to) {
     getReward@withrevert(e, owner, index, farm, to);
 
     bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == addrZero();
+    bool revert2 = urn == 0;
     bool revert3 = owner != e.msg.sender && urnCanUrnSender != 1;
     bool revert4 = farmsFarm == LockstakeEngine.FarmStatus.UNSUPPORTED;
 
@@ -1931,9 +1930,9 @@ rule onKick(address urn, uint256 wad) {
 
     require urn == lockstakeUrn;
     address prevVoteDelegate = urnVoteDelegates(urn);
-    require prevVoteDelegate == addrZero() || prevVoteDelegate == voteDelegate;
+    require prevVoteDelegate == 0 || prevVoteDelegate == voteDelegate;
     address prevFarm = urnFarms(urn);
-    require prevFarm == addrZero() || prevFarm == stakingRewards;
+    require prevFarm == 0 || prevFarm == stakingRewards;
 
     address other;
     require other != urn;
@@ -1978,22 +1977,22 @@ rule onKick(address urn, uint256 wad) {
     mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
     mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other3);
 
-    assert urnVoteDelegatesUrnAfter == addrZero(), "Assert 1";
+    assert urnVoteDelegatesUrnAfter == 0, "Assert 1";
     assert urnVoteDelegatesOtherAfter == urnVoteDelegatesOtherBefore, "Assert 2";
-    assert urnFarmsUrnAfter == addrZero(), "Assert 3";
+    assert urnFarmsUrnAfter == 0, "Assert 3";
     assert urnFarmsOtherAfter == urnFarmsOtherBefore, "Assert 4";
     assert urnAuctionsUrnAfter == urnAuctionsUrnBefore + 1, "Assert 5";
     assert urnAuctionsOtherAfter == urnAuctionsOtherBefore, "Assert 6";
-    assert prevVoteDelegate == addrZero() => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore, "Assert 7";
-    assert prevVoteDelegate != addrZero() => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - vatUrnsIlkUrnInk - wad, "Assert 8";
-    assert prevVoteDelegate == addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 9";
-    assert prevVoteDelegate != addrZero() => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + vatUrnsIlkUrnInk + wad, "Assert 10";
+    assert prevVoteDelegate == 0 => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore, "Assert 7";
+    assert prevVoteDelegate != 0 => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - vatUrnsIlkUrnInk - wad, "Assert 8";
+    assert prevVoteDelegate == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 9";
+    assert prevVoteDelegate != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + vatUrnsIlkUrnInk + wad, "Assert 10";
     assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 11";
     assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - wad, "Assert 12";
-    assert prevFarm == addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "Assert 13";
-    assert prevFarm != addrZero() => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - vatUrnsIlkUrnInk - wad, "Assert 14";
-    assert prevFarm == addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 15";
-    assert prevFarm != addrZero() => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + vatUrnsIlkUrnInk, "Assert 16";
+    assert prevFarm == 0 => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "Assert 13";
+    assert prevFarm != 0 => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - vatUrnsIlkUrnInk - wad, "Assert 14";
+    assert prevFarm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 15";
+    assert prevFarm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + vatUrnsIlkUrnInk, "Assert 16";
     assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 17";
 }
 
@@ -2003,9 +2002,9 @@ rule onKick_revert(address urn, uint256 wad) {
 
     require urn == lockstakeUrn;
     address prevVoteDelegate = urnVoteDelegates(urn);
-    require prevVoteDelegate == addrZero() || prevVoteDelegate == voteDelegate;
+    require prevVoteDelegate == 0 || prevVoteDelegate == voteDelegate;
     address prevFarm = urnFarms(urn);
-    require prevFarm == addrZero() || prevFarm == stakingRewards;
+    require prevFarm == 0 || prevFarm == stakingRewards;
 
     mathint wardsSender = wards(e.msg.sender);
     mathint urnAuctionsUrn = urnAuctions(urn);
@@ -2018,11 +2017,11 @@ rule onKick_revert(address urn, uint256 wad) {
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(urn) + lsmkr.balanceOf(currentContract);
     require stakingRewards.totalSupply() >= stakingRewards.balanceOf(urn);
     // VoteDelegate assumptions
-    require prevVoteDelegate == addrZero() || to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk + wad;
-    require prevVoteDelegate == addrZero() || mkr.balanceOf(voteDelegate) >= voteDelegate.stake(currentContract);
+    require prevVoteDelegate == 0 || to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk + wad;
+    require prevVoteDelegate == 0 || mkr.balanceOf(voteDelegate) >= voteDelegate.stake(currentContract);
     // StakingRewards assumptions
-    require prevFarm == addrZero() && lsmkr.balanceOf(urn) >= wad ||
-            prevFarm != addrZero() && to_mathint(stakingRewards.balanceOf(urn)) >= vatUrnsIlkUrnInk + wad && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUrnInk + wad;
+    require prevFarm == 0 && lsmkr.balanceOf(urn) >= wad ||
+            prevFarm != 0 && to_mathint(stakingRewards.balanceOf(urn)) >= vatUrnsIlkUrnInk + wad && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUrnInk + wad;
     // LockstakeClipper assumption
     require wad > 0;
     // Practical assumption (vatUrnsIlkUrnInk + wad should be the same than the vatUrnsIlkUrnInk prev to the kick call)
@@ -2183,7 +2182,7 @@ rule onRemove_revert(address urn, uint256 sold, uint256 left) {
     require lsmkrTotalSupply + refund <= max_uint256;
     // Assumption from LockstakeClipper
     require mkrBalanceOfEngine >= burn;
-    require urn != lsmkr && urn != addrZero();
+    require urn != lsmkr && urn != 0;
 
     onRemove@withrevert(e, urn, sold, left);
 

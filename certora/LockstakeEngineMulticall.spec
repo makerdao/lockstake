@@ -43,8 +43,6 @@ methods {
     ] default HAVOC_ALL;
 }
 
-definition addrZero() returns address = 0x0000000000000000000000000000000000000000;
-
 rule hopeAndHope(address owner1, uint256 index1, address owner2, uint256 index2, address usr) {
     env e;
 
@@ -93,5 +91,5 @@ rule selectFarmAndLock(address owner, uint256 index, address farm, uint16 ref, u
     assert mkrAllowanceExecutorEngineBefore == max_uint256 => mkrAllowanceExecutorEngineAfter == mkrAllowanceExecutorEngineBefore, "Assert 3";
     assert urnFarmsUrnAfter == farm, "Assert 4";
 
-    assert farm == addrZero() || farms(farm) == LockstakeEngine.FarmStatus.ACTIVE, "farm is active";
+    assert farm == 0 || farms(farm) == LockstakeEngine.FarmStatus.ACTIVE, "farm is active";
 }

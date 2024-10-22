@@ -84,7 +84,6 @@ methods {
     ) external => DISPATCHER(true);
 }
 
-definition addrZero() returns address = 0x0000000000000000000000000000000000000000;
 definition max_int256() returns mathint = 2^255 - 1;
 definition WAD() returns mathint = 10^18;
 definition RAY() returns mathint = 10^27;
@@ -416,9 +415,9 @@ rule kick_revert(uint256 tab, uint256 lot, address usr, address kpr) {
 
     require usr == lockstakeUrn;
     address prevVoteDelegate = lockstakeEngine.urnVoteDelegates(usr);
-    require prevVoteDelegate == addrZero() || prevVoteDelegate == voteDelegate;
+    require prevVoteDelegate == 0 || prevVoteDelegate == voteDelegate;
     address prevFarm = lockstakeEngine.urnFarms(usr);
-    require prevFarm == addrZero() || prevFarm == stakingRewards;
+    require prevFarm == 0 || prevFarm == stakingRewards;
 
     mathint wardsSender = wards(e.msg.sender);
     mathint locked = lockedGhost();
@@ -446,11 +445,11 @@ rule kick_revert(uint256 tab, uint256 lot, address usr, address kpr) {
     require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(usr) + lsmkr.balanceOf(lockstakeEngine);
     require stakingRewards.totalSupply() >= stakingRewards.balanceOf(usr);
     // VoteDelegate assumptions
-    require prevVoteDelegate == addrZero() || to_mathint(voteDelegate.stake(lockstakeEngine)) >= vatUrnsIlkUsrInk + lot;
-    require prevVoteDelegate == addrZero() || mkr.balanceOf(voteDelegate) >= voteDelegate.stake(lockstakeEngine);
+    require prevVoteDelegate == 0 || to_mathint(voteDelegate.stake(lockstakeEngine)) >= vatUrnsIlkUsrInk + lot;
+    require prevVoteDelegate == 0 || mkr.balanceOf(voteDelegate) >= voteDelegate.stake(lockstakeEngine);
     // StakingRewards assumptions
-    require prevFarm == addrZero() && lsmkr.balanceOf(usr) >= lot ||
-            prevFarm != addrZero() && to_mathint(stakingRewards.balanceOf(usr)) >= vatUrnsIlkUsrInk + lot && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUsrInk + lot;
+    require prevFarm == 0 && lsmkr.balanceOf(usr) >= lot ||
+            prevFarm != 0 && to_mathint(stakingRewards.balanceOf(usr)) >= vatUrnsIlkUsrInk + lot && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUsrInk + lot;
     // Practical Vat assumptions
     require vat.sin(vow()) + coin <= max_uint256;
     require vat.dai(kpr) + coin <= max_uint256;
@@ -471,7 +470,7 @@ rule kick_revert(uint256 tab, uint256 lot, address usr, address kpr) {
     bool revert5  = tab == 0;
     bool revert6  = lot == 0;
     bool revert7  = to_mathint(lot) > max_int256();
-    bool revert8  = usr == addrZero();
+    bool revert8  = usr == 0;
     bool revert9  = kicks == max_uint256;
     bool revert10 = count == max_uint256;
     bool revert11 = !has;
@@ -580,7 +579,7 @@ rule redo_revert(uint256 id, address kpr) {
     bool revert1  = e.msg.value > 0;
     bool revert2  = locked != 0;
     bool revert3  = stopped >= 2;
-    bool revert4  = salesIdUsr == addrZero();
+    bool revert4  = salesIdUsr == 0;
     bool revert5  = to_mathint(e.block.timestamp) < salesIdTic;
     bool revert6  = e.block.timestamp - salesIdTic <= tail && price * RAY() > max_uint256;
     bool revert7  = !done;
@@ -712,7 +711,7 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     assert salesIdTabAfter == (isRemoved ? 0 : calcTabAfter), "Assert 3";
     assert salesIdLotAfter == (isRemoved ? 0 : calcLotAfter), "Assert 4";
     assert salesIdTotAfter == (isRemoved ? 0 : salesIdTotBefore), "Assert 5";
-    assert salesIdUsrAfter == (isRemoved ? addrZero() : salesIdUsrBefore), "Assert 6";
+    assert salesIdUsrAfter == (isRemoved ? 0 : salesIdUsrBefore), "Assert 6";
     assert salesIdTicAfter == (isRemoved ? 0 : salesIdTicBefore), "Assert 7";
     assert salesIdTopAfter == (isRemoved ? 0 : salesIdTopBefore), "Assert 8";
     assert salesOtherPosAfter == (to_mathint(otherUint256) == activeLastBefore && isRemoved ? salesIdPosBefore : salesOtherPosBefore), "Assert 9";
@@ -833,7 +832,7 @@ rule take_revert(uint256 id, uint256 amt, uint256 max, address who, bytes data) 
     require sold * fee <= max_uint256;
     require refund <= max_int256();
     require vat.gem(ilk, salesIdUsr) + refund <= max_uint256;
-    require salesIdUsr != addrZero() && salesIdUsr != lsmkr;
+    require salesIdUsr != 0 && salesIdUsr != lsmkr;
     require lsmkr.totalSupply() + refund <= max_uint256;
     // Dog assumptions
     require dogDirt >= digAmt;
@@ -853,7 +852,7 @@ rule take_revert(uint256 id, uint256 amt, uint256 max, address who, bytes data) 
     bool revert1  = e.msg.value > 0;
     bool revert2  = locked != 0;
     bool revert3  = stopped >= 3;
-    bool revert4  = salesIdUsr == addrZero();
+    bool revert4  = salesIdUsr == 0;
     bool revert5  = price * RAY() > max_uint256;
     bool revert6  = done;
     bool revert7  = to_mathint(max) < price;
@@ -962,7 +961,7 @@ rule yank(uint256 id) {
     assert salesIdTabAfter == 0, "Assert 3";
     assert salesIdLotAfter == 0, "Assert 4";
     assert salesIdTotAfter == 0, "Assert 5";
-    assert salesIdUsrAfter == addrZero(), "Assert 6";
+    assert salesIdUsrAfter == 0, "Assert 6";
     assert salesIdTicAfter == 0, "Assert 7";
     assert salesIdTopAfter == 0, "Assert 8";
     assert salesOtherPosAfter == (to_mathint(otherUint256) == activeLastBefore ? salesIdPosBefore : salesOtherPosBefore), "Assert 9";
@@ -1025,7 +1024,7 @@ rule yank_revert(uint256 id) {
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
     bool revert3 = locked != 0;
-    bool revert4 = salesIdUsr == addrZero();
+    bool revert4 = salesIdUsr == 0;
     bool revert5 = vatGemIlkClipper < salesIdLot;
     bool revert6 = count == 0 || to_mathint(id) != activeLast && salesIdPos > count - 1;
 

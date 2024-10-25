@@ -1,4 +1,4 @@
-PATH := ~/.solc-select/artifacts/solc-0.5.12:~/.solc-select/artifacts/solc-0.6.12:~/.solc-select/artifacts/solc-0.8.21:$(PATH)
+PATH := ~/.solc-select/artifacts/:~/.solc-select/artifacts/solc-0.5.12:~/.solc-select/artifacts/solc-0.6.12:~/.solc-select/artifacts/solc-0.8.21:$(PATH)
 certora-urn                :; PATH=${PATH} certoraRun certora/LockstakeUrn.conf$(if $(rule), --rule $(rule),)$(if $(results), --wait_for_results all,)
 certora-lsmkr              :; PATH=${PATH} certoraRun certora/LockstakeMkr.conf$(if $(rule), --rule $(rule),)$(if $(results), --wait_for_results all,)
 certora-engine             :; PATH=${PATH} certoraRun certora/LockstakeEngine.conf$(if $(rule), --rule $(rule),)$(if $(results), --wait_for_results all,)

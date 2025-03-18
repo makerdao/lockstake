@@ -56,14 +56,6 @@ interface JugLike {
     function drip(bytes32) external returns (uint256);
 }
 
-interface MkrSkyLike {
-    function rate() external view returns (uint256);
-    function mkr() external view returns (GemLike);
-    function sky() external view returns (GemLike);
-    function skyToMkr(address, uint256) external;
-    function mkrToSky(address, uint256) external;
-}
-
 contract LockstakeEngine is Multicall {
     // --- storage variables ---
 
@@ -77,7 +69,6 @@ contract LockstakeEngine is Multicall {
     mapping(address urn   => address farm)                            public urnFarms;
     mapping(address urn   => uint256 auctionsCount)                   public urnAuctions;
     JugLike                                                           public jug;
-    uint256                                                           public fee;
 
     // --- constants and enums ---
 
@@ -93,19 +84,16 @@ contract LockstakeEngine is Multicall {
     UsdsJoinLike            immutable public usdsJoin;
     GemLike                 immutable public usds;
     bytes32                 immutable public ilk;
-    GemLike                 immutable public mkr;
-    GemLike                 immutable public lsmkr;
-    MkrSkyLike              immutable public mkrSky;
     GemLike                 immutable public sky;
-    uint256                 immutable public mkrSkyRate;
+    GemLike                 immutable public lssky;
     address                 immutable public urnImplementation;
+    uint256                 immutable public fee;
 
     // --- events ---   
 
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event File(bytes32 indexed what, address data);
-    event File(bytes32 indexed what, uint256 data);
     event AddFarm(address farm);
     event DelFarm(address farm);
     event Open(address indexed owner, uint256 indexed index, address urn);
@@ -134,22 +122,18 @@ contract LockstakeEngine is Multicall {
 
     // --- constructor ---
 
-    constructor(address voteDelegateFactory_, address usdsJoin_, bytes32 ilk_, address mkrSky_, address lsmkr_) {
+    constructor(address voteDelegateFactory_, address usdsJoin_, bytes32 ilk_, address sky_, address lssky_, uint256 fee_) {
         voteDelegateFactory = VoteDelegateFactoryLike(voteDelegateFactory_);
         usdsJoin = UsdsJoinLike(usdsJoin_);
         vat = usdsJoin.vat();
         usds = usdsJoin.usds();
         ilk = ilk_;
-        mkrSky = MkrSkyLike(mkrSky_);
-        mkr = mkrSky.mkr();
-        sky = mkrSky.sky();
-        mkrSkyRate = mkrSky.rate();
-        lsmkr = GemLike(lsmkr_);
-        urnImplementation = address(new LockstakeUrn(address(vat), lsmkr_));
+        sky = GemLike(sky_);
+        lssky = GemLike(lssky_);
+        fee = fee_;
+        urnImplementation = address(new LockstakeUrn(address(vat), lssky_));
         vat.hope(usdsJoin_);
         usds.approve(usdsJoin_, type(uint256).max);
-        sky.approve(address(mkrSky), type(uint256).max);
-        mkr.approve(address(mkrSky), type(uint256).max);
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -208,14 +192,6 @@ contract LockstakeEngine is Multicall {
     function file(bytes32 what, address data) external auth {
         if (what == "jug") {
             jug = JugLike(data);
-        } else revert("LockstakeEngine/file-unrecognized-param");
-        emit File(what, data);
-    }
-
-    function file(bytes32 what, uint256 data) external auth {
-        if (what == "fee") {
-            require(data < WAD, "LockstakeEngine/fee-equal-or-greater-wad");
-            fee = data;
         } else revert("LockstakeEngine/file-unrecognized-param");
         emit File(what, data);
     }
@@ -283,7 +259,7 @@ contract LockstakeEngine is Multicall {
                 VoteDelegateLike(prevVoteDelegate).free(wad);
             }
             if (voteDelegate != address(0)) {
-                mkr.approve(voteDelegate, wad);
+                sky.approve(voteDelegate, wad);
                 VoteDelegateLike(voteDelegate).lock(wad);
             }
         }
@@ -315,29 +291,21 @@ contract LockstakeEngine is Multicall {
 
     function lock(address owner, uint256 index, uint256 wad, uint16 ref) external {
         address urn = _getUrn(owner, index);
-        mkr.transferFrom(msg.sender, address(this), wad);
+        sky.transferFrom(msg.sender, address(this), wad);
         _lock(urn, wad, ref);
         emit Lock(owner, index, wad, ref);
-    }
-
-    function lockSky(address owner, uint256 index, uint256 skyWad, uint16 ref) external {
-        address urn = _getUrn(owner, index);
-        sky.transferFrom(msg.sender, address(this), skyWad);
-        mkrSky.skyToMkr(address(this), skyWad);
-        _lock(urn, skyWad / mkrSkyRate, ref);
-        emit LockSky(owner, index, skyWad, ref);
     }
 
     function _lock(address urn, uint256 wad, uint16 ref) internal {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/overflow");
         address voteDelegate = urnVoteDelegates[urn];
         if (voteDelegate != address(0)) {
-            mkr.approve(voteDelegate, wad);
+            sky.approve(voteDelegate, wad);
             VoteDelegateLike(voteDelegate).lock(wad);
         }
         vat.slip(ilk, urn, int256(wad));
         vat.frob(ilk, urn, urn, address(0), int256(wad), 0);
-        lsmkr.mint(urn, wad);
+        lssky.mint(urn, wad);
         address urnFarm = urnFarms[urn];
         if (urnFarm != address(0)) {
             require(farms[urnFarm] == FarmStatus.ACTIVE, "LockstakeEngine/farm-deleted");
@@ -348,23 +316,14 @@ contract LockstakeEngine is Multicall {
     function free(address owner, uint256 index, address to, uint256 wad) external returns (uint256 freed) {
         address urn = _getAuthedUrn(owner, index);
         freed = _free(urn, wad, fee);
-        mkr.transfer(to, freed);
+        sky.transfer(to, freed);
         emit Free(owner, index, to, wad, freed);
-    }
-
-    function freeSky(address owner, uint256 index, address to, uint256 skyWad) external returns (uint256 skyFreed) {
-        address urn = _getAuthedUrn(owner, index);
-        uint256 wad = skyWad / mkrSkyRate;
-        uint256 freed = _free(urn, wad, fee);
-        skyFreed = freed * mkrSkyRate;
-        mkrSky.mkrToSky(to, freed);
-        emit FreeSky(owner, index, to, skyWad, skyFreed);
     }
 
     function freeNoFee(address owner, uint256 index, address to, uint256 wad) external auth {
         address urn = _getAuthedUrn(owner, index);
         _free(urn, wad, 0);
-        mkr.transfer(to, wad);
+        sky.transfer(to, wad);
         emit FreeNoFee(owner, index, to, wad);
     }
 
@@ -374,7 +333,7 @@ contract LockstakeEngine is Multicall {
         if (urnFarm != address(0)) {
             LockstakeUrn(urn).withdraw(urnFarm, wad);
         }
-        lsmkr.burn(urn, wad);
+        lssky.burn(urn, wad);
         vat.frob(ilk, urn, urn, address(0), -int256(wad), 0);
         vat.slip(ilk, urn, -int256(wad));
         address voteDelegate = urnVoteDelegates[urn];
@@ -383,7 +342,7 @@ contract LockstakeEngine is Multicall {
         }
         uint256 burn = wad * fee_ / WAD;
         if (burn > 0) {
-            mkr.burn(address(this), burn);
+            sky.burn(address(this), burn);
         }
         unchecked { freed = wad - burn; } // burn <= wad always
     }
@@ -440,13 +399,13 @@ contract LockstakeEngine is Multicall {
         uint256 inkBeforeKick = ink + wad;
         _selectVoteDelegate(urn, inkBeforeKick, urnVoteDelegates[urn], address(0));
         _selectFarm(urn, inkBeforeKick, urnFarms[urn], address(0), 0);
-        lsmkr.burn(urn, wad);
+        lssky.burn(urn, wad);
         urnAuctions[urn]++;
         emit OnKick(urn, wad);
     }
 
     function onTake(address urn, address who, uint256 wad) external auth {
-        mkr.transfer(who, wad); // Free MKR to the auction buyer
+        sky.transfer(who, wad); // Free SKY to the auction buyer
         emit OnTake(urn, who, wad);
     }
 
@@ -456,14 +415,14 @@ contract LockstakeEngine is Multicall {
         if (left > 0) {
             uint256 fee_ = fee;
             burn = _min(sold * fee_ / (WAD - fee_), left);
-            mkr.burn(address(this), burn);
+            sky.burn(address(this), burn);
             unchecked { refund = left - burn; }
             if (refund > 0) {
                 // The following is ensured by the dog and clip but we still prefer to be explicit
                 require(refund <= uint256(type(int256).max), "LockstakeEngine/overflow");
                 vat.slip(ilk, urn, int256(refund));
                 vat.grab(ilk, urn, urn, address(0), int256(refund), 0);
-                lsmkr.mint(urn, refund);
+                lssky.mint(urn, refund);
             }
         }
         urnAuctions[urn]--;

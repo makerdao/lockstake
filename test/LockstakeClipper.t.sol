@@ -864,7 +864,7 @@ contract LockstakeClipperTest is DssTest {
             who: address(123),
             data: "aaa"
         });
-        uint256 snapshotId = vm.snapshot();
+        uint256 snapshotId = vm.snapshotState();
         // This one won't revert as has empty data
         vm.prank(ali); clip.take({
             id:  1,
@@ -873,7 +873,7 @@ contract LockstakeClipperTest is DssTest {
             who: address(123),
             data: ""
         });
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
         // The following ones won't revert as are the forbidden addresses and the clipperCall will be ignored
         vm.prank(ali); clip.take({
             id:  1,
@@ -882,7 +882,7 @@ contract LockstakeClipperTest is DssTest {
             who: address(dss.dog),
             data: "aaa"
         });
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
         vm.prank(ali); clip.take({
             id:  1,
             amt: 11 ether,
@@ -890,7 +890,7 @@ contract LockstakeClipperTest is DssTest {
             who: address(dss.vat),
             data: "aaa"
         });
-        vm.revertTo(snapshotId);
+        vm.revertToState(snapshotId);
         vm.prank(ali); clip.take({
             id:  1,
             amt: 11 ether,
@@ -1299,10 +1299,11 @@ contract LockstakeClipperTest is DssTest {
         });
     }
 
-    function testFailStopped3Take() public takeSetup {
+    function testStopped3Take() public takeSetup {
         clip.file("stopped", 3);
         // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD)
         // Readjusts slice to be tab/top = 25
+        vm.expectRevert("LockstakeClipper/stopped-incorrect");
         vm.prank(ali); clip.take({
             id:  1,
             amt: 25 ether,

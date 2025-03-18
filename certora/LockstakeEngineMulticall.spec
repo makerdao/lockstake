@@ -1,7 +1,7 @@
 // Basic spec checking the `multicall` function
 
 using MulticallExecutor as multicallExecutor;
-using MkrMock as mkr;
+using SkyMock as sky;
 using LockstakeUrn as lockstakeUrn;
 
 methods {
@@ -9,9 +9,9 @@ methods {
     function ownerUrns(address,uint256) external returns (address) envfree;
     function urnCan(address,address) external returns (uint256) envfree;
     function urnFarms(address) external returns (address) envfree;
-    function mkr.allowance(address,address) external returns (uint256) envfree;
-    function mkr.balanceOf(address) external returns (uint256) envfree;
-    function mkr.totalSupply() external returns (uint256) envfree;
+    function sky.allowance(address,address) external returns (uint256) envfree;
+    function sky.balanceOf(address) external returns (uint256) envfree;
+    function sky.totalSupply() external returns (uint256) envfree;
     //
     function _.lock(address, uint256, uint256, uint16) external => DISPATCHER(true);
     function _.lock(uint256) external => DISPATCHER(true);
@@ -72,23 +72,23 @@ rule hopeAndNope(address owner, uint256 index, address usr) {
 rule selectFarmAndLock(address owner, uint256 index, address farm, uint16 ref, uint256 wad) {
     env e;
 
-    mathint mkrBalanceOfExecutorBefore = mkr.balanceOf(multicallExecutor);
-    mathint mkrAllowanceExecutorEngineBefore = mkr.allowance(multicallExecutor, currentContract);
+    mathint skyBalanceOfExecutorBefore = sky.balanceOf(multicallExecutor);
+    mathint skyAllowanceExecutorEngineBefore = sky.allowance(multicallExecutor, currentContract);
 
     // Token invariants
-    require to_mathint(mkr.totalSupply()) >= mkrBalanceOfExecutorBefore + mkrAllowanceExecutorEngineBefore;
+    require to_mathint(sky.totalSupply()) >= skyBalanceOfExecutorBefore + skyAllowanceExecutorEngineBefore;
 
     multicallExecutor.selectFarmAndLock(e, owner, index, farm, ref, wad);
 
-    mathint mkrBalanceOfExecutorAfter = mkr.balanceOf(multicallExecutor);
-    mathint mkrAllowanceExecutorEngineAfter = mkr.allowance(multicallExecutor, currentContract);
+    mathint skyBalanceOfExecutorAfter = sky.balanceOf(multicallExecutor);
+    mathint skyAllowanceExecutorEngineAfter = sky.allowance(multicallExecutor, currentContract);
     address urn = ownerUrns(owner, index);
     require lockstakeUrn == urn;
     address urnFarmsUrnAfter = urnFarms(urn);
 
-    assert mkrBalanceOfExecutorAfter == mkrBalanceOfExecutorBefore - wad, "Assert 1";
-    assert mkrAllowanceExecutorEngineBefore < max_uint256 => mkrAllowanceExecutorEngineAfter == mkrAllowanceExecutorEngineBefore - wad, "Assert 2";
-    assert mkrAllowanceExecutorEngineBefore == max_uint256 => mkrAllowanceExecutorEngineAfter == mkrAllowanceExecutorEngineBefore, "Assert 3";
+    assert skyBalanceOfExecutorAfter == skyBalanceOfExecutorBefore - wad, "Assert 1";
+    assert skyAllowanceExecutorEngineBefore < max_uint256 => skyAllowanceExecutorEngineAfter == skyAllowanceExecutorEngineBefore - wad, "Assert 2";
+    assert skyAllowanceExecutorEngineBefore == max_uint256 => skyAllowanceExecutorEngineAfter == skyAllowanceExecutorEngineBefore, "Assert 3";
     assert urnFarmsUrnAfter == farm, "Assert 4";
 
     assert farm == 0 || farms(farm) == LockstakeEngine.FarmStatus.ACTIVE, "farm is active";

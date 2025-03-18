@@ -37,7 +37,6 @@ contract LockstakeHandler is StdUtils, StdCheats {
     Vm vm;
 
     LockstakeEngine  public engine;
-    GemMock          public mkr;
     GemMock          public sky;
     GemMock          public usds;
     bytes32          public ilk;
@@ -53,7 +52,6 @@ contract LockstakeHandler is StdUtils, StdCheats {
     address   public urn;
     address[] public voteDelegates;
     address[] public farms;
-    uint256   public mkrSkyRate;
     address   public anyone = address(123);
 
     mapping(bytes32 => uint256) public numCalls;
@@ -91,7 +89,6 @@ contract LockstakeHandler is StdUtils, StdCheats {
     ) {
         vm         = vm_;
         engine     = LockstakeEngine(engine_);
-        mkr        = GemMock(address(engine.mkr()));
         sky        = GemMock(address(engine.sky()));
         usds       = GemMock(address(engine.usds()));
         pauseProxy = pauseProxy_;
@@ -106,7 +103,6 @@ contract LockstakeHandler is StdUtils, StdCheats {
         owner      = owner_;
         index      = index_;
         urn        = engine.ownerUrns(owner, index);
-        mkrSkyRate = engine.mkrSkyRate();
 
         vat.hope(address(clip));
 
@@ -224,31 +220,10 @@ contract LockstakeHandler is StdUtils, StdCheats {
                             ) / 10**18
                     ) * 10**18;
 
-        deal(address(mkr), anyone, wad);
-        mkr.approve(address(engine), wad);
+        deal(address(sky), anyone, wad);
+        sky.approve(address(engine), wad);
 
         engine.lock(owner, index, wad, ref);
-    }
-
-    function lockSky(uint256 skyWad, uint16 ref) external callAsAnyone {
-        numCalls["lockSky"]++;
-
-        // skyWad = bound(skyWad, 0, uint256(type(int256).max) / 10**18) * 10**18;
-        (uint256 ink,) = vat.urns(ilk, urn);
-        (,, uint256 spotPrice,,) = vat.ilks(ilk);
-        skyWad = bound(skyWad, 0, _min(
-                                    uint256(type(int256).max),
-                                    _min(
-                                        type(uint256).max / spotPrice - ink,
-                                        type(uint256).max / mkrSkyRate
-                                    )
-                                ) / 10**18
-                      ) * 10**18 * mkrSkyRate;
-
-        deal(address(sky), anyone, skyWad);
-        sky.approve(address(engine), skyWad);
-
-        engine.lockSky(owner, index, skyWad, ref);
     }
 
     function free(address to, uint256 wad) external callAsUrnOwner() {
@@ -261,16 +236,6 @@ contract LockstakeHandler is StdUtils, StdCheats {
         wad = bound(wad, 0, ink - _divup(art * rate, spotPrice));
 
         engine.free(owner, index, to, wad);
-    }
-
-    function freeSky(address to, uint256 skyWad) external callAsUrnOwner() {
-        numCalls["freeSky"]++;
-
-        (uint256 ink, uint256 art ) = vat.urns(ilk, urn);
-        (, uint256 rate, uint256 spotPrice,,) = vat.ilks(ilk);
-        skyWad = bound(skyWad, 0, (ink - _divup(art * rate, spotPrice)) * mkrSkyRate);
-
-        engine.freeSky(owner, index, to, skyWad);
     }
 
     function draw(uint256 wad) external callAsUrnOwner() {

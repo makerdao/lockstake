@@ -1,4 +1,4 @@
-// LockstakeMkr.spec
+// LockstakeSky.spec
 
 methods {
     function wards(address) external returns (uint256) envfree;

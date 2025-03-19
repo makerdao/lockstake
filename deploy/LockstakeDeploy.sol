@@ -37,8 +37,20 @@ library LockstakeDeploy {
         DssInstance memory dss = MCD.loadFromChainlog(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
 
         lockstakeInstance.lssky   = address(new LockstakeSky());
-        lockstakeInstance.engine  = address(new LockstakeEngine(voteDelegateFactory, dss.chainlog.getAddress("USDS_JOIN"), ilk, dss.chainlog.getAddress("SKY"), lockstakeInstance.lssky, fee));
-        lockstakeInstance.clipper = address(new LockstakeClipper(address(dss.vat), address(dss.spotter), address(dss.dog), lockstakeInstance.engine));
+        lockstakeInstance.engine  = address(new LockstakeEngine(
+                                                    voteDelegateFactory,
+                                                    dss.chainlog.getAddress("USDS_JOIN"),
+                                                    ilk,
+                                                    dss.chainlog.getAddress("SKY"),
+                                                    lockstakeInstance.lssky,
+                                                    fee
+                                            ));
+        lockstakeInstance.clipper = address(new LockstakeClipper(
+                                                    address(dss.vat),
+                                                    address(dss.spotter),
+                                                    address(dss.dog),
+                                                    lockstakeInstance.engine
+                                            ));
         (bool ok, bytes memory returnV) = dss.chainlog.getAddress("CALC_FAB").call(abi.encodeWithSelector(calcSig, owner));
         require(ok);
         lockstakeInstance.clipperCalc = abi.decode(returnV, (address));

@@ -146,22 +146,22 @@ library LockstakeInit {
         });
 
         address sky = dss.chainlog.getAddress("SKY");
-        address voteDelegateFactory = dss.chainlog.getAddress("VOTE_DELEGATE_FACTORY");
+        address oldEngine = dss.chainlog.getAddress("LOCKSTAKE_ENGINE");
 
         // Sanity checks
-        require(se.engine.voteDelegateFactory() == address(voteDelegateFactory),         "Engine voteDelegateFactory mismatch");
-        require(se.engine.vat()                 == address(dss.vat),                     "Engine vat mismatch");
-        require(se.engine.usdsJoin()            == dss.chainlog.getAddress("USDS_JOIN"), "Engine usdsJoin mismatch");
-        require(se.engine.usds()                == dss.chainlog.getAddress("USDS"),      "Engine usds mismatch");
-        require(se.engine.ilk()                 == cfg.ilk,                              "Engine ilk mismatch");
-        require(se.engine.sky()                 == sky,                                  "Engine sky mismatch");
-        require(se.engine.lssky()               == address(se.lssky),                    "Engine lsssky mismatch");
-        require(se.engine.fee()                 == cfg.fee,                              "Engine fee mismatch");
-        require(se.clipper.ilk()                == cfg.ilk,                              "Clipper ilk mismatch");
-        require(se.clipper.vat()                == address(dss.vat),                     "Clipper vat mismatch");
-        require(se.clipper.engine()             == address(se.engine),                   "Clipper engine mismatch");
-        require(se.clipper.dog()                == address(dss.dog),                     "Clipper dog mismatch");
-        require(se.clipper.spotter()            == address(dss.spotter),                 "Clipper spotter mismatch");
+        require(se.engine.voteDelegateFactory() == dss.chainlog.getAddress("VOTE_DELEGATE_FACTORY"), "Engine voteDelegateFactory mismatch");
+        require(se.engine.vat()                 == address(dss.vat),                                 "Engine vat mismatch");
+        require(se.engine.usdsJoin()            == dss.chainlog.getAddress("USDS_JOIN"),             "Engine usdsJoin mismatch");
+        require(se.engine.usds()                == dss.chainlog.getAddress("USDS"),                  "Engine usds mismatch");
+        require(se.engine.ilk()                 == cfg.ilk,                                          "Engine ilk mismatch");
+        require(se.engine.sky()                 == sky,                                              "Engine sky mismatch");
+        require(se.engine.lssky()               == address(se.lssky),                                "Engine lsssky mismatch");
+        require(se.engine.fee()                 == cfg.fee,                                          "Engine fee mismatch");
+        require(se.clipper.ilk()                == cfg.ilk,                                          "Clipper ilk mismatch");
+        require(se.clipper.vat()                == address(dss.vat),                                 "Clipper vat mismatch");
+        require(se.clipper.engine()             == address(se.engine),                               "Clipper engine mismatch");
+        require(se.clipper.dog()                == address(dss.dog),                                 "Clipper dog mismatch");
+        require(se.clipper.spotter()            == address(dss.spotter),                             "Clipper spotter mismatch");
 
         require(cfg.gap <= cfg.maxLine, "gap greater than max line");
         require(cfg.dust <= cfg.hole, "dust greater than hole");
@@ -253,6 +253,12 @@ library LockstakeInit {
             cfg.name,
             cfg.symbol
         );
+
+        dss.chainlog.setAddress("LOCKSTAKE_MKR_OLD_V1",       dss.chainlog.getAddress("LOCKSTAKE_MKR"));
+        dss.chainlog.setAddress("LOCKSTAKE_ENGINE_OLD_V1",    oldEngine);
+        dss.chainlog.setAddress("LOCKSTAKE_CLIP_OLD_V1",      dss.chainlog.getAddress("LOCKSTAKE_CLIP"));
+        dss.chainlog.setAddress("LOCKSTAKE_CLIP_CALC_OLD_V1", dss.chainlog.getAddress("LOCKSTAKE_CLIP_CALC"));
+        dss.chainlog.removeAddress("LOCKSTAKE_MKR");
 
         dss.chainlog.setAddress("LOCKSTAKE_SKY",       address(se.lssky));
         dss.chainlog.setAddress("LOCKSTAKE_ENGINE",    address(se.engine));

@@ -32,6 +32,10 @@ contract LockstakeEngineTest is DssTest {
     using stdStorage for StdStorage;
 
     DssInstance             dss;
+    address                 oldLsmkr;
+    address                 oldEngine;
+    address                 oldClip;
+    address                 oldCalc;
     address                 pauseProxy;
     DSTokenAbstract         sky;
     LockstakeSky            lssky;
@@ -91,6 +95,11 @@ contract LockstakeEngineTest is DssTest {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
         dss = MCD.loadFromChainlog(LOG);
+
+        oldLsmkr = dss.chainlog.getAddress("LOCKSTAKE_MKR");
+        oldEngine = dss.chainlog.getAddress("LOCKSTAKE_ENGINE");
+        oldClip = dss.chainlog.getAddress("LOCKSTAKE_CLIP");
+        oldCalc = dss.chainlog.getAddress("LOCKSTAKE_CLIP_CALC");
 
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
         pip = OsmAbstract(dss.chainlog.getAddress("PIP_MKR"));
@@ -304,8 +313,18 @@ contract LockstakeEngineTest is DssTest {
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_SKY"),       address(lssky));
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_ENGINE"),    address(engine));
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP"),      address(clip));
-        assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP_CALC"), address(calc));
+        assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP_CALC"), calc);
 
+        assertEq(dss.chainlog.getAddress("LOCKSTAKE_MKR_OLD_V1"),       oldLsmkr);
+        assertEq(dss.chainlog.getAddress("LOCKSTAKE_ENGINE_OLD_V1"),    oldEngine);
+        assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP_OLD_V1"),      oldClip);
+        assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP_CALC_OLD_V1"), oldCalc);
+
+        vm.expectRevert("dss-chain-log/invalid-key");
+        dss.chainlog.getAddress("LOCKSTAKE_MKR");
+
+        vm.prank(pauseProxy); dss.chainlog.setAddress("LOCKSTAKE_MKR", oldLsmkr);
+        vm.prank(pauseProxy); dss.chainlog.setAddress("LOCKSTAKE_ENGINE", oldEngine);
         LockstakeInstance memory instance2 = LockstakeDeploy.deployLockstake(
             address(this),
             pauseProxy,

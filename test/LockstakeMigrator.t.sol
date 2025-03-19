@@ -43,7 +43,7 @@ contract LockstakeMigratorTest is DssTest {
     }
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("ETH_RPC_URL"), 21781255);
+        vm.createSelectFork(vm.envString("ETH_RPC_URL"), 22082132);
 
         dss = MCD.loadFromChainlog(LOG);
 
@@ -229,9 +229,9 @@ contract LockstakeMigratorTest is DssTest {
 
     function testMigrateSameOwnerAndCallerWithDebt() public {
         _checkMigrate({
-            oldUrn: Urn({ owner: 0x2930285a7435bB9fb5DBF9dA7b9cF60dEe2FD2e9, index: 0 }),
-            newUrn: Urn({ owner: 0x2930285a7435bB9fb5DBF9dA7b9cF60dEe2FD2e9, index: 0 }),
-            caller: 0x2930285a7435bB9fb5DBF9dA7b9cF60dEe2FD2e9,
+            oldUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 4 }),
+            newUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 0 }),
+            caller: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d,
             hasDebt: true
         });
     }
@@ -247,9 +247,9 @@ contract LockstakeMigratorTest is DssTest {
 
     function testMigrateDifferentOwnersCallerFirstOwnerWithDebt() public {
         _checkMigrate({
-            oldUrn: Urn({ owner: 0x2930285a7435bB9fb5DBF9dA7b9cF60dEe2FD2e9, index: 0 }),
+            oldUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 4 }),
             newUrn: Urn({ owner: address(111)                              , index: 0 }),
-            caller: 0x2930285a7435bB9fb5DBF9dA7b9cF60dEe2FD2e9,
+            caller: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d,
             hasDebt: true
         });
     }
@@ -265,7 +265,7 @@ contract LockstakeMigratorTest is DssTest {
 
     function testMigrateDifferentOwnersCallerSecondOwnerWithDebt() public {
         _checkMigrate({
-            oldUrn: Urn({ owner: 0x2930285a7435bB9fb5DBF9dA7b9cF60dEe2FD2e9, index: 0 }),
+            oldUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 4 }),
             newUrn: Urn({ owner: address(111)                              , index: 0 }),
             caller: address(111),
             hasDebt: true
@@ -283,7 +283,7 @@ contract LockstakeMigratorTest is DssTest {
 
     function testMigrateDifferentOwnersRandomCallerWithDebt() public {
         _checkMigrate({
-            oldUrn: Urn({ owner: 0x2930285a7435bB9fb5DBF9dA7b9cF60dEe2FD2e9, index: 0 }),
+            oldUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 4 }),
             newUrn: Urn({ owner: address(111)                              , index: 0 }),
             caller: address(222),
             hasDebt: true

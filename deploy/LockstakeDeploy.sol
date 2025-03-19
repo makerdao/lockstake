@@ -29,7 +29,7 @@ library LockstakeDeploy {
     function deployLockstake(
         address deployer,
         address owner,
-        address voteDelegateFactory,
+        address voteDelegateFactory, // new address won't be in chainlog at deploy time
         bytes32 ilk,
         bytes4  calcSig,
         uint256 fee

@@ -22,6 +22,7 @@ import { LockstakeInstance } from "./LockstakeInstance.sol";
 import { LockstakeSky } from "src/LockstakeSky.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
+import { LockstakeMigrator } from "src/LockstakeMigrator.sol";
 
 // Deploy a Lockstake instance
 library LockstakeDeploy {
@@ -30,6 +31,7 @@ library LockstakeDeploy {
         address deployer,
         address owner,
         address voteDelegateFactory, // new address won't be in chainlog at deploy time
+        address mkrSky, // new address won't be in chainlog at deploy time
         bytes32 ilk,
         bytes4  calcSig,
         uint256 fee
@@ -54,6 +56,12 @@ library LockstakeDeploy {
         (bool ok, bytes memory returnV) = dss.chainlog.getAddress("CALC_FAB").call(abi.encodeWithSelector(calcSig, owner));
         require(ok);
         lockstakeInstance.clipperCalc = abi.decode(returnV, (address));
+        lockstakeInstance.migrator = address(new LockstakeMigrator(
+                                                    dss.chainlog.getAddress("LOCKSTAKE_ENGINE"),
+                                                    lockstakeInstance.engine,
+                                                    mkrSky,
+                                                    dss.chainlog.getAddress("MCD_FLASH")
+                                            ));
 
         ScriptTools.switchOwner(lockstakeInstance.lssky, deployer, owner);
         ScriptTools.switchOwner(lockstakeInstance.engine, deployer, owner);

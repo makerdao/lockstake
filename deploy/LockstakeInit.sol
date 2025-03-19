@@ -50,6 +50,13 @@ interface LockstakeClipperLike {
     function upchost() external;
 }
 
+interface LockstakeMigratorLike {
+    function oldEngine() external view returns (address);
+    function newEngine() external view returns (address);
+    function mkrSky() external view returns (address);
+    function flash() external view returns (address);
+}
+
 interface PipLike {
     function kiss(address) external;
     function rely(address) external;
@@ -125,6 +132,7 @@ struct StackExtension {
     LockstakeEngineLike engine;
     LockstakeClipperLike clipper;
     CalcLike calc;
+    LockstakeMigratorLike migrator;
 }
 
 library LockstakeInit {
@@ -142,7 +150,8 @@ library LockstakeInit {
             lssky:    LockstakeSkyLike(lockstakeInstance.lssky),
             engine:   LockstakeEngineLike(lockstakeInstance.engine),
             clipper:  LockstakeClipperLike(lockstakeInstance.clipper),
-            calc:     CalcLike(lockstakeInstance.clipperCalc)
+            calc:     CalcLike(lockstakeInstance.clipperCalc),
+            migrator: LockstakeMigratorLike(lockstakeInstance.migrator)
         });
 
         address sky = dss.chainlog.getAddress("SKY");
@@ -162,6 +171,10 @@ library LockstakeInit {
         require(se.clipper.engine()             == address(se.engine),                               "Clipper engine mismatch");
         require(se.clipper.dog()                == address(dss.dog),                                 "Clipper dog mismatch");
         require(se.clipper.spotter()            == address(dss.spotter),                             "Clipper spotter mismatch");
+        require(se.migrator.oldEngine()         == address(oldEngine),                               "Migrator oldEngine mismatch");
+        require(se.migrator.newEngine()         == address(se.engine),                               "Migrator newEngine mismatch");
+        require(se.migrator.mkrSky()            == dss.chainlog.getAddress("MKR_SKY"),               "Migrator mkrSky mismatch");
+        require(se.migrator.flash()             == dss.chainlog.getAddress("MCD_FLASH"),             "Migrator flash mismatch");
 
         require(cfg.gap <= cfg.maxLine, "gap greater than max line");
         require(cfg.dust <= cfg.hole, "dust greater than hole");
@@ -173,6 +186,8 @@ library LockstakeInit {
         require(cfg.tip <= 1_000 * RAD, "tip out of boundaries");
         require(cfg.chop >= WAD && cfg.chop < 2 * WAD, "chop out of boundaries");
         require(cfg.tolerance < RAY, "tolerance equal or greater than 100%");
+
+        LockstakeEngineLike(oldEngine).rely(address(se.migrator));
 
         dss.vat.init(cfg.ilk);
         dss.vat.file(cfg.ilk, "line", cfg.gap);
@@ -264,5 +279,6 @@ library LockstakeInit {
         dss.chainlog.setAddress("LOCKSTAKE_ENGINE",    address(se.engine));
         dss.chainlog.setAddress("LOCKSTAKE_CLIP",      address(se.clipper));
         dss.chainlog.setAddress("LOCKSTAKE_CLIP_CALC", address(se.calc));
+        dss.chainlog.setAddress("LOCKSTAKE_MIGRATOR",  address(se.migrator));
     }
 }

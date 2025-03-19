@@ -34,7 +34,6 @@ interface LockstakeEngineLike {
     function fee() external view returns (uint256);
     function rely(address) external;
     function file(bytes32, address) external;
-    function file(bytes32, uint256) external;
     function addFarm(address) external;
 }
 
@@ -164,7 +163,7 @@ library LockstakeInit {
         require(se.engine.usds()                == dss.chainlog.getAddress("USDS"),                  "Engine usds mismatch");
         require(se.engine.ilk()                 == cfg.ilk,                                          "Engine ilk mismatch");
         require(se.engine.sky()                 == sky,                                              "Engine sky mismatch");
-        require(se.engine.lssky()               == address(se.lssky),                                "Engine lsssky mismatch");
+        require(se.engine.lssky()               == address(se.lssky),                                "Engine lssky mismatch");
         require(se.engine.fee()                 == cfg.fee,                                          "Engine fee mismatch");
         require(se.clipper.ilk()                == cfg.ilk,                                          "Clipper ilk mismatch");
         require(se.clipper.vat()                == address(dss.vat),                                 "Clipper vat mismatch");

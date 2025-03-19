@@ -102,9 +102,7 @@ contract LockstakeEngine is Multicall {
     event SelectVoteDelegate(address indexed owner, uint256 indexed index, address indexed voteDelegate);
     event SelectFarm(address indexed owner, uint256 indexed index, address indexed farm, uint16 ref);
     event Lock(address indexed owner, uint256 indexed index, uint256 wad, uint16 ref);
-    event LockSky(address indexed owner, uint256 indexed index, uint256 skyWad, uint16 ref);
     event Free(address indexed owner, uint256 indexed index, address to, uint256 wad, uint256 freed);
-    event FreeSky(address indexed owner, uint256 indexed index, address to, uint256 skyWad, uint256 skyFreed);
     event FreeNoFee(address indexed owner, uint256 indexed index, address to, uint256 wad);
     event Draw(address indexed owner, uint256 indexed index, address to, uint256 wad);
     event Wipe(address indexed owner, uint256 indexed index, uint256 wad);

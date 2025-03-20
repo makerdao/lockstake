@@ -213,7 +213,7 @@ This contract uses the `LockstakeEngine.freeNoFee` function ensuring the collate
 The migrator requires to be added to the `wards` mapping of the old `LockstakeEngine`.
 
 There are two paths that the user could take when calling the `migrate` function for the desired `urn`:
-- If the `urn` doesn't have any debt. This is the simplest path where the collateral is just `free`d from the old engine and `locke`d in the new one.
+- If the `urn` doesn't have any debt. This is the simplest path where the collateral is just `free`d from the old engine and `lock`ed in the new one.
 - If the `urn` has debt. This path uses the `DssFlash` module to `wipe` the debt in the old `urn` to be able to move the collateral. After doing so, the debt will be `draw`n in the new `urn` and the funds will be returned to the `DssFlash` module (all happens atomically).
 
 The first path requires the migrator to be `hope`d in the old Engine for the `urn` being migrated. An authed address needs to call this `hope` function previously. It is also required that the caller of `migrate` be an authed address in the `urn` being migrated.

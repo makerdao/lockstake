@@ -172,11 +172,6 @@ contract LockstakeMigratorTest is DssTest {
         assertEq(_ink(newIlk, newUrnAddr), 0);
         assertEq(_art(newIlk, newUrnAddr), 0);
 
-        uint256 snapshotId = vm.snapshotState();
-        dss.jug.drip(oldIlk);
-        uint256 oldRate = _rate(oldIlk);
-        vm.revertToState(snapshotId);
-
         if (caller != oldUrn.owner) {
             vm.expectRevert("LockstakeMigrator/sender-not-authed-old-urn");
             vm.prank(caller); migrator.migrate(oldUrn.owner, oldUrn.index, newUrn.owner, newUrn.index, 5);
@@ -199,20 +194,20 @@ contract LockstakeMigratorTest is DssTest {
             vm.prank(newUrn.owner); newEngine.hope(newUrn.owner, newUrn.index, address(migrator));
         }
 
+        uint256 oldIlkRate = _rate(oldIlk);
+
         vm.expectEmit();
         emit Lock(newUrn.owner, newUrn.index, oldInkPrev * 24_000, 5);
         vm.expectEmit();
-        emit Migrate(oldUrn.owner, oldUrn.index, newUrn.owner, newUrn.index, oldInkPrev, hasDebt ? _divup(oldArtPrev * oldRate, RAY) * RAY : 0);
+        emit Migrate(oldUrn.owner, oldUrn.index, newUrn.owner, newUrn.index, oldInkPrev, hasDebt ? _divup(oldArtPrev * oldIlkRate, RAY) * RAY : 0);
         vm.prank(caller); migrator.migrate(oldUrn.owner, oldUrn.index, newUrn.owner, newUrn.index, 5);
 
         assertEq(_ink(oldIlk, newUrnAddr), 0);
         assertEq(_art(oldIlk, newUrnAddr), 0);
 
-        uint256 newRate = _rate(newIlk);
-
         assertEq(_ink(newIlk, newUrnAddr), oldInkPrev * 24_000);
         if (hasDebt) {
-            assertApproxEqAbs(_art(newIlk, newUrnAddr) * newRate, oldArtPrev * oldRate, RAY);
+            assertApproxEqAbs(_art(newIlk, newUrnAddr) * _rate(newIlk), oldArtPrev * oldIlkRate, RAY);
         } else {
             assertEq(_art(newIlk, newUrnAddr), 0);
         }

@@ -17,17 +17,13 @@
 pragma solidity ^0.8.21;
 
 interface VatLike {
+    function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
     function urns(bytes32, address) external view returns (uint256, uint256);
     function hope(address) external;
 }
 
-interface JugLike {
-    function drip(bytes32) external returns (uint256);
-}
-
 interface LockstakeEngineLike {
     function vat() external view returns (VatLike);
-    function jug() external view returns (JugLike);
     function ilk() external view returns (bytes32);
     function mkr() external view returns (TokenLike);
     function sky() external view returns (TokenLike);
@@ -67,14 +63,13 @@ contract LockstakeMigrator {
     MkrSkyLike          immutable public mkrSky;
     FlashLike           immutable public flash;
     VatLike             immutable public vat;
-    JugLike             immutable public jug;
     UsdsJoinLike        immutable public usdsJoin;
     bytes32             immutable public oldIlk;
+    uint256             immutable public mkrSkyRate;
 
     // --- constants ---
 
-    uint256 public constant RAY = 10**27;
-    bytes32 public constant CALLBACK_SUCCESS_VAT_DAI = keccak256("VatDaiFlashBorrower.onVatDaiFlashLoan");
+    uint256 private constant RAY = 10**27;
 
     // --- math ---
 
@@ -96,9 +91,9 @@ contract LockstakeMigrator {
         mkrSky = MkrSkyLike(mkrSky_);
         flash = FlashLike(flash_);
         vat = oldEngine.vat();
-        jug = oldEngine.jug();
         usdsJoin = oldEngine.usdsJoin();
         oldIlk = oldEngine.ilk();
+        mkrSkyRate = mkrSky.rate();
 
         TokenLike usds = usdsJoin.usds();
         oldEngine.mkr().approve(mkrSky_, type(uint256).max);
@@ -117,22 +112,18 @@ contract LockstakeMigrator {
         if (art == 0) {
             oldEngine.freeNoFee(oldOwner, oldIndex, address(this), ink);
             mkrSky.mkrToSky(address(this), ink);
-            newEngine.lock(newOwner, newIndex, ink * mkrSky.rate(), ref);
+            newEngine.lock(newOwner, newIndex, ink * mkrSkyRate, ref);
         } else {
             require(newEngine.isUrnAuth(newOwner, newIndex, msg.sender), "LockstakeMigrator/sender-not-authed-new-urn");
-            debt = _divup(art * jug.drip(oldIlk), RAY) * RAY;
+            (, uint256 oldIlkRate,,,) = vat.ilks(oldIlk);
+            debt = _divup(art * oldIlkRate, RAY) * RAY;
             flash.vatDaiFlashLoan(address(this), debt, abi.encode(oldOwner, oldIndex, newOwner, newIndex, ink, ref));
         }
 
         emit Migrate(oldOwner, oldIndex, newOwner, newIndex, ink, debt);
     }
 
-    function onVatDaiFlashLoan(
-        address initiator,
-        uint256 radAmt,
-        uint256,
-        bytes calldata data
-    ) external returns (bytes32) {
+    function onVatDaiFlashLoan(address initiator, uint256 radAmt, uint256, bytes calldata data) external returns (bytes32) {
         require(msg.sender == address(flash) && initiator == address(this), "LockstakeMigrator/wrong-origin");
 
         uint256 wadAmt = radAmt / RAY;
@@ -141,10 +132,10 @@ contract LockstakeMigrator {
         oldEngine.wipeAll(oldOwner, oldIndex);
         oldEngine.freeNoFee(oldOwner, oldIndex, address(this), ink);
         mkrSky.mkrToSky(address(this), ink);
-        newEngine.lock(newOwner, newIndex, ink * mkrSky.rate(), ref);
+        newEngine.lock(newOwner, newIndex, ink * mkrSkyRate, ref);
         newEngine.draw(newOwner, newIndex, address(this), wadAmt);
         usdsJoin.join(address(flash), wadAmt);
 
-        return CALLBACK_SUCCESS_VAT_DAI;
+        return keccak256("VatDaiFlashBorrower.onVatDaiFlashLoan");
     }
 }

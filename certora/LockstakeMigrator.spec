@@ -62,11 +62,10 @@ rule migrate(address oldOwner, uint256 oldIndex, address newOwner, uint256 newIn
     address newUrn = newEngine.ownerUrns(newOwner, newIndex);
 
     // Assumption from constructor
+    require oldIlk == oldEngine.ilk();
     require mkrSkyRate == mkrSky.rate();
     // Assumption from initialization
     require oldIlk != newIlk;
-    // Assumption from constructor
-    require oldIlk == oldEngine.ilk();
     // Assumption no hash collision
     require newUrn != oldUrn;
 

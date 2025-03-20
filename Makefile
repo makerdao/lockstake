@@ -4,3 +4,4 @@ certora-lssky              :; PATH=${PATH} certoraRun certora/LockstakeSky.conf$
 certora-engine             :; PATH=${PATH} certoraRun certora/LockstakeEngine.conf$(if $(rule), --rule $(rule),)$(if $(results), --wait_for_results all,)
 certora-engine-multicall   :; PATH=${PATH} certoraRun certora/LockstakeEngineMulticall.conf$(if $(rule), --rule $(rule),)$(if $(results), --wait_for_results all,)
 certora-clipper            :; PATH=${PATH} certoraRun certora/LockstakeClipper.conf$(if $(rule), --rule $(rule),)$(if $(results), --wait_for_results all,)
+certora-migrator           :; PATH=${PATH} certoraRun certora/LockstakeMigrator.conf$(if $(rule), --rule $(rule),)$(if $(results), --wait_for_results all,)

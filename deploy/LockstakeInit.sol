@@ -145,9 +145,10 @@ library LockstakeInit {
         });
 
         address sky = dss.chainlog.getAddress("SKY");
-        address oldEngine = dss.chainlog.getAddress("LOCKSTAKE_ENGINE");
+        LockstakeEngineLike oldEngine = LockstakeEngineLike(dss.chainlog.getAddress("LOCKSTAKE_ENGINE"));
 
         // Sanity checks
+        require(oldEngine.ilk()                 != cfg.ilk,                                          "Ilks between engines should not be the same");
         require(se.engine.voteDelegateFactory() == dss.chainlog.getAddress("VOTE_DELEGATE_FACTORY"), "Engine voteDelegateFactory mismatch");
         require(se.engine.vat()                 == address(dss.vat),                                 "Engine vat mismatch");
         require(se.engine.usdsJoin()            == dss.chainlog.getAddress("USDS_JOIN"),             "Engine usdsJoin mismatch");
@@ -254,7 +255,7 @@ library LockstakeInit {
         );
 
         dss.chainlog.setAddress("LOCKSTAKE_MKR_OLD_V1",       dss.chainlog.getAddress("LOCKSTAKE_MKR"));
-        dss.chainlog.setAddress("LOCKSTAKE_ENGINE_OLD_V1",    oldEngine);
+        dss.chainlog.setAddress("LOCKSTAKE_ENGINE_OLD_V1",    address(oldEngine));
         dss.chainlog.setAddress("LOCKSTAKE_CLIP_OLD_V1",      dss.chainlog.getAddress("LOCKSTAKE_CLIP"));
         dss.chainlog.setAddress("LOCKSTAKE_CLIP_CALC_OLD_V1", dss.chainlog.getAddress("LOCKSTAKE_CLIP_CALC"));
         dss.chainlog.removeAddress("LOCKSTAKE_MKR");

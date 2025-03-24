@@ -67,6 +67,7 @@ interface CalcLike {
 
 interface AutoLineLike {
     function setIlk(bytes32, uint256, uint256, uint256) external;
+    function remIlk(bytes32) external;
 }
 
 interface OsmMomLike {
@@ -132,6 +133,9 @@ struct StackExtension {
     LockstakeClipperLike clipper;
     CalcLike calc;
     LockstakeMigratorLike migrator;
+    LockstakeEngineLike oldEngine;
+    AutoLineLike autoLine;
+    address sky;
 }
 
 library LockstakeInit {
@@ -146,24 +150,26 @@ library LockstakeInit {
         LockstakeConfig    memory cfg
     ) internal {
         StackExtension memory se = StackExtension ({
-            lssky:    LockstakeSkyLike(lockstakeInstance.lssky),
-            engine:   LockstakeEngineLike(lockstakeInstance.engine),
-            clipper:  LockstakeClipperLike(lockstakeInstance.clipper),
-            calc:     CalcLike(lockstakeInstance.clipperCalc),
-            migrator: LockstakeMigratorLike(lockstakeInstance.migrator)
+            lssky:     LockstakeSkyLike(lockstakeInstance.lssky),
+            engine:    LockstakeEngineLike(lockstakeInstance.engine),
+            clipper:   LockstakeClipperLike(lockstakeInstance.clipper),
+            calc:      CalcLike(lockstakeInstance.clipperCalc),
+            migrator:  LockstakeMigratorLike(lockstakeInstance.migrator),
+            oldEngine: LockstakeEngineLike(dss.chainlog.getAddress("LOCKSTAKE_ENGINE")),
+            autoLine:  AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")),
+            sky:       dss.chainlog.getAddress("SKY")
         });
 
-        address sky = dss.chainlog.getAddress("SKY");
-        LockstakeEngineLike oldEngine = LockstakeEngineLike(dss.chainlog.getAddress("LOCKSTAKE_ENGINE"));
+        bytes32 oldEngineIlk = se.oldEngine.ilk();
 
         // Sanity checks
-        require(oldEngine.ilk()                 != cfg.ilk,                                          "Ilks between engines should not be the same");
+        require(oldEngineIlk                    != cfg.ilk,                                          "Ilks between engines should not be the same");
         require(se.engine.voteDelegateFactory() == dss.chainlog.getAddress("VOTE_DELEGATE_FACTORY"), "Engine voteDelegateFactory mismatch");
         require(se.engine.vat()                 == address(dss.vat),                                 "Engine vat mismatch");
         require(se.engine.usdsJoin()            == dss.chainlog.getAddress("USDS_JOIN"),             "Engine usdsJoin mismatch");
         require(se.engine.usds()                == dss.chainlog.getAddress("USDS"),                  "Engine usds mismatch");
         require(se.engine.ilk()                 == cfg.ilk,                                          "Engine ilk mismatch");
-        require(se.engine.sky()                 == sky,                                              "Engine sky mismatch");
+        require(se.engine.sky()                 == se.sky,                                           "Engine sky mismatch");
         require(se.engine.lssky()               == address(se.lssky),                                "Engine lssky mismatch");
         require(se.engine.fee()                 == cfg.fee,                                          "Engine fee mismatch");
         require(se.clipper.ilk()                == cfg.ilk,                                          "Clipper ilk mismatch");
@@ -171,7 +177,7 @@ library LockstakeInit {
         require(se.clipper.engine()             == address(se.engine),                               "Clipper engine mismatch");
         require(se.clipper.dog()                == address(dss.dog),                                 "Clipper dog mismatch");
         require(se.clipper.spotter()            == address(dss.spotter),                             "Clipper spotter mismatch");
-        require(se.migrator.oldEngine()         == address(oldEngine),                               "Migrator oldEngine mismatch");
+        require(se.migrator.oldEngine()         == address(se.oldEngine),                            "Migrator oldEngine mismatch");
         require(se.migrator.newEngine()         == address(se.engine),                               "Migrator newEngine mismatch");
         require(se.migrator.mkrSky()            == dss.chainlog.getAddress("MKR_SKY"),               "Migrator mkrSky mismatch");
         require(se.migrator.flash()             == dss.chainlog.getAddress("MCD_FLASH"),             "Migrator flash mismatch");
@@ -187,7 +193,10 @@ library LockstakeInit {
         require(cfg.chop >= WAD && cfg.chop < 2 * WAD, "chop out of boundaries");
         require(cfg.tolerance < RAY, "tolerance equal or greater than 100%");
 
-        LockstakeEngineLike(oldEngine).rely(address(se.migrator));
+        se.oldEngine.rely(address(se.migrator));
+
+        dss.vat.file(oldEngineIlk, "line", 0); // Clean only ilk line, as there will probably be existing debt. Line can be adjusted in a later stage.
+        se.autoLine.remIlk(oldEngineIlk);
 
         dss.vat.init(cfg.ilk);
         dss.vat.file(cfg.ilk, "line", cfg.gap);
@@ -196,7 +205,7 @@ library LockstakeInit {
         dss.vat.rely(address(se.engine));
         dss.vat.rely(address(se.clipper));
 
-        AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).setIlk(cfg.ilk, cfg.maxLine, cfg.gap, cfg.ttl);
+        se.autoLine.setIlk(cfg.ilk, cfg.maxLine, cfg.gap, cfg.ttl);
 
         dss.jug.init(cfg.ilk);
         dss.jug.file(cfg.ilk, "duty", cfg.duty);
@@ -260,7 +269,7 @@ library LockstakeInit {
         IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY")).put(
             cfg.ilk,
             address(0),
-            sky,
+            se.sky,
             18,
             7, // New class
             pip,
@@ -270,7 +279,7 @@ library LockstakeInit {
         );
 
         dss.chainlog.setAddress("LOCKSTAKE_MKR_OLD_V1",       dss.chainlog.getAddress("LOCKSTAKE_MKR"));
-        dss.chainlog.setAddress("LOCKSTAKE_ENGINE_OLD_V1",    address(oldEngine));
+        dss.chainlog.setAddress("LOCKSTAKE_ENGINE_OLD_V1",    address(se.oldEngine));
         dss.chainlog.setAddress("LOCKSTAKE_CLIP_OLD_V1",      dss.chainlog.getAddress("LOCKSTAKE_CLIP"));
         dss.chainlog.setAddress("LOCKSTAKE_CLIP_CALC_OLD_V1", dss.chainlog.getAddress("LOCKSTAKE_CLIP_CALC"));
         dss.chainlog.removeAddress("LOCKSTAKE_MKR");

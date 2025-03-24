@@ -248,13 +248,19 @@ contract LockstakeEngineTest is DssTest {
         assertEq(address(clip.engine()), address(engine));
 
         assertEq(LockstakeEngine(oldEngine).wards(migrator), 1);
+        bytes32 oldIlk = LockstakeEngine(oldEngine).ilk();
+        assertEq(_line(oldIlk), 0);
+        (uint256 maxline, uint256 gap, uint256 ttl,,) = DssAutoLineAbstract(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).ilks(oldIlk);
+        assertEq(maxline, 0);
+        assertEq(gap, 0);
+        assertEq(ttl, 0);
         assertEq(_rate(ilk), 10**27);
         assertEq(dss.vat.Line(), prevLine + 1_000_000 * 10**45);
         assertEq(_line(ilk), 1_000_000 * 10**45);
         assertEq(_dust(ilk), 50);
         assertEq(dss.vat.wards(address(engine)), 1);
         assertEq(dss.vat.wards(address(clip)), 1);
-        (uint256 maxline, uint256 gap, uint256 ttl,,) = DssAutoLineAbstract(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).ilks(ilk);
+        (maxline, gap, ttl,,) = DssAutoLineAbstract(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).ilks(ilk);
         assertEq(maxline, 10_000_000 * 10**45);
         assertEq(gap, 1_000_000 * 10**45);
         assertEq(ttl, 1 days);

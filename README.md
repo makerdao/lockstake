@@ -206,6 +206,27 @@ For compatibility with the SBE, the assumption is that the duration of each farm
 
 The StakingRewards contract `setRewardsDuration` function was modified to enable governance to change the farming distribution duration even if the previous distribution has not finished. This now supports changing it simultaneously with the SBE cooldown period (through a governance spell).
 
+## 7. LockstakeMigrator
+
+A contract which has the purpose to move `urn`s from a deprecated Lockstake version to a newer one, without having to pay the `exit` fee which would be required if the user would want to do this manually via the regular functions.
+This contract uses the `LockstakeEngine.freeNoFee` function ensuring the collateral will still remain locked in a `LockstakeEngine`.
+The migrator requires to be added to the `wards` mapping of the old `LockstakeEngine`.
+
+There are two paths that the user could take when calling the `migrate` function for the desired `urn`:
+- If the `urn` doesn't have any debt. This is the simplest path where the collateral is just `free`d from the old engine and `lock`ed in the new one.
+- If the `urn` has debt. This path uses the `DssFlash` module to `wipe` the debt in the old `urn` to be able to move the collateral. After doing so, the debt will be `draw`n in the new `urn` and the funds will be returned to the `DssFlash` module (all happens atomically).
+
+The first path requires the migrator to be `hope`d in the old Engine for the `urn` being migrated. An authed address needs to call this `hope` function previously. It is also required that the caller of `migrate` be an authed address in the `urn` being migrated.
+For the second path, apart from the same requirements of the simplest one, it is also necessary that an authed address in the `urn` that is receiving the position in the new Lockstake has `hope`d the migrator.
+Also, the `migrate` executor needs to be an authed address in that recipient `urn`.
+
+Note: the second path can encounter reverts on its execution, for example restrictions in the `line` of the `ilk` for the new Engine, or `dust` configuration between the two engines `ilk`s. So it might happen, that for a specific `urn` migration, it could be required that the user needs to manually repay totally or partially the debt or might even require to need to generate new debt for the migration to succeed.
+There might be other cases a part from these previous examples that could block a specific migration, the important thing to consider is that this is just a utility, so repaying totally the debt in a manual manner should always solve these issues.
+
+Note 2: Migration won't transfer the `VoteDelegate` nor the farm selected in the old `urn` to the destination one. This needs to be manually done by an `urn` authed user directly in the new Engine (before or after the migration).
+
+Note 3: Migrator assumes `MkrSky` is configured without a penalty. So as soon as, the penalty is set above 0, the migrator will generally stop working.
+
 **Configurable Parameters:**
 * `rewardsDistribution` - The address which is allowed to start a rewards distribution. Will be set to the splitter.
 * `rewardsDuration` - The amount of seconds each distribution should take.

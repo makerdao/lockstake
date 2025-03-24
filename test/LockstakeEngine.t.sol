@@ -42,6 +42,7 @@ contract LockstakeEngineTest is DssTest {
     LockstakeEngine         engine;
     LockstakeClipper        clip;
     address                 calc;
+    address                 migrator;
     OsmAbstract             pip;
     VoteDelegateFactoryMock voteDelegateFactory;
     UsdsLike                usds;
@@ -119,6 +120,7 @@ contract LockstakeEngineTest is DssTest {
             address(this),
             pauseProxy,
             address(voteDelegateFactory),
+            dss.chainlog.getAddress("MKR_SKY"),
             ilk,
             bytes4(abi.encodeWithSignature("newLinearDecrease(address)")),
             15 * WAD / 100
@@ -127,6 +129,7 @@ contract LockstakeEngineTest is DssTest {
         engine = LockstakeEngine(instance.engine);
         clip = LockstakeClipper(instance.clipper);
         calc = instance.clipperCalc;
+        migrator = instance.migrator;
         lssky = LockstakeSky(instance.lssky);
         farm = new StakingRewardsMock(address(rTok), address(lssky));
         farm2 = new StakingRewardsMock(address(rTok), address(lssky));
@@ -244,6 +247,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(address(clip.vat()), address(dss.vat));
         assertEq(address(clip.engine()), address(engine));
 
+        assertEq(LockstakeEngine(oldEngine).wards(migrator), 1);
         assertEq(_rate(ilk), 10**27);
         assertEq(dss.vat.Line(), prevLine + 1_000_000 * 10**45);
         assertEq(_line(ilk), 1_000_000 * 10**45);
@@ -314,6 +318,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_ENGINE"),    address(engine));
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP"),      address(clip));
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP_CALC"), calc);
+        assertEq(dss.chainlog.getAddress("LOCKSTAKE_MIGRATOR"),  migrator);
 
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_MKR_OLD_V1"),       oldLsmkr);
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_ENGINE_OLD_V1"),    oldEngine);
@@ -329,6 +334,7 @@ contract LockstakeEngineTest is DssTest {
             address(this),
             pauseProxy,
             address(voteDelegateFactory),
+            dss.chainlog.getAddress("MKR_SKY"),
             "eee",
             bytes4(abi.encodeWithSignature("newStairstepExponentialDecrease(address)")),
             15 * WAD / 100

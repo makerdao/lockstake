@@ -221,11 +221,11 @@ For the second path, apart from the same requirements of the simplest one, it is
 Also, the `migrate` executor needs to be an authed address in that recipient `urn`.
 
 Note: the second path can encounter reverts on its execution, for example restrictions in the `line` of the `ilk` for the new Engine, or `dust` configuration between the two engines `ilk`s. So it might happen, that for a specific `urn` migration, it could be required that the user needs to manually repay totally or partially the debt or might even require to need to generate new debt for the migration to succeed.
-There might be other cases a part from these previous examples that could block a specific migration, the important thing to consider is that repaying totally the debt in a manual manner should always solve these issues.
+There might be other cases a part from these previous examples that could block a specific migration, the important thing to consider is that this is just a utility, so repaying totally the debt in a manual manner should always solve these issues.
 
 Note 2: Migration won't transfer the `VoteDelegate` nor the farm selected in the old `urn` to the destination one. This needs to be manually done by an `urn` authed user directly in the new Engine (before or after the migration).
 
-Note 3: Migrator assumes `MkrSky` is configured without a penalty. So as soon as, the penalty is set above 0, the migrator will stop working.
+Note 3: Migrator assumes `MkrSky` is configured without a penalty. So as soon as, the penalty is set above 0, the migrator will generally stop working.
 
 **Configurable Parameters:**
 * `rewardsDistribution` - The address which is allowed to start a rewards distribution. Will be set to the splitter.

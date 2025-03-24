@@ -17,8 +17,6 @@ interface VatLike {
 }
 
 contract LockstakeMigratorTest is DssTest {
-    using stdStorage for StdStorage;
-
     DssInstance       dss;
     address           pauseProxy;
     LockstakeEngine   oldEngine;
@@ -54,8 +52,8 @@ contract LockstakeMigratorTest is DssTest {
         LockstakeInstance memory instance = LockstakeDeploy.deployLockstake(
             address(this),
             pauseProxy,
-            dss.chainlog.getAddress("VOTE_DELEGATE_FACTORY"),
-            dss.chainlog.getAddress("MKR_SKY"),
+            dss.chainlog.getAddress("VOTE_DELEGATE_FACTORY"), // using the old factory is ok for this test, as we don't redelegate
+            dss.chainlog.getAddress("MKR_SKY"), // using MKR pip is ok for this test, as MKR price >>> SKY one
             newIlk,
             bytes4(abi.encodeWithSignature("newLinearDecrease(address)")),
             1
@@ -142,6 +140,7 @@ contract LockstakeMigratorTest is DssTest {
         LockstakeMigrator m = new LockstakeMigrator(address(oldEngine), address(newEngine), mkrSky, address(flash));
         assertEq(address(m.oldEngine()), address(oldEngine));
         assertEq(address(m.newEngine()), address(newEngine));
+        assertEq(address(m.mkrSky()), mkrSky);
         assertEq(address(m.flash()), address(flash));
 
         assertEq(mkr.allowance(address(m), address(mkrSky)), type(uint256).max);

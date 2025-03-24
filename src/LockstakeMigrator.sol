@@ -81,6 +81,7 @@ contract LockstakeMigrator {
     }
 
     // --- events ---
+
     event Migrate(address indexed oldOwner, uint256 indexed oldIndex, address indexed newOwner, uint256 indexed newIndex, uint256 ink, uint256 debt) anonymous;
 
     // --- constructor ---

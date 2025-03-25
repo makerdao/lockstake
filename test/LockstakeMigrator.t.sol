@@ -177,7 +177,7 @@ contract LockstakeMigratorTest is DssTest {
             vm.prank(oldUrn.owner); oldEngine.hope(oldUrn.owner, oldUrn.index, caller);
         }
 
-        if (hasDebt && caller != newUrn.owner) {
+        if (caller != newUrn.owner) {
             vm.expectRevert("LockstakeMigrator/sender-not-authed-new-urn");
             vm.prank(caller); migrator.migrate(oldUrn.owner, oldUrn.index, newUrn.owner, newUrn.index, 5);
             vm.prank(newUrn.owner); newEngine.hope(newUrn.owner, newUrn.index, caller);

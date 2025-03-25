@@ -100,7 +100,7 @@ rule migrate(address oldOwner, uint256 oldIndex, address newOwner, uint256 newIn
     assert vatUrnsNewIlkUrnInkAfter == vatUrnsNewIlkUrnInkBefore + vatUrnsOldIlkUrnInkBefore * mkrSkyRate, "Assert 3";
     assert vatUrnsNewIlkUrnArtAfter == vatUrnsNewIlkUrnArtBefore + _divup(debt, vatIlksNewIlkRateAfter), "Assert 4";
     assert isUrnAuthOldUrn, "Assert 5";
-    assert vatUrnsOldIlkUrnArtBefore == 0 || isUrnAuthNewUrn, "Assert 6";
+    assert isUrnAuthNewUrn, "Assert 6";
 }
 
 // Verify revert rules on onVatDaiFlashLoan

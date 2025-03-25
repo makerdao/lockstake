@@ -216,16 +216,17 @@ There are two paths that the user could take when calling the `migrate` function
 - If the `urn` doesn't have any debt. This is the simplest path where the collateral is just `free`d from the old engine and `lock`ed in the new one.
 - If the `urn` has debt. This path uses the `DssFlash` module to `wipe` the debt in the old `urn` to be able to move the collateral. After doing so, the debt will be `draw`n in the new `urn` and the funds will be returned to the `DssFlash` module (all happens atomically).
 
-The first path requires the migrator to be `hope`d in the old Engine for the `urn` being migrated. An authed address needs to call this `hope` function previously. It is also required that the caller of `migrate` be an authed address in the `urn` being migrated.
+The first path requires the migrator to be `hope`d in the old Engine for the `urn` being migrated. An authed address needs to call this `hope` function previously. It is also required that the caller of `migrate` be an authed address in the `urn` being migrated and in the recipient one.
 For the second path, apart from the same requirements of the simplest one, it is also necessary that an authed address in the `urn` that is receiving the position in the new Lockstake has `hope`d the migrator.
-Also, the `migrate` executor needs to be an authed address in that recipient `urn`.
 
-Note: the second path can encounter reverts on its execution, for example restrictions in the `line` of the `ilk` for the new Engine, or `dust` configuration between the two engines `ilk`s. So it might happen, that for a specific `urn` migration, it could be required that the user needs to manually repay totally or partially the debt or might even require to need to generate new debt for the migration to succeed.
+Note: The caller authed requirement for the recipient `urn` in the first path is just an extra safety measure to avoid migrating collateral to an undesired `urn`. However for the second path is indeed necessary as migrating debt can convert the recipient `urn` to another type of risk exposure.
+
+Note 2: the second path can encounter reverts on its execution, for example restrictions in the `line` of the `ilk` for the new Engine, or `dust` configuration between the two engines `ilk`s. So it might happen, that for a specific `urn` migration, it could be required that the user needs to manually repay totally or partially the debt or might even require to need to generate new debt for the migration to succeed.
 There might be other cases a part from these previous examples that could block a specific migration, the important thing to consider is that this is just a utility, so repaying totally the debt in a manual manner should always solve these issues.
 
-Note 2: Migration won't transfer the `VoteDelegate` nor the farm selected in the old `urn` to the destination one. This needs to be manually done by an `urn` authed user directly in the new Engine (before or after the migration).
+Note 3: Migration won't transfer the `VoteDelegate` nor the farm selected in the old `urn` to the destination one. This needs to be manually done by an `urn` authed user directly in the new Engine (before or after the migration).
 
-Note 3: Migrator assumes `MkrSky` is configured without a penalty. So as soon as, the penalty is set above 0, the migrator will generally stop working.
+Note 4: Migrator assumes `MkrSky` is configured without a penalty. So as soon as, the penalty is set above 0, the migrator will generally stop working.
 
 **Configurable Parameters:**
 * `rewardsDistribution` - The address which is allowed to start a rewards distribution. Will be set to the splitter.

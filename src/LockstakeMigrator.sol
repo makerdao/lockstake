@@ -106,6 +106,7 @@ contract LockstakeMigrator {
 
     function migrate(address oldOwner, uint256 oldIndex, address newOwner, uint256 newIndex, uint16 ref) external {
         require(oldEngine.isUrnAuth(oldOwner, oldIndex, msg.sender), "LockstakeMigrator/sender-not-authed-old-urn");
+        require(newEngine.isUrnAuth(newOwner, newIndex, msg.sender), "LockstakeMigrator/sender-not-authed-new-urn");
 
         address oldUrn = oldEngine.ownerUrns(oldOwner, oldIndex);
         (uint256 ink, uint256 art) = vat.urns(oldIlk, oldUrn);
@@ -115,7 +116,6 @@ contract LockstakeMigrator {
             mkrSky.mkrToSky(address(this), ink);
             newEngine.lock(newOwner, newIndex, ink * mkrSkyRate, ref);
         } else {
-            require(newEngine.isUrnAuth(newOwner, newIndex, msg.sender), "LockstakeMigrator/sender-not-authed-new-urn");
             (, uint256 oldIlkRate,,,) = vat.ilks(oldIlk);
             debt = _divup(art * oldIlkRate, RAY) * RAY;
             flash.vatDaiFlashLoan(address(this), debt, abi.encode(oldOwner, oldIndex, newOwner, newIndex, ink, ref));

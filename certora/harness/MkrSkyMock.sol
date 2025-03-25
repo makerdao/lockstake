@@ -7,15 +7,12 @@ interface GemLike {
 }
 
 contract MkrSkyMock {
-    uint256 public fee;
     uint256 public rate;
     GemLike public mkr;
     GemLike public sky;
 
     function mkrToSky(address usr, uint256 mkrAmt) external {
-        uint256 skyAmt = mkrAmt * rate;
-
         mkr.burn(msg.sender, mkrAmt);
-        sky.mint(usr, skyAmt);
+        sky.mint(usr, mkrAmt * rate);
     }
 }

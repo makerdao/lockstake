@@ -2,7 +2,6 @@
 pragma solidity 0.8.21;
 
 interface VatLike {
-    function live() external view returns (uint256);
     function heal(uint256) external;
     function suck(address, address, uint256) external;
 }
@@ -28,8 +27,6 @@ contract FlashMock {
         uint256 amount,                         // amount to flash loan [rad]
         bytes calldata data                     // arbitrary data to pass to the receiver
     ) external returns (bool) {
-        require(vat.live() == 1, "FlashMock/vat-not-live");
-
         vat.suck(address(this), address(receiver), amount);
 
         require(

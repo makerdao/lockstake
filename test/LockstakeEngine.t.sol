@@ -120,10 +120,10 @@ contract LockstakeEngineTest is DssTest {
             address(this),
             pauseProxy,
             address(voteDelegateFactory),
-            dss.chainlog.getAddress("MKR_SKY"),
             ilk,
+            15 * WAD / 100,
             bytes4(abi.encodeWithSignature("newLinearDecrease(address)")),
-            15 * WAD / 100
+            dss.chainlog.getAddress("MKR_SKY")
         );
 
         engine = LockstakeEngine(instance.engine);
@@ -340,10 +340,10 @@ contract LockstakeEngineTest is DssTest {
             address(this),
             pauseProxy,
             address(voteDelegateFactory),
-            dss.chainlog.getAddress("MKR_SKY"),
             "eee",
+            15 * WAD / 100,
             bytes4(abi.encodeWithSignature("newStairstepExponentialDecrease(address)")),
-            15 * WAD / 100
+            dss.chainlog.getAddress("MKR_SKY")
         );
         cfg.ilk = "eee";
         cfg.tau = 0;

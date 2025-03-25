@@ -31,10 +31,10 @@ library LockstakeDeploy {
         address deployer,
         address owner,
         address voteDelegateFactory, // new address won't be in chainlog at deploy time
-        address mkrSky, // new address won't be in chainlog at deploy time
         bytes32 ilk,
+        uint256 fee,
         bytes4  calcSig,
-        uint256 fee
+        address mkrSky // new address won't be in chainlog at deploy time
     ) internal returns (LockstakeInstance memory lockstakeInstance) {
         DssInstance memory dss = MCD.loadFromChainlog(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
 

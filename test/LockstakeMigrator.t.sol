@@ -53,10 +53,10 @@ contract LockstakeMigratorTest is DssTest {
             address(this),
             pauseProxy,
             dss.chainlog.getAddress("VOTE_DELEGATE_FACTORY"), // using the old factory is ok for this test, as we don't redelegate
-            dss.chainlog.getAddress("MKR_SKY"), // using MKR pip is ok for this test, as MKR price >>> SKY one
             newIlk,
+            1,
             bytes4(abi.encodeWithSignature("newLinearDecrease(address)")),
-            1
+            dss.chainlog.getAddress("MKR_SKY")
         );
 
         newEngine = LockstakeEngine(instance.engine);
@@ -92,7 +92,7 @@ contract LockstakeMigratorTest is DssTest {
         });
 
         vm.startPrank(pauseProxy);
-        dss.chainlog.setAddress("PIP_SKY", dss.chainlog.getAddress("PIP_MKR"));
+        dss.chainlog.setAddress("PIP_SKY", dss.chainlog.getAddress("PIP_MKR")); // using MKR pip is ok for this test, as MKR price >>> SKY one
         LockstakeInit.initLockstake(dss, instance, cfg);
         vm.stopPrank();
     }

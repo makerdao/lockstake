@@ -290,11 +290,6 @@ contract LockstakeEngine is Multicall {
     function lock(address owner, uint256 index, uint256 wad, uint16 ref) external {
         address urn = _getUrn(owner, index);
         sky.transferFrom(msg.sender, address(this), wad);
-        _lock(urn, wad, ref);
-        emit Lock(owner, index, wad, ref);
-    }
-
-    function _lock(address urn, uint256 wad, uint16 ref) internal {
         require(wad <= uint256(type(int256).max), "LockstakeEngine/overflow");
         address voteDelegate = urnVoteDelegates[urn];
         if (voteDelegate != address(0)) {
@@ -309,6 +304,7 @@ contract LockstakeEngine is Multicall {
             require(farms[urnFarm] == FarmStatus.ACTIVE, "LockstakeEngine/farm-deleted");
             LockstakeUrn(urn).stake(urnFarm, wad, ref);
         }
+        emit Lock(owner, index, wad, ref);
     }
 
     function free(address owner, uint256 index, address to, uint256 wad) external returns (uint256 freed) {

@@ -16,6 +16,10 @@ interface VatLike {
     function can(address, address) external view returns (uint256);
 }
 
+interface MkrSkyLike {
+    function rate() external view returns (uint256);
+}
+
 contract LockstakeMigratorTest is DssTest {
     DssInstance       dss;
     address           pauseProxy;
@@ -23,6 +27,7 @@ contract LockstakeMigratorTest is DssTest {
     LockstakeEngine   newEngine;
     LockstakeMigrator migrator;
     FlashLike         flash;
+    MkrSkyLike        mkrSky;
     bytes32           oldIlk;
     bytes32           newIlk = "LSEV2-A";
 
@@ -47,6 +52,7 @@ contract LockstakeMigratorTest is DssTest {
 
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
         oldEngine = LockstakeEngine(dss.chainlog.getAddress("LOCKSTAKE_ENGINE"));
+        mkrSky = MkrSkyLike(dss.chainlog.getAddress("MKR_SKY"));
         flash = FlashLike(dss.chainlog.getAddress("MCD_FLASH"));
 
         LockstakeInstance memory instance = LockstakeDeploy.deployLockstake(
@@ -56,7 +62,7 @@ contract LockstakeMigratorTest is DssTest {
             newIlk,
             1,
             bytes4(abi.encodeWithSignature("newLinearDecrease(address)")),
-            dss.chainlog.getAddress("MKR_SKY")
+            address(mkrSky)
         );
 
         newEngine = LockstakeEngine(instance.engine);
@@ -135,13 +141,16 @@ contract LockstakeMigratorTest is DssTest {
         TokenLike usds     = TokenLike(dss.chainlog.getAddress("USDS"));
         VatLike   vat      = VatLike(dss.chainlog.getAddress("MCD_VAT"));
         address   usdsJoin = dss.chainlog.getAddress("USDS_JOIN");
-        address   mkrSky   = dss.chainlog.getAddress("MKR_SKY");
 
-        LockstakeMigrator m = new LockstakeMigrator(address(oldEngine), address(newEngine), mkrSky, address(flash));
+        LockstakeMigrator m = new LockstakeMigrator(address(oldEngine), address(newEngine), address(mkrSky), address(flash));
         assertEq(address(m.oldEngine()), address(oldEngine));
         assertEq(address(m.newEngine()), address(newEngine));
-        assertEq(address(m.mkrSky()), mkrSky);
+        assertEq(address(m.mkrSky()), address(mkrSky));
         assertEq(address(m.flash()), address(flash));
+        assertEq(address(m.vat()), address(vat));
+        assertEq(address(m.usdsJoin()), usdsJoin);
+        assertEq(m.oldIlk(), oldEngine.ilk());
+        assertEq(m.mkrSkyRate(), mkrSky.rate());
 
         assertEq(mkr.allowance(address(m), address(mkrSky)), type(uint256).max);
         assertEq(sky.allowance(address(m), address(newEngine)), type(uint256).max);
@@ -201,8 +210,8 @@ contract LockstakeMigratorTest is DssTest {
         emit Migrate(oldUrn.owner, oldUrn.index, newUrn.owner, newUrn.index, oldInkPrev, hasDebt ? _divup(oldArtPrev * oldIlkRate, RAY) * RAY : 0);
         vm.prank(caller); migrator.migrate(oldUrn.owner, oldUrn.index, newUrn.owner, newUrn.index, 5);
 
-        assertEq(_ink(oldIlk, newUrnAddr), 0);
-        assertEq(_art(oldIlk, newUrnAddr), 0);
+        assertEq(_ink(oldIlk, oldUrnAddr), 0);
+        assertEq(_art(oldIlk, oldUrnAddr), 0);
 
         assertEq(_ink(newIlk, newUrnAddr), oldInkPrev * 24_000);
         if (hasDebt) {

@@ -3,7 +3,6 @@
 using LockstakeEngine as newEngine;
 using LockstakeEngineV1Mock as oldEngine;
 using Vat as vat;
-// using Jug as jug;
 using MkrSkyMock as mkrSky;
 
 methods {
@@ -66,8 +65,6 @@ rule migrate(address oldOwner, uint256 oldIndex, address newOwner, uint256 newIn
     require mkrSkyRate == mkrSky.rate();
     // Assumption from initialization
     require oldIlk != newIlk;
-    // Assumption no hash collision
-    require newUrn != oldUrn;
 
     mathint vatUrnsOldIlkUrnInkBefore;
     mathint vatUrnsOldIlkUrnArtBefore;

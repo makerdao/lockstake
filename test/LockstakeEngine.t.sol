@@ -10,6 +10,7 @@ import { LockstakeSky } from "src/LockstakeSky.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
 import { LockstakeUrn } from "src/LockstakeUrn.sol";
+import { LockstakeMigrator } from "src/LockstakeMigrator.sol";
 import { VoteDelegateFactoryMock, VoteDelegateMock } from "test/mocks/VoteDelegateMock.sol";
 import { GemMock } from "test/mocks/GemMock.sol";
 import { StakingRewardsMock } from "test/mocks/StakingRewardsMock.sol";
@@ -42,7 +43,7 @@ contract LockstakeEngineTest is DssTest {
     LockstakeEngine         engine;
     LockstakeClipper        clip;
     address                 calc;
-    address                 migrator;
+    LockstakeMigrator       migrator;
     OsmAbstract             pip;
     VoteDelegateFactoryMock voteDelegateFactory;
     UsdsLike                usds;
@@ -129,7 +130,7 @@ contract LockstakeEngineTest is DssTest {
         engine = LockstakeEngine(instance.engine);
         clip = LockstakeClipper(instance.clipper);
         calc = instance.clipperCalc;
-        migrator = instance.migrator;
+        migrator = LockstakeMigrator(instance.migrator);
         lssky = LockstakeSky(instance.lssky);
         farm = new StakingRewardsMock(address(rTok), address(lssky));
         farm2 = new StakingRewardsMock(address(rTok), address(lssky));
@@ -233,21 +234,23 @@ contract LockstakeEngineTest is DssTest {
 
     function testDeployAndInit() public {
         assertEq(address(engine.voteDelegateFactory()), address(voteDelegateFactory));
-        assertEq(address(engine.vat()), address(dss.vat));
         assertEq(address(engine.usdsJoin()), address(usdsJoin));
-        assertEq(address(engine.usds()), address(usds));
         assertEq(engine.ilk(), ilk);
         assertEq(address(engine.sky()), address(sky));
+        assertEq(address(engine.lssky()), address(lssky));
         assertEq(engine.fee(), 15 * WAD / 100);
-        assertEq(LockstakeUrn(engine.urnImplementation()).engine(), address(engine));
-        assertEq(address(LockstakeUrn(engine.urnImplementation()).vat()), address(dss.vat));
-        assertEq(address(LockstakeUrn(engine.urnImplementation()).lssky()), address(lssky));
 
-        assertEq(clip.ilk(), ilk);
         assertEq(address(clip.vat()), address(dss.vat));
+        assertEq(address(clip.spotter()), address(dss.spotter));
+        assertEq(address(clip.dog()), address(dss.dog));
         assertEq(address(clip.engine()), address(engine));
 
-        assertEq(LockstakeEngine(oldEngine).wards(migrator), 1);
+        assertEq(address(migrator.oldEngine()), oldEngine);
+        assertEq(address(migrator.newEngine()), address(engine));
+        assertEq(address(migrator.mkrSky()), dss.chainlog.getAddress("MKR_SKY"));
+        assertEq(address(migrator.flash()), dss.chainlog.getAddress("MCD_FLASH"));
+
+        assertEq(LockstakeEngine(oldEngine).wards(address(migrator)), 1);
         bytes32 oldIlk = LockstakeEngine(oldEngine).ilk();
         assertEq(_line(oldIlk), 0);
         (uint256 maxline, uint256 gap, uint256 ttl,,) = DssAutoLineAbstract(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).ilks(oldIlk);
@@ -324,7 +327,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_ENGINE"),    address(engine));
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP"),      address(clip));
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP_CALC"), calc);
-        assertEq(dss.chainlog.getAddress("LOCKSTAKE_MIGRATOR"),  migrator);
+        assertEq(dss.chainlog.getAddress("LOCKSTAKE_MIGRATOR"),  address(migrator));
 
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_MKR_OLD_V1"),       oldLsmkr);
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_ENGINE_OLD_V1"),    oldEngine);

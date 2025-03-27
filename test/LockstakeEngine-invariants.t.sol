@@ -260,9 +260,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
         console.log("selectFarm", handler.numCalls("selectFarm"));
         console.log("selectVoteDelegate", handler.numCalls("selectVoteDelegate"));
         console.log("lock", handler.numCalls("lock"));
-        console.log("lockSky", handler.numCalls("lockSky"));
         console.log("free", handler.numCalls("free"));
-        console.log("freeSky", handler.numCalls("freeSky"));
         console.log("draw", handler.numCalls("draw"));
         console.log("wipe", handler.numCalls("wipe"));
         console.log("dropPriceAndBark", handler.numCalls("dropPriceAndBark"));
@@ -270,8 +268,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
         console.log("yank", handler.numCalls("yank"));
         console.log("warp", handler.numCalls("warp"));
         console.log("total count", handler.numCalls("addFarm") + handler.numCalls("selectFarm") + handler.numCalls("selectVoteDelegate") +
-                                   handler.numCalls("lock") + handler.numCalls("lockSky") + handler.numCalls("free") +
-                                   handler.numCalls("freeSky") + handler.numCalls("draw") + handler.numCalls("wipe") +
+                                   handler.numCalls("lock") + handler.numCalls("free") + handler.numCalls("draw") + handler.numCalls("wipe") +
                                    handler.numCalls("dropPriceAndBark") + handler.numCalls("take") + handler.numCalls("yank") +
                                    handler.numCalls("warp"));
     }

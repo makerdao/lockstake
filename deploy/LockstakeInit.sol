@@ -163,35 +163,35 @@ library LockstakeInit {
         bytes32 oldEngineIlk = se.oldEngine.ilk();
 
         // Sanity checks
-        require(oldEngineIlk                    != cfg.ilk,                                          "Ilks between engines should not be the same");
-        require(se.engine.voteDelegateFactory() == dss.chainlog.getAddress("VOTE_DELEGATE_FACTORY"), "Engine voteDelegateFactory mismatch");
-        require(se.engine.vat()                 == address(dss.vat),                                 "Engine vat mismatch");
-        require(se.engine.usdsJoin()            == dss.chainlog.getAddress("USDS_JOIN"),             "Engine usdsJoin mismatch");
-        require(se.engine.usds()                == dss.chainlog.getAddress("USDS"),                  "Engine usds mismatch");
-        require(se.engine.ilk()                 == cfg.ilk,                                          "Engine ilk mismatch");
-        require(se.engine.sky()                 == se.sky,                                           "Engine sky mismatch");
-        require(se.engine.lssky()               == address(se.lssky),                                "Engine lssky mismatch");
-        require(se.engine.fee()                 == cfg.fee,                                          "Engine fee mismatch");
-        require(se.clipper.ilk()                == cfg.ilk,                                          "Clipper ilk mismatch");
-        require(se.clipper.vat()                == address(dss.vat),                                 "Clipper vat mismatch");
-        require(se.clipper.engine()             == address(se.engine),                               "Clipper engine mismatch");
-        require(se.clipper.dog()                == address(dss.dog),                                 "Clipper dog mismatch");
-        require(se.clipper.spotter()            == address(dss.spotter),                             "Clipper spotter mismatch");
-        require(se.migrator.oldEngine()         == address(se.oldEngine),                            "Migrator oldEngine mismatch");
-        require(se.migrator.newEngine()         == address(se.engine),                               "Migrator newEngine mismatch");
-        require(se.migrator.mkrSky()            == dss.chainlog.getAddress("MKR_SKY"),               "Migrator mkrSky mismatch");
-        require(se.migrator.flash()             == dss.chainlog.getAddress("MCD_FLASH"),             "Migrator flash mismatch");
+        require(oldEngineIlk                    != cfg.ilk);
+        require(se.engine.voteDelegateFactory() == dss.chainlog.getAddress("VOTE_DELEGATE_FACTORY"));
+        require(se.engine.vat()                 == address(dss.vat));
+        require(se.engine.usdsJoin()            == dss.chainlog.getAddress("USDS_JOIN"));
+        require(se.engine.usds()                == dss.chainlog.getAddress("USDS"));
+        require(se.engine.ilk()                 == cfg.ilk);
+        require(se.engine.sky()                 == se.sky);
+        require(se.engine.lssky()               == address(se.lssky));
+        require(se.engine.fee()                 == cfg.fee);
+        require(se.clipper.ilk()                == cfg.ilk);
+        require(se.clipper.vat()                == address(dss.vat));
+        require(se.clipper.engine()             == address(se.engine));
+        require(se.clipper.dog()                == address(dss.dog));
+        require(se.clipper.spotter()            == address(dss.spotter));
+        require(se.migrator.oldEngine()         == address(se.oldEngine));
+        require(se.migrator.newEngine()         == address(se.engine));
+        require(se.migrator.mkrSky()            == dss.chainlog.getAddress("MKR_SKY"));
+        require(se.migrator.flash()             == dss.chainlog.getAddress("MCD_FLASH"));
 
-        require(cfg.gap <= cfg.maxLine, "gap greater than max line");
-        require(cfg.dust <= cfg.hole, "dust greater than hole");
-        require(cfg.duty >= RAY && cfg.duty <= RATES_ONE_HUNDRED_PCT, "duty out of boundaries");
-        require(cfg.mat >= RAY && cfg.mat < 10 * RAY, "mat out of boundaries");
-        require(cfg.buf >= RAY && cfg.buf < 10 * RAY, "buf out of boundaries");
-        require(cfg.cusp < RAY, "cusp negative drop value");
-        require(cfg.chip < WAD, "chip equal or greater than 100%");
-        require(cfg.tip <= 1_000 * RAD, "tip out of boundaries");
-        require(cfg.chop >= WAD && cfg.chop < 2 * WAD, "chop out of boundaries");
-        require(cfg.tolerance < RAY, "tolerance equal or greater than 100%");
+        require(cfg.gap <= cfg.maxLine);
+        require(cfg.dust <= cfg.hole);
+        require(cfg.duty >= RAY && cfg.duty <= RATES_ONE_HUNDRED_PCT);
+        require(cfg.mat >= RAY && cfg.mat < 10 * RAY);
+        require(cfg.buf >= RAY && cfg.buf < 10 * RAY);
+        require(cfg.cusp < RAY);
+        require(cfg.chip < WAD);
+        require(cfg.tip <= 1_000 * RAD);
+        require(cfg.chop >= WAD && cfg.chop < 2 * WAD);
+        require(cfg.tolerance < RAY);
 
         se.oldEngine.rely(address(se.migrator));
 

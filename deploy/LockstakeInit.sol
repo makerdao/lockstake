@@ -236,7 +236,7 @@ library LockstakeInit {
 
         se.engine.file("jug", address(dss.jug));
         for (uint256 i = 0; i < cfg.farms.length; i++) {
-            require(StakingRewardsLike(cfg.farms[i]).stakingToken() == lockstakeInstance.lssky, "Farm staking token mismatch");
+            require(StakingRewardsLike(cfg.farms[i]).stakingToken() == lockstakeInstance.lssky);
             se.engine.addFarm(cfg.farms[i]);
         }
         se.engine.rely(address(se.clipper));

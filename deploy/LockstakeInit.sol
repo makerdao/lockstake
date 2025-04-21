@@ -66,7 +66,6 @@ interface CalcLike {
 }
 
 interface AutoLineLike {
-    function setIlk(bytes32, uint256, uint256, uint256) external;
     function remIlk(bytes32) external;
 }
 
@@ -104,9 +103,6 @@ struct LockstakeConfig {
     bytes32   ilk;
     address[] farms;
     uint256   fee;
-    uint256   maxLine;
-    uint256   gap;
-    uint256   ttl;
     uint256   dust;
     uint256   duty;
     uint256   mat;
@@ -182,7 +178,6 @@ library LockstakeInit {
         require(se.migrator.mkrSky()            == dss.chainlog.getAddress("MKR_SKY"));
         require(se.migrator.flash()             == dss.chainlog.getAddress("MCD_FLASH"));
 
-        require(cfg.gap <= cfg.maxLine);
         require(cfg.dust <= cfg.hole);
         require(cfg.duty >= RAY && cfg.duty <= RATES_ONE_HUNDRED_PCT);
         require(cfg.mat >= RAY && cfg.mat < 10 * RAY);
@@ -199,14 +194,10 @@ library LockstakeInit {
         se.autoLine.remIlk(oldEngineIlk);
 
         dss.vat.init(cfg.ilk);
-        // dss.vat.file(cfg.ilk, "line", cfg.gap);
-        // dss.vat.file("Line", dss.vat.Line() + cfg.gap);
         dss.vat.file(cfg.ilk, "dust", cfg.dust);
         dss.vat.rely(address(se.engine));
         dss.vat.rely(address(se.clipper));
         dss.vat.rely(address(se.migrator));
-
-        // se.autoLine.setIlk(cfg.ilk, cfg.maxLine, cfg.gap, cfg.ttl);
 
         dss.jug.init(cfg.ilk);
         dss.jug.file(cfg.ilk, "duty", cfg.duty);

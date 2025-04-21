@@ -120,6 +120,8 @@ contract LockstakeMigrator {
             mkrSky.mkrToSky(address(this), ink);
             newEngine.lock(newOwner, newIndex, ink * mkrSkyRate, ref);
         } else {
+            // Just a sanity check at migrate execution time. It is still needed to assume
+            // governance won't ever give debt ceiling allowance for the old collateral
             (, uint256 oldIlkRate,, uint256 oldIlkLine,) = vat.ilks(oldIlk);
             require(oldIlkLine == 0, "LockstakeMigrator/old-ilk-line-not-zero");
             debt = _divup(art * oldIlkRate, RAY) * RAY;

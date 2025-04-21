@@ -221,12 +221,15 @@ For the second path, apart from the same requirements of the simplest one, it is
 
 Note: The caller authed requirement for the recipient `urn` in the first path is just an extra safety measure to avoid migrating collateral to an undesired `urn`. However for the second path it is indeed mandatory as migrating debt increases the debt of the recipient `urn`.
 
-Note 2: the second path can encounter reverts on its execution, for example `dust` configuration between the two engines `ilk`s. So it might happen, that for a specific `urn` migration, it could be required that the user needs to manually repay the debt.
-There might be other cases a part from these previous examples that could block a specific migration, the important thing to consider is that this is just a utility, so repaying totally the debt in a manual manner should always solve these issues.
+Note 2: Even though migrating debt manually outside the migrator is not supported, it is not guaranteed that a migrate call would not revert. It depends on governance parameters such as liquidation ratios and dust, and the system state such as whether a position is under liquidation or should use the `reserveHatch` mechanism. Governance is assumed to configure the parameters in a user-friendly way. The user is of course assumed to be aware of the parameters (for example if after migrating they become closer to liquidation).
 
-Note 3: Migration won't transfer the `VoteDelegate` nor the farm selected in the old `urn` to the destination one. This needs to be manually done by an `urn` authed user directly in the new Engine (before or after the migration).
+Note 3: It is assumed that the debt of the old engine does not exceed the amount filed in onVatDaiFlashLoan prior to the migrator being enabled, and that governance do not change the old ilk line from 0 throughout the process.
 
-Note 4: Migrator assumes `MkrSky` is configured without a penalty. So as soon as, the penalty is set above 0, the migrator will generally stop working. It also expects MKR to SKY conversions are not blocked.
+Note 4: It is assumed that after a certain period the migrator's permission over the `Vat` will be removed, and the debt ceiling will managed as usual using the autoline.
+
+Note 5: Migration won't transfer the `VoteDelegate` nor the farm selected in the old `urn` to the destination one. This needs to be manually done by an `urn` authed user directly in the new Engine (before or after the migration).
+
+Note 6: Migrator assumes `MkrSky` is configured without a penalty. So as soon as, the penalty is set above 0, the migrator will generally stop working. It also expects MKR to SKY conversions are not blocked.
 
 **Configurable Parameters:**
 * `rewardsDistribution` - The address which is allowed to start a rewards distribution. Will be set to the splitter.

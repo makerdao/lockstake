@@ -172,6 +172,15 @@ contract LockstakeEngineTest is DssTest {
         dss.chainlog.setAddress("VOTE_DELEGATE_FACTORY", address(voteDelegateFactory));
         dss.chainlog.setAddress("PIP_SKY", address(pip));
         LockstakeInit.initLockstake(dss, instance, cfg);
+        assertEq(_line(ilk), 0);
+        (uint256 maxline, uint256 gap, uint256 ttl,,) = DssAutoLineAbstract(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).ilks(ilk);
+        assertEq(maxline, 0);
+        assertEq(gap, 0);
+        assertEq(ttl, 0);
+        dss.vat.file(cfg.ilk, "line", cfg.gap);
+        dss.vat.file("Line", dss.vat.Line() + cfg.gap);
+        dss.vat.file(cfg.ilk, "dust", cfg.dust);
+        DssAutoLineAbstract(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).setIlk(cfg.ilk, cfg.maxLine, cfg.gap, cfg.ttl);
         vm.stopPrank();
 
         deal(address(sky), address(this), 100_000 * 10**18, true);
@@ -263,6 +272,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(_dust(ilk), 50);
         assertEq(dss.vat.wards(address(engine)), 1);
         assertEq(dss.vat.wards(address(clip)), 1);
+        assertEq(dss.vat.wards(address(migrator)), 1);
         (maxline, gap, ttl,,) = DssAutoLineAbstract(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).ilks(ilk);
         assertEq(maxline, 10_000_000 * 10**45);
         assertEq(gap, 1_000_000 * 10**45);

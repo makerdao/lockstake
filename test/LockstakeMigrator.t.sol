@@ -111,8 +111,16 @@ contract LockstakeMigratorTest is DssTest {
         (, art) = dss.vat.urns(ilk_, urn);
     }
 
+    function _Art(bytes32 ilk_) internal view returns (uint256 Art) {
+        (Art,,,,) = dss.vat.ilks(ilk_);
+    }
+
     function _rate(bytes32 ilk_) internal view returns (uint256 rate) {
         (, rate,,,) = dss.vat.ilks(ilk_);
+    }
+
+    function _line(bytes32 ilk_) internal view returns (uint256 line) {
+        (,,, line,) = dss.vat.ilks(ilk_);
     }
 
     function _dust(bytes32 ilk_) internal view returns (uint256 dust) {
@@ -219,6 +227,8 @@ contract LockstakeMigratorTest is DssTest {
         } else {
             assertEq(_art(newIlk, newUrnAddr), 0);
         }
+
+        assertEq(_line(newIlk), 0);
     }
 
     function testMigrateSameOwnerAndCallerNoDebt() public {
@@ -299,5 +309,42 @@ contract LockstakeMigratorTest is DssTest {
 
         vm.expectRevert("LockstakeMigrator/wrong-origin");
         flash.vatDaiFlashLoan(address(migrator), 10, "");
+    }
+
+    function testMigrateCurrentUrnsWithRelevantDebt() public {
+        assertEq(_Art(newIlk), 0);
+        assertGt(_Art(oldIlk) * _rate(oldIlk), 40_000_000 * RAD);
+        _checkMigrate({
+            oldUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 4 }),
+            newUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 0 }),
+            caller: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d,
+            hasDebt: true
+        });
+        _checkMigrate({
+            oldUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 5 }),
+            newUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 1 }),
+            caller: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d,
+            hasDebt: true
+        });
+        _checkMigrate({
+            oldUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 7 }),
+            newUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 2 }),
+            caller: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d,
+            hasDebt: true
+        });
+        _checkMigrate({
+            oldUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 6 }),
+            newUrn: Urn({ owner: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d, index: 3 }),
+            caller: 0xf65475e74C1Ed6d004d5240b06E3088724dFDA5d,
+            hasDebt: true
+        });
+        _checkMigrate({
+            oldUrn: Urn({ owner: 0xBaF3605Ecbe395fA134A3F4c6a729E53b72E27B7, index: 0 }),
+            newUrn: Urn({ owner: 0xBaF3605Ecbe395fA134A3F4c6a729E53b72E27B7, index: 0 }),
+            caller: 0xBaF3605Ecbe395fA134A3F4c6a729E53b72E27B7,
+            hasDebt: true
+        });
+        assertGt(_Art(newIlk) * _rate(newIlk), 40_000_000 * RAD);
+        assertLt(_Art(oldIlk) * _rate(oldIlk),  1_000_000 * RAD);
     }
 }

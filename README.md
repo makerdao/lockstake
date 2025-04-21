@@ -210,7 +210,7 @@ The StakingRewards contract `setRewardsDuration` function was modified to enable
 
 A contract which has the purpose to move `urn`s from a deprecated Lockstake version to a newer one, without having to pay the `exit` fee which would be required if the user would want to do this manually via the regular functions.
 This contract uses the `LockstakeEngine.freeNoFee` function ensuring the collateral will still remain locked in a `LockstakeEngine`.
-The migrator requires to be added to the `wards` mapping of the old `LockstakeEngine`.
+The migrator requires to be added to the `wards` mapping of the old `LockstakeEngine` and to the `wards` mapping of the `Vat`.
 
 There are two paths that the user could take when calling the `migrate` function for the desired `urn`:
 - If the `urn` doesn't have any debt. This is the simplest path where the collateral is just `free`d from the old engine and `lock`ed in the new one.
@@ -221,7 +221,7 @@ For the second path, apart from the same requirements of the simplest one, it is
 
 Note: The caller authed requirement for the recipient `urn` in the first path is just an extra safety measure to avoid migrating collateral to an undesired `urn`. However for the second path it is indeed mandatory as migrating debt increases the debt of the recipient `urn`.
 
-Note 2: the second path can encounter reverts on its execution, for example restrictions in the `line` of the `ilk` for the new Engine, or `dust` configuration between the two engines `ilk`s. So it might happen, that for a specific `urn` migration, it could be required that the user needs to manually repay totally or partially the debt or might even require to need to generate new debt for the migration to succeed.
+Note 2: the second path can encounter reverts on its execution, for example `dust` configuration between the two engines `ilk`s. So it might happen, that for a specific `urn` migration, it could be required that the user needs to manually repay the debt.
 There might be other cases a part from these previous examples that could block a specific migration, the important thing to consider is that this is just a utility, so repaying totally the debt in a manual manner should always solve these issues.
 
 Note 3: Migration won't transfer the `VoteDelegate` nor the farm selected in the old `urn` to the destination one. This needs to be manually done by an `urn` authed user directly in the new Engine (before or after the migration).

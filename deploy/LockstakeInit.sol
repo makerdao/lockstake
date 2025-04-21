@@ -199,13 +199,14 @@ library LockstakeInit {
         se.autoLine.remIlk(oldEngineIlk);
 
         dss.vat.init(cfg.ilk);
-        dss.vat.file(cfg.ilk, "line", cfg.gap);
-        dss.vat.file("Line", dss.vat.Line() + cfg.gap);
+        // dss.vat.file(cfg.ilk, "line", cfg.gap);
+        // dss.vat.file("Line", dss.vat.Line() + cfg.gap);
         dss.vat.file(cfg.ilk, "dust", cfg.dust);
         dss.vat.rely(address(se.engine));
         dss.vat.rely(address(se.clipper));
+        dss.vat.rely(address(se.migrator));
 
-        se.autoLine.setIlk(cfg.ilk, cfg.maxLine, cfg.gap, cfg.ttl);
+        // se.autoLine.setIlk(cfg.ilk, cfg.maxLine, cfg.gap, cfg.ttl);
 
         dss.jug.init(cfg.ilk);
         dss.jug.file(cfg.ilk, "duty", cfg.duty);

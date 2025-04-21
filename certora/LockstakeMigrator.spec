@@ -8,6 +8,7 @@ using MkrSkyMock as mkrSky;
 methods {
     function flash() external returns (address) envfree;
     function oldIlk() external returns (bytes32) envfree;
+    function newIlk() external returns (bytes32) envfree;
     function mkrSkyRate() external returns (uint256) envfree;
     //
     function oldEngine.ownerUrns(address,uint256) external returns (address) envfree;
@@ -35,6 +36,7 @@ methods {
 }
 
 definition RAY() returns mathint = 10^27;
+definition RAD() returns mathint = 10^45;
 definition _divup(mathint x, mathint y) returns mathint = x != 0 ? ((x - 1) / y) + 1 : 0;
 
 persistent ghost address vow;
@@ -55,13 +57,14 @@ rule migrate(address oldOwner, uint256 oldIndex, address newOwner, uint256 newIn
     env e;
 
     bytes32 oldIlk = oldIlk();
+    bytes32 newIlk = newIlk();
     mathint mkrSkyRate = mkrSkyRate();
-    bytes32 newIlk = newEngine.ilk();
     address oldUrn = oldEngine.ownerUrns(oldOwner, oldIndex);
     address newUrn = newEngine.ownerUrns(newOwner, newIndex);
 
     // Assumption from constructor
     require oldIlk == oldEngine.ilk();
+    require newIlk == newEngine.ilk();
     require mkrSkyRate == mkrSky.rate();
     // Assumption from initialization
     require oldIlk != newIlk;
@@ -88,8 +91,8 @@ rule migrate(address oldOwner, uint256 oldIndex, address newOwner, uint256 newIn
     mathint a;
     mathint vatIlksOldIlkRateAfter;
     a, vatIlksOldIlkRateAfter, a, a, a = vat.ilks(oldIlk);
-    mathint vatIlksNewIlkRateAfter;
-    a, vatIlksNewIlkRateAfter, a, a, a = vat.ilks(newIlk);
+    mathint vatIlksNewIlkArtAfter; mathint vatIlksNewIlkRateAfter; mathint vatIlksNewIlkLineAfter;
+    vatIlksNewIlkArtAfter, vatIlksNewIlkRateAfter, a, vatIlksNewIlkLineAfter, a = vat.ilks(newIlk);
     mathint debt = _divup(vatUrnsOldIlkUrnArtBefore * vatIlksOldIlkRateAfter, RAY()) * RAY();
 
     assert vatUrnsOldIlkUrnInkAfter == 0, "Assert 1";
@@ -98,6 +101,8 @@ rule migrate(address oldOwner, uint256 oldIndex, address newOwner, uint256 newIn
     assert vatUrnsNewIlkUrnArtAfter == vatUrnsNewIlkUrnArtBefore + _divup(debt, vatIlksNewIlkRateAfter), "Assert 4";
     assert isUrnAuthOldUrn, "Assert 5";
     assert isUrnAuthNewUrn, "Assert 6";
+    assert vatUrnsOldIlkUrnArtBefore > 0 => vatIlksNewIlkLineAfter == 0, "Assert 7";
+    assert vatUrnsOldIlkUrnArtBefore > 0 => vatIlksNewIlkArtAfter * vatIlksNewIlkRateAfter <= 55000000 * RAD(), "Assert 8";
 }
 
 // Verify revert rules on onVatDaiFlashLoan

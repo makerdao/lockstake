@@ -19,6 +19,7 @@ pragma solidity ^0.8.21;
 interface VatLike {
     function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
     function urns(bytes32, address) external view returns (uint256, uint256);
+    function file(bytes32, bytes32, uint256) external;
     function hope(address) external;
 }
 
@@ -65,11 +66,13 @@ contract LockstakeMigrator {
     VatLike             immutable public vat;
     UsdsJoinLike        immutable public usdsJoin;
     bytes32             immutable public oldIlk;
+    bytes32             immutable public newIlk;
     uint256             immutable public mkrSkyRate;
 
     // --- constants ---
 
     uint256 private constant RAY = 10**27;
+    uint256 private constant RAD = 10**45;
 
     // --- math ---
 
@@ -94,6 +97,7 @@ contract LockstakeMigrator {
         vat = oldEngine.vat();
         usdsJoin = oldEngine.usdsJoin();
         oldIlk = oldEngine.ilk();
+        newIlk = newEngine.ilk();
         mkrSkyRate = mkrSky.rate();
 
         TokenLike usds = usdsJoin.usds();
@@ -116,7 +120,8 @@ contract LockstakeMigrator {
             mkrSky.mkrToSky(address(this), ink);
             newEngine.lock(newOwner, newIndex, ink * mkrSkyRate, ref);
         } else {
-            (, uint256 oldIlkRate,,,) = vat.ilks(oldIlk);
+            (, uint256 oldIlkRate,, uint256 oldIlkLine,) = vat.ilks(oldIlk);
+            require(oldIlkLine == 0, "LockstakeMigrator/old-ilk-line-not-zero");
             debt = _divup(art * oldIlkRate, RAY) * RAY;
             flash.vatDaiFlashLoan(address(this), debt, abi.encode(oldOwner, oldIndex, newOwner, newIndex, ink, ref));
         }
@@ -134,7 +139,9 @@ contract LockstakeMigrator {
         oldEngine.freeNoFee(oldOwner, oldIndex, address(this), ink);
         mkrSky.mkrToSky(address(this), ink);
         newEngine.lock(newOwner, newIndex, ink * mkrSkyRate, ref);
+        vat.file(newIlk, "line", 55_000_000 * RAD); // Should be enough for migrating current positions even if everything is taken and then some fees are accrued on top
         newEngine.draw(newOwner, newIndex, address(this), wadAmt);
+        vat.file(newIlk, "line", 0);
         usdsJoin.join(address(flash), wadAmt);
 
         return keccak256("VatDaiFlashBorrower.onVatDaiFlashLoan");

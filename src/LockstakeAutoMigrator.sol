@@ -17,48 +17,36 @@
 pragma solidity ^0.8.21;
 
 interface LockstakeMigratorLike {
-    function migrate(address owner, uint256 index, address newOwner, uint256 newIndex, bytes16 ref) external;
+    function migrate(address owner, uint256 index, address newOwner, uint256 newIndex, uint16 ref) external;
 }
 
 contract LockstakeAutoMigrator {
-
-    mapping (address => uint256) public wards;
+    address public admin;
     bool public done;
 
     LockstakeMigratorLike immutable public migrator;
 
-    event Rely(address indexed usr);
-    event Deny(address indexed usr);
+    event SetAdmin(address indexed usr);
 
-    modifier auth {
-        require(wards[msg.sender] == 1, "LockstakeEngine/not-authorized");
+    modifier onlyAdmin {
+        require(msg.sender == admin, "LockstakeAutoMigrator/not-admin");
         _;
     }
 
-    constructor(address migrator_) {
+    constructor(address migrator_, address admin_) {
         migrator = LockstakeMigratorLike(migrator_);
 
-        wards[msg.sender] = 1;
-        emit Rely(msg.sender);
-    }
-
-    function rely(address usr) external auth {
-        wards[usr] = 1;
-        emit Rely(usr);
-    }
-
-    function deny(address usr) external auth {
-        wards[usr] = 0;
-        emit Deny(usr);
+        admin = admin_;
+        emit SetAdmin(admin_);
     }
 
     // Note - since ref is passed as 0 here, for a different ref the farm will need to be chosen after the migration
-    function autoMigrate(address[] calldata owners, uint256[] calldata indexes) external auth {
+    function autoMigrate(address[] calldata owners, uint256[] calldata indexes) external onlyAdmin {
         require(!done, "LockstakeAutoMigrator/already-done");
         require(owners.length == indexes.length, "LockstakeAutoMigrator/length-mismatch");
 
         for (uint256 i = 0; i < owners.length; i++) {
-            try migrator.migrate(owners[i], indexes[i], owners[i], indexes[i], bytes16(0)) {} catch {}
+            try migrator.migrate(owners[i], indexes[i], owners[i], indexes[i], 0) {} catch {}
         }
         done = true;
     }

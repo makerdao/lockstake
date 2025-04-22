@@ -225,7 +225,7 @@ Note 2: Even though migrating debt manually outside the migrator is not supporte
 
 Note 3: It is assumed that the debt of the old engine does not exceed the amount filed in onVatDaiFlashLoan prior to the migrator being enabled, and that governance do not change the old ilk line from 0 throughout the process.
 
-Note 4: It is assumed that after a certain period the migrator's permission over the `Vat` will be removed, and the debt ceiling will managed as usual using the autoline.
+Note 4: It is assumed that after a certain period the migrator's permission over the `Vat` will be removed, and the debt ceiling will be managed as usual using the autoline.
 
 Note 5: Migration won't transfer the `VoteDelegate` nor the farm selected in the old `urn` to the destination one. This needs to be manually done by an `urn` authed user directly in the new Engine (before or after the migration).
 

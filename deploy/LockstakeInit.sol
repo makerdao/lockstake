@@ -66,6 +66,7 @@ interface CalcLike {
 }
 
 interface AutoLineLike {
+    function ilks(bytes32) external returns (uint256, uint256, uint48, uint48, uint48);
     function remIlk(bytes32) external;
 }
 
@@ -177,6 +178,10 @@ library LockstakeInit {
         require(se.migrator.newEngine()         == address(se.engine));
         require(se.migrator.mkrSky()            == dss.chainlog.getAddress("MKR_SKY"));
         require(se.migrator.flash()             == dss.chainlog.getAddress("MCD_FLASH"));
+        (,,, uint256 line,) = dss.vat.ilks(cfg.ilk);
+        require(line                            == 0);
+        (line,,,,) = se.autoLine.ilks(cfg.ilk);
+        require(line                            == 0);
 
         require(cfg.dust <= cfg.hole);
         require(cfg.duty >= RAY && cfg.duty <= RATES_ONE_HUNDRED_PCT);

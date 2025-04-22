@@ -121,6 +121,7 @@ contract LockstakeEngine is Multicall {
     // --- constructor ---
 
     constructor(address voteDelegateFactory_, address usdsJoin_, bytes32 ilk_, address sky_, address lssky_, uint256 fee_) {
+        require(fee_ < WAD, "LockstakeEngine/fee-equal-or-greater-wad");
         voteDelegateFactory = VoteDelegateFactoryLike(voteDelegateFactory_);
         usdsJoin = UsdsJoinLike(usdsJoin_);
         vat = usdsJoin.vat();

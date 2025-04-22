@@ -205,6 +205,12 @@ contract LockstakeMigratorTest is DssTest {
             vm.expectRevert("LockstakeEngine/urn-not-authorized");
             vm.prank(caller); migrator.migrate(oldUrn.owner, oldUrn.index, newUrn.owner, newUrn.index, 5);
             vm.prank(newUrn.owner); newEngine.hope(newUrn.owner, newUrn.index, address(migrator));
+
+            uint256 snapshotId = vm.snapshotState();
+            vm.prank(pauseProxy); dss.vat.file(oldIlk, "line", 1);
+            vm.expectRevert("LockstakeMigrator/old-ilk-line-not-zero");
+            vm.prank(caller); migrator.migrate(oldUrn.owner, oldUrn.index, newUrn.owner, newUrn.index, 5);
+            vm.revertToState(snapshotId);
         }
 
         uint256 oldIlkRate = _rate(oldIlk);

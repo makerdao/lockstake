@@ -206,6 +206,10 @@ For compatibility with the SBE, the assumption is that the duration of each farm
 
 The StakingRewards contract `setRewardsDuration` function was modified to enable governance to change the farming distribution duration even if the previous distribution has not finished. This now supports changing it simultaneously with the SBE cooldown period (through a governance spell).
 
+**Configurable Parameters:**
+* `rewardsDistribution` - The address which is allowed to start a rewards distribution. Will be set to the splitter.
+* `rewardsDuration` - The amount of seconds each distribution should take.
+
 ## 7. LockstakeMigrator
 
 A contract which has the purpose to move `urn`s from a deprecated Lockstake version to a newer one, without having to pay the `exit` fee which would be required if the user would want to do this manually via the regular functions.
@@ -230,10 +234,6 @@ Note 4: It is assumed that after a certain period the migrator's permission over
 Note 5: Migration won't transfer the `VoteDelegate` nor the farm selected in the old `urn` to the destination one. This needs to be manually done by an `urn` authed user directly in the new Engine (before or after the migration).
 
 Note 6: Migrator assumes `MkrSky` is configured without a penalty. So as soon as, the penalty is set above 0, the migrator will generally stop working. It also expects MKR to SKY conversions are not blocked.
-
-**Configurable Parameters:**
-* `rewardsDistribution` - The address which is allowed to start a rewards distribution. Will be set to the splitter.
-* `rewardsDuration` - The amount of seconds each distribution should take.
 
 ## General Notes
 * The LSE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.

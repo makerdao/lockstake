@@ -364,6 +364,8 @@ contract LockstakeEngineTest is DssTest {
 
     function testConstructor() public {
         address lssky2 = address(new GemMock(0));
+        vm.expectRevert("LockstakeEngine/fee-equal-or-greater-wad");
+        new LockstakeEngine(address(voteDelegateFactory), address(usdsJoin), "aaa", address(sky), lssky2, WAD);
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
         LockstakeEngine e = new LockstakeEngine(address(voteDelegateFactory), address(usdsJoin), "aaa", address(sky), lssky2, 123);

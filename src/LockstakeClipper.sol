@@ -46,6 +46,10 @@ interface AbacusLike {
     function price(uint256, uint256) external view returns (uint256);
 }
 
+interface BadLike {
+    function cut(uint256) external;
+}
+
 interface LockstakeEngineLike {
     function ilk() external view returns (bytes32);
     function onKick(address, uint256) external;
@@ -73,6 +77,7 @@ contract LockstakeClipper {
     address     public vow;      // Recipient of dai raised in auctions
     SpotterLike public spotter;  // Collateral price module
     AbacusLike  public calc;     // Current price calculator
+    address     public bad;      // Contract for accounting bad debt (if not set, callback won't be executed)
 
     uint256 public buf;    // Multiplicative factor to increase starting price                  [ray]
     uint256 public tail;   // Time elapsed before auction reset                                 [seconds]
@@ -83,10 +88,12 @@ contract LockstakeClipper {
 
     uint256   public kicks;   // Total auctions
     uint256[] public active;  // Array of active auction ids
+    uint256   public Due;     // Total due amount from active auctions
 
     struct Sale {
         uint256 pos;  // Index in active array
-        uint256 tab;  // Dai to raise       [rad]
+        uint256 tab;  // Usds to raise      [rad]
+        uint256 due;  // Usds debt          [rad]
         uint256 lot;  // collateral to sell [wad]
         uint256 tot;  // static registry of total collateral to sell [wad]
         address usr;  // Liquidated CDP
@@ -182,6 +189,7 @@ contract LockstakeClipper {
         else if (what == "dog")    dog = DogLike(data);
         else if (what == "vow")    vow = data;
         else if (what == "calc")  calc = AbacusLike(data);
+        else if (what == "bad")    bad = data;
         else revert("LockstakeClipper/file-unrecognized-param");
         emit File(what, data);
     }
@@ -245,6 +253,7 @@ contract LockstakeClipper {
         sales[id].pos = active.length - 1;
 
         sales[id].tab = tab;
+        Due += sales[id].due = tab * WAD / dog.chop(ilk); // Rounding down shouldn't be a problem
         sales[id].lot = lot;
         sales[id].tot = lot;
         sales[id].usr = usr;
@@ -411,15 +420,24 @@ contract LockstakeClipper {
         if (lot == 0) {
             uint256 tot = sales[id].tot;
             engine.onRemove(usr, tot, 0);
+            uint256 due = sales[id].due;
+            if (due > owe && bad != address(0)) {
+                BadLike(bad).cut(due - owe);
+            }
+            Due -= due;
             _remove(id);
         } else if (tab == 0) {
             uint256 tot = sales[id].tot;
             vat.slip(ilk, address(this), -int256(lot));
             engine.onRemove(usr, tot - lot, lot);
+            Due -= sales[id].due;
             _remove(id);
         } else {
-            sales[id].tab = tab;
-            sales[id].lot = lot;
+            sales[id].tab  = tab;
+            sales[id].lot  = lot;
+            uint256 sub = min(sales[id].due, owe);
+            sales[id].due -= sub;
+            Due -= sub;
         }
 
         emit Take(id, max, price, owe, tab, lot, usr);
@@ -479,6 +497,8 @@ contract LockstakeClipper {
         uint256 lot = sales[id].lot;
         vat.flux(ilk, address(this), msg.sender, lot);
         engine.onRemove(sales[id].usr, 0, 0);
+        Due -= sales[id].due;
+        // TODO: evaluate if we want the callback for accruing bad debt here or not
         _remove(id);
         emit Yank(id);
     }

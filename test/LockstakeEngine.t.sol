@@ -973,7 +973,7 @@ contract LockstakeEngineTest is DssTest {
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
+        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, 2_000 * 10**45);
         assertEq(sale.lot, 100_000 * 10**18);
@@ -1022,7 +1022,7 @@ contract LockstakeEngineTest is DssTest {
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
+        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, 500 * 10**45);
         assertEq(sale.lot, 25_000 * 10**18);
@@ -1073,7 +1073,7 @@ contract LockstakeEngineTest is DssTest {
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
+        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, 2_000 * 10**45);
         assertEq(sale.lot, 100_000 * 10**18);
@@ -1106,7 +1106,7 @@ contract LockstakeEngineTest is DssTest {
         vm.prank(buyer); clip.take(id, 20_000 * 10**18, type(uint256).max, buyer, "");
         assertEq(sky.balanceOf(buyer), 20_000 * 10**18);
 
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
+        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, (2_000 - 20_000 * 0.05 * 1.25) * 10**45);
         assertEq(sale.lot, 80_000 * 10**18);
@@ -1140,7 +1140,7 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sky.balanceOf(buyer), 32_000 * 10**18);
         assertEq(engine.urnAuctions(urn), 0);
 
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
+        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, 0);
         assertEq(sale.lot, 0);
@@ -1189,7 +1189,7 @@ contract LockstakeEngineTest is DssTest {
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
+        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, 2_000 * 10**45);
         assertEq(sale.lot, 100_000 * 10**18);
@@ -1270,7 +1270,7 @@ contract LockstakeEngineTest is DssTest {
         uint256 id = _forceLiquidation(urn);
 
         LockstakeClipper.Sale memory sale;
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
+        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, 2_000 * 10**45);
         assertEq(sale.lot, 100_000 * 10**18);

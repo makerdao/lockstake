@@ -48,6 +48,7 @@ interface AbacusLike {
 
 interface BadLike {
     function cut(uint256) external;
+    function drip() external;
 }
 
 interface LockstakeEngineLike {
@@ -275,6 +276,10 @@ contract LockstakeClipper {
 
         // Trigger engine liquidation call-back
         engine.onKick(usr, lot);
+        // Trigger bad accounting (will update line accordingly)
+        if (bad != address(0)) {
+            BadLike(bad).drip();
+        }
 
         emit Kick(id, top, tab, lot, usr, kpr, coin);
     }

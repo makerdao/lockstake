@@ -2,15 +2,13 @@
 
 using LockstakeUrn as lockstakeUrn;
 using Vat as vat;
-using MkrMock as mkr;
-using LockstakeMkr as lsmkr;
+using SkyMock as sky;
+using LockstakeSky as lssky;
 using VoteDelegateMock as voteDelegate;
 using VoteDelegate2Mock as voteDelegate2;
 using VoteDelegateFactoryMock as voteDelegateFactory;
 using StakingRewardsMock as stakingRewards;
 using StakingRewards2Mock as stakingRewards2;
-using MkrSkyMock as mkrSky;
-using SkyMock as sky;
 using UsdsMock as usds;
 using UsdsJoinMock as usdsJoin;
 using Jug as jug;
@@ -35,11 +33,9 @@ methods {
     function usdsJoin() external returns (address) envfree;
     function usds() external returns (address) envfree;
     function ilk() external returns (bytes32) envfree;
-    function mkr() external returns (address) envfree;
-    function lsmkr() external returns (address) envfree;
-    function usds() external returns (address) envfree;
     function sky() external returns (address) envfree;
-    function mkrSkyRate() external returns (uint256) envfree;
+    function lssky() external returns (address) envfree;
+    function usds() external returns (address) envfree;
     function urnImplementation() external returns (address) envfree;
     //
     function lockstakeUrn.engine() external returns (address) envfree;
@@ -52,23 +48,19 @@ methods {
     function vat.urns(bytes32,address) external returns (uint256,uint256) envfree;
     function vat.can(address,address) external returns (uint256) envfree;
     function vat.wards(address) external returns (uint256) envfree;
-    function mkr.allowance(address,address) external returns (uint256) envfree;
-    function mkr.balanceOf(address) external returns (uint256) envfree;
-    function mkr.totalSupply() external returns (uint256) envfree;
     function sky.allowance(address,address) external returns (uint256) envfree;
     function sky.balanceOf(address) external returns (uint256) envfree;
     function sky.totalSupply() external returns (uint256) envfree;
-    function lsmkr.allowance(address,address) external returns (uint256) envfree;
-    function lsmkr.balanceOf(address) external returns (uint256) envfree;
-    function lsmkr.totalSupply() external returns (uint256) envfree;
-    function lsmkr.wards(address) external returns (uint256) envfree;
+    function lssky.allowance(address,address) external returns (uint256) envfree;
+    function lssky.balanceOf(address) external returns (uint256) envfree;
+    function lssky.totalSupply() external returns (uint256) envfree;
+    function lssky.wards(address) external returns (uint256) envfree;
     function stakingRewards.balanceOf(address) external returns (uint256) envfree;
     function stakingRewards.totalSupply() external returns (uint256) envfree;
     function stakingRewards.rewardsToken() external returns (address) envfree;
     function stakingRewards.rewards(address) external returns (uint256) envfree;
     function stakingRewards2.balanceOf(address) external returns (uint256) envfree;
     function stakingRewards2.totalSupply() external returns (uint256) envfree;
-    function mkrSky.rate() external returns (uint256) envfree;
     function usds.allowance(address,address) external returns (uint256) envfree;
     function usds.balanceOf(address) external returns (uint256) envfree;
     function usds.totalSupply() external returns (uint256) envfree;
@@ -209,7 +201,7 @@ rule vatGemKeepsUnchanged(method f) filtered { f -> f.selector != sig:multicall(
     assert vatGemIlkAnyAfter == vatGemIlkAnyBefore, "Assert 1";
 }
 
-rule inkChangeMatchesMkrChange(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector } {
+rule inkChangeMatchesSkyChange(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector } {
     env e;
 
     createdUrn = 0;
@@ -245,7 +237,6 @@ rule inkChangeMatchesMkrChange(method f) filtered { f -> f.selector != sig:multi
     ilk() at init;
 
     require e.msg.sender != currentContract && e.msg.sender != voteDelegate && e.msg.sender != voteDelegate2;
-    require mkrSkyRate() == mkrSky.rate();
 
     bytes32 ilk = ilk();
 
@@ -253,37 +244,37 @@ rule inkChangeMatchesMkrChange(method f) filtered { f -> f.selector != sig:multi
     require voteDelegateBefore == 0 || voteDelegateBefore == voteDelegate;
     mathint vatUrnsIlkUrnInkBefore; mathint a;
     vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
-    mathint mkrTotalSupplyBefore = mkr.totalSupply();
-    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfVoteDelegateBeforeBefore = voteDelegateBefore == 0 ? 0 : mkr.balanceOf(voteDelegateBefore);
-    mathint mkrBalanceOfVoteDelegateAfterBefore = voteDelegateAfter == 0 ? 0 : mkr.balanceOf(voteDelegateAfter);
-    require mkr.balanceOf(e.msg.sender) + mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBeforeBefore + mkrBalanceOfVoteDelegateAfterBefore <= mkr.totalSupply();
-    require mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBeforeBefore >= vatUrnsIlkUrnInkBefore;
+    mathint skyTotalSupplyBefore = sky.totalSupply();
+    mathint skyBalanceOfEngineBefore = sky.balanceOf(currentContract);
+    mathint skyBalanceOfVoteDelegateBeforeBefore = voteDelegateBefore == 0 ? 0 : sky.balanceOf(voteDelegateBefore);
+    mathint skyBalanceOfVoteDelegateAfterBefore = voteDelegateAfter == 0 ? 0 : sky.balanceOf(voteDelegateAfter);
+    require sky.balanceOf(e.msg.sender) + skyBalanceOfEngineBefore + skyBalanceOfVoteDelegateBeforeBefore + skyBalanceOfVoteDelegateAfterBefore <= sky.totalSupply();
+    require skyBalanceOfEngineBefore + skyBalanceOfVoteDelegateBeforeBefore >= vatUrnsIlkUrnInkBefore;
 
     ilk() at final;
 
     mathint vatUrnsIlkUrnInkAfter;
     vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
-    mathint mkrTotalSupplyAfter = mkr.totalSupply();
-    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfVoteDelegateBeforeAfter = voteDelegateBefore == 0 ? 0 : mkr.balanceOf(voteDelegateBefore);
-    mathint mkrBalanceOfVoteDelegateAfterAfter = voteDelegateAfter == 0 ? 0 : mkr.balanceOf(voteDelegateAfter);
+    mathint skyTotalSupplyAfter = sky.totalSupply();
+    mathint skyBalanceOfEngineAfter = sky.balanceOf(currentContract);
+    mathint skyBalanceOfVoteDelegateBeforeAfter = voteDelegateBefore == 0 ? 0 : sky.balanceOf(voteDelegateBefore);
+    mathint skyBalanceOfVoteDelegateAfterAfter = voteDelegateAfter == 0 ? 0 : sky.balanceOf(voteDelegateAfter);
     require f.selector == sig:onRemove(address,uint256,uint256).selector => voteDelegateBefore == 0;
-    mathint burntOnRemove = f.selector == sig:onRemove(address,uint256,uint256).selector ? mkrTotalSupplyBefore - mkrTotalSupplyAfter + vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore : 0;
-    mathint transferredOnTake = f.selector == sig:onTake(address,address,uint256).selector ? mkrBalanceOfEngineBefore - mkrBalanceOfEngineAfter : 0;
-    mathint receivedOnTake = f.selector == sig:onTake(address,address,uint256).selector ? mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore : 0;
+    mathint burntOnRemove = f.selector == sig:onRemove(address,uint256,uint256).selector ? skyTotalSupplyBefore - skyTotalSupplyAfter + vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore : 0;
+    mathint transferredOnTake = f.selector == sig:onTake(address,address,uint256).selector ? skyBalanceOfEngineBefore - skyBalanceOfEngineAfter : 0;
+    mathint receivedOnTake = f.selector == sig:onTake(address,address,uint256).selector ? skyBalanceOfVoteDelegateBeforeAfter - skyBalanceOfVoteDelegateBeforeBefore : 0;
 
-    // It checks that the ink change matches the MKR balance change + that is all or nothing delegated
+    // It checks that the ink change matches the SKY balance change + that is all or nothing delegated
     assert voteDelegateAfter == voteDelegateBefore && voteDelegateBefore == 0 =>
-        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == mkrBalanceOfEngineAfter - mkrBalanceOfEngineBefore + burntOnRemove + transferredOnTake, "Assert 1";
+        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == skyBalanceOfEngineAfter - skyBalanceOfEngineBefore + burntOnRemove + transferredOnTake, "Assert 1";
     assert voteDelegateAfter == voteDelegateBefore && voteDelegateBefore != 0 =>
-        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore - receivedOnTake &&
-        mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - transferredOnTake, "Assert 2";
+        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == skyBalanceOfVoteDelegateBeforeAfter - skyBalanceOfVoteDelegateBeforeBefore - receivedOnTake &&
+        skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - transferredOnTake, "Assert 2";
     assert voteDelegateAfter != voteDelegateBefore && voteDelegateBefore != 0 && voteDelegateAfter != 0 =>
-        mkrBalanceOfVoteDelegateBeforeAfter - mkrBalanceOfVoteDelegateBeforeBefore == mkrBalanceOfVoteDelegateAfterBefore - mkrBalanceOfVoteDelegateAfterAfter, "Assert3";
+        skyBalanceOfVoteDelegateBeforeAfter - skyBalanceOfVoteDelegateBeforeBefore == skyBalanceOfVoteDelegateAfterBefore - skyBalanceOfVoteDelegateAfterAfter, "Assert3";
 }
 
-rule inkChangeMatchesLsmkrChange(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector  } {
+rule inkChangeMatchesLsskyChange(method f) filtered { f -> f.selector != sig:multicall(bytes[]).selector  } {
     env e;
 
     createdUrn = 0;
@@ -307,12 +298,12 @@ rule inkChangeMatchesLsmkrChange(method f) filtered { f -> f.selector != sig:mul
     require farmBefore == 0 || farmBefore == stakingRewards;
     mathint vatUrnsIlkUrnInkBefore; mathint a;
     vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
-    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBeforeBefore = farmBefore == 0 ? 0 : lsmkr.balanceOf(farmBefore);
-    mathint lsmkrBalanceOfFarmAfterBefore = farmAfter == 0 ? 0 : lsmkr.balanceOf(farmAfter);
-    require lsmkrBalanceOfUrnBefore + lsmkrBalanceOfFarmBeforeBefore + lsmkrBalanceOfFarmAfterBefore <= lsmkrTotalSupplyBefore;
-    require vatUrnsIlkUrnInkBefore <= lsmkrTotalSupplyBefore;
+    mathint lsskyTotalSupplyBefore = lssky.totalSupply();
+    mathint lsskyBalanceOfUrnBefore = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfFarmBeforeBefore = farmBefore == 0 ? 0 : lssky.balanceOf(farmBefore);
+    mathint lsskyBalanceOfFarmAfterBefore = farmAfter == 0 ? 0 : lssky.balanceOf(farmAfter);
+    require lsskyBalanceOfUrnBefore + lsskyBalanceOfFarmBeforeBefore + lsskyBalanceOfFarmAfterBefore <= lsskyTotalSupplyBefore;
+    require vatUrnsIlkUrnInkBefore <= lsskyTotalSupplyBefore;
     mathint farmBeforeBalanceOfUrnBefore = 0;
     if (farmBefore != 0) {
         farmBeforeBalanceOfUrnBefore = farmBefore.balanceOf(e, urn);
@@ -330,10 +321,10 @@ rule inkChangeMatchesLsmkrChange(method f) filtered { f -> f.selector != sig:mul
 
     mathint vatUrnsIlkUrnInkAfter;
     vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
-    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBeforAfter = farmBefore == 0 ? 0 : lsmkr.balanceOf(farmBefore);
-    mathint lsmkrBalanceOfFarmAfterAfter = farmAfter == 0 ? 0 : lsmkr.balanceOf(farmAfter);
+    mathint lsskyTotalSupplyAfter = lssky.totalSupply();
+    mathint lsskyBalanceOfUrnAfter = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfFarmBeforAfter = farmBefore == 0 ? 0 : lssky.balanceOf(farmBefore);
+    mathint lsskyBalanceOfFarmAfterAfter = farmAfter == 0 ? 0 : lssky.balanceOf(farmAfter);
     mathint farmBeforeBalanceOfUrnAfter = 0;
     if (farmBefore != 0) {
         farmBeforeBalanceOfUrnAfter = farmBefore.balanceOf(e, urn);
@@ -347,37 +338,37 @@ rule inkChangeMatchesLsmkrChange(method f) filtered { f -> f.selector != sig:mul
     mathint stakingRewardsBalanceOfUrnAfter = stakingRewards.balanceOf(urn);
     mathint stakingRewards2BalanceOfUrnAfter = stakingRewards2.balanceOf(urn);
 
-    require farmBefore != 0 => lsmkrBalanceOfUrnBefore == 0;
+    require farmBefore != 0 => lsskyBalanceOfUrnBefore == 0;
     require farmBefore == stakingRewards => stakingRewards2BalanceOfUrnBefore == 0;
     require farmBefore == stakingRewards2 => stakingRewardsBalanceOfUrnBefore == 0;
     require farmBefore == 0 => stakingRewardsBalanceOfUrnBefore == 0 && stakingRewards2BalanceOfUrnBefore == 0;
-    mathint burntOnKick = f.selector == sig:onKick(address,uint256).selector ? lsmkrTotalSupplyBefore - lsmkrTotalSupplyAfter : 0;
-    require vatUrnsIlkUrnInkBefore == lsmkrBalanceOfUrnBefore + stakingRewardsBalanceOfUrnBefore + stakingRewards2BalanceOfUrnBefore - burntOnKick;
+    mathint burntOnKick = f.selector == sig:onKick(address,uint256).selector ? lsskyTotalSupplyBefore - lsskyTotalSupplyAfter : 0;
+    require vatUrnsIlkUrnInkBefore == lsskyBalanceOfUrnBefore + stakingRewardsBalanceOfUrnBefore + stakingRewards2BalanceOfUrnBefore - burntOnKick;
     require f.selector == sig:onRemove(address,uint256,uint256).selector => farmBefore == 0;
 
-    assert vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrTotalSupplyAfter - lsmkrTotalSupplyBefore + burntOnKick, "Assert 1";
+    assert vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsskyTotalSupplyAfter - lsskyTotalSupplyBefore + burntOnKick, "Assert 1";
     assert farmAfter == farmBefore && farmBefore == 0 =>
-        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrBalanceOfUrnAfter - lsmkrBalanceOfUrnBefore + burntOnKick, "Assert 2";
+        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsskyBalanceOfUrnAfter - lsskyBalanceOfUrnBefore + burntOnKick, "Assert 2";
     assert farmAfter == farmBefore && farmBefore != 0 =>
-        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsmkrBalanceOfFarmBeforAfter - lsmkrBalanceOfFarmBeforeBefore, "Assert 3";
+        vatUrnsIlkUrnInkAfter - vatUrnsIlkUrnInkBefore == lsskyBalanceOfFarmBeforAfter - lsskyBalanceOfFarmBeforeBefore, "Assert 3";
     assert farmAfter != farmBefore && farmBefore == 0 =>
-        vatUrnsIlkUrnInkAfter == lsmkrBalanceOfFarmAfterAfter - lsmkrBalanceOfFarmAfterBefore &&
-        vatUrnsIlkUrnInkBefore == lsmkrBalanceOfUrnBefore - lsmkrBalanceOfUrnAfter, "Assert 4";
+        vatUrnsIlkUrnInkAfter == lsskyBalanceOfFarmAfterAfter - lsskyBalanceOfFarmAfterBefore &&
+        vatUrnsIlkUrnInkBefore == lsskyBalanceOfUrnBefore - lsskyBalanceOfUrnAfter, "Assert 4";
     assert farmAfter != farmBefore && farmAfter == 0 =>
-        vatUrnsIlkUrnInkAfter == lsmkrBalanceOfUrnAfter - lsmkrBalanceOfUrnBefore &&
-        vatUrnsIlkUrnInkBefore == lsmkrBalanceOfFarmBeforeBefore - lsmkrBalanceOfFarmBeforAfter - burntOnKick, "Assert 5";
+        vatUrnsIlkUrnInkAfter == lsskyBalanceOfUrnAfter - lsskyBalanceOfUrnBefore &&
+        vatUrnsIlkUrnInkBefore == lsskyBalanceOfFarmBeforeBefore - lsskyBalanceOfFarmBeforAfter - burntOnKick, "Assert 5";
     assert farmAfter != farmBefore && farmBefore != 0 && farmAfter != 0 =>
-        vatUrnsIlkUrnInkAfter == lsmkrBalanceOfFarmAfterAfter - lsmkrBalanceOfFarmAfterBefore &&
-        vatUrnsIlkUrnInkBefore == lsmkrBalanceOfFarmBeforeBefore - lsmkrBalanceOfFarmBeforAfter, "Assert 6";
+        vatUrnsIlkUrnInkAfter == lsskyBalanceOfFarmAfterAfter - lsskyBalanceOfFarmAfterBefore &&
+        vatUrnsIlkUrnInkBefore == lsskyBalanceOfFarmBeforeBefore - lsskyBalanceOfFarmBeforAfter, "Assert 6";
     assert farmAfter == 0 =>
-        lsmkrBalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && stakingRewardsBalanceOfUrnAfter == 0 && stakingRewards2BalanceOfUrnAfter == 0, "Assert 7";
+        lsskyBalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && stakingRewardsBalanceOfUrnAfter == 0 && stakingRewards2BalanceOfUrnAfter == 0, "Assert 7";
     assert farmAfter == stakingRewards =>
-        stakingRewardsBalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && lsmkrBalanceOfUrnAfter == 0 && stakingRewards2BalanceOfUrnAfter == 0, "Assert 8";
+        stakingRewardsBalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && lsskyBalanceOfUrnAfter == 0 && stakingRewards2BalanceOfUrnAfter == 0, "Assert 8";
     assert farmAfter == stakingRewards2 =>
-        stakingRewards2BalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && lsmkrBalanceOfUrnAfter == 0 && stakingRewardsBalanceOfUrnAfter == 0, "Assert 9";
+        stakingRewards2BalanceOfUrnAfter == vatUrnsIlkUrnInkAfter && lsskyBalanceOfUrnAfter == 0 && stakingRewardsBalanceOfUrnAfter == 0, "Assert 9";
 }
 
-rule inkMatchesLsmkrFarmOnKick(address urn, uint256 wad) {
+rule inkMatchesLsskyFarmOnKick(address urn, uint256 wad) {
     env e;
 
     address anyUrn;
@@ -391,14 +382,14 @@ rule inkMatchesLsmkrFarmOnKick(address urn, uint256 wad) {
     mathint vatUrnsIlkAnyUrnInkBefore; mathint a;
     vatUrnsIlkAnyUrnInkBefore, a = vat.urns(ilk, anyUrn);
 
-    mathint lsmkrBalanceOfAnyUrnBefore = lsmkr.balanceOf(anyUrn);
+    mathint lsskyBalanceOfAnyUrnBefore = lssky.balanceOf(anyUrn);
     mathint farmBalanceOfAnyUrnBefore = farmBefore == 0 ? 0 : stakingRewards.balanceOf(anyUrn);
 
     require stakingRewards2.balanceOf(anyUrn) == 0;
-    require lsmkrBalanceOfAnyUrnBefore == 0 || farmBalanceOfAnyUrnBefore == 0;
-    require lsmkrBalanceOfAnyUrnBefore > 0 => farmBefore == 0;
+    require lsskyBalanceOfAnyUrnBefore == 0 || farmBalanceOfAnyUrnBefore == 0;
+    require lsskyBalanceOfAnyUrnBefore > 0 => farmBefore == 0;
     require farmBalanceOfAnyUrnBefore  > 0 => farmBefore != 0;
-    require vatUrnsIlkAnyUrnInkBefore == lsmkrBalanceOfAnyUrnBefore + farmBalanceOfAnyUrnBefore;
+    require vatUrnsIlkAnyUrnInkBefore == lsskyBalanceOfAnyUrnBefore + farmBalanceOfAnyUrnBefore;
 
     onKick(e, urn, wad);
 
@@ -408,11 +399,11 @@ rule inkMatchesLsmkrFarmOnKick(address urn, uint256 wad) {
     mathint vatUrnsIlkAnyUrnInkAfter;
     vatUrnsIlkAnyUrnInkAfter, a = vat.urns(ilk, anyUrn);
 
-    mathint lsmkrBalanceOfAnyUrnAfter = lsmkr.balanceOf(anyUrn);
+    mathint lsskyBalanceOfAnyUrnAfter = lssky.balanceOf(anyUrn);
     mathint farmBalanceOfAnyUrnAfter = farmAfter == 0 ? 0 : (farmAfter == farmBefore ? stakingRewards.balanceOf(anyUrn) : stakingRewards2.balanceOf(anyUrn));
 
-    assert urn != anyUrn => vatUrnsIlkAnyUrnInkAfter == lsmkrBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter, "Assert 1";
-    assert urn == anyUrn => vatUrnsIlkAnyUrnInkAfter == lsmkrBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter + wad, "Assert 2";
+    assert urn != anyUrn => vatUrnsIlkAnyUrnInkAfter == lsskyBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter, "Assert 1";
+    assert urn == anyUrn => vatUrnsIlkAnyUrnInkAfter == lsskyBalanceOfAnyUrnAfter + farmBalanceOfAnyUrnAfter + wad, "Assert 2";
 }
 
 // Verify correct storage changes for non reverting rely
@@ -583,7 +574,7 @@ rule open(uint256 index) {
     address ownerUrnsOtherBefore = ownerUrns(anyAddr, anyUint256);
 
     address urn = open(e, index);
-    require urn.lsmkr(e) == lsmkr;
+    require urn.lssky(e) == lssky;
 
     mathint ownerUrnsCountSenderAfter = ownerUrnsCount(e.msg.sender);
     mathint ownerUrnsCountOtherAfter = ownerUrnsCount(other);
@@ -591,7 +582,7 @@ rule open(uint256 index) {
     address ownerUrnsOtherAfter = ownerUrns(anyAddr, anyUint256);
     address urnOwnersUrnAfter = urnOwners(urn);
     mathint vatCanUrnEngineAfter = vat.can(urn, currentContract);
-    mathint lsmkrAllowanceUrnEngine = lsmkr.allowance(urn, currentContract);
+    mathint lsskyAllowanceUrnEngine = lssky.allowance(urn, currentContract);
 
     assert ownerUrnsCountSenderAfter == ownerUrnsCountSenderBefore + 1, "Assert 1";
     assert ownerUrnsCountOtherAfter == ownerUrnsCountOtherBefore, "Assert 2";
@@ -599,7 +590,7 @@ rule open(uint256 index) {
     assert ownerUrnsOtherAfter == ownerUrnsOtherBefore, "Assert 4";
     assert urnOwnersUrnAfter == e.msg.sender, "Assert 5";
     assert vatCanUrnEngineAfter == 1, "Assert 6";
-    assert lsmkrAllowanceUrnEngine == max_uint256, "Assert 7";
+    assert lsskyAllowanceUrnEngine == max_uint256, "Assert 7";
 }
 
 // Verify revert rules on open
@@ -714,33 +705,33 @@ rule selectVoteDelegate(address owner, uint256 index, address voteDelegate_) {
     vatUrnsIlkUrnInk, a = vat.urns(ilk, urn);
 
     address urnVoteDelegatesOtherBefore = urnVoteDelegates(other);
-    mathint mkrBalanceOfPrevVoteDelegateBefore = mkr.balanceOf(prevVoteDelegate);
-    mathint mkrBalanceOfNewVoteDelegateBefore = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other2);
+    mathint skyBalanceOfPrevVoteDelegateBefore = sky.balanceOf(prevVoteDelegate);
+    mathint skyBalanceOfNewVoteDelegateBefore = sky.balanceOf(voteDelegate_);
+    mathint skyBalanceOfEngineBefore = sky.balanceOf(currentContract);
+    mathint skyBalanceOfOtherBefore = sky.balanceOf(other2);
 
     // Tokens invariants
-    require to_mathint(mkr.totalSupply()) >= mkrBalanceOfPrevVoteDelegateBefore + mkrBalanceOfNewVoteDelegateBefore + mkrBalanceOfEngineBefore + mkrBalanceOfOtherBefore;
+    require to_mathint(sky.totalSupply()) >= skyBalanceOfPrevVoteDelegateBefore + skyBalanceOfNewVoteDelegateBefore + skyBalanceOfEngineBefore + skyBalanceOfOtherBefore;
 
     selectVoteDelegate(e, owner, index, voteDelegate_);
 
     address urnVoteDelegatesUrnAfter = urnVoteDelegates(urn);
     address urnVoteDelegatesOtherAfter = urnVoteDelegates(other);
-    mathint mkrBalanceOfPrevVoteDelegateAfter = mkr.balanceOf(prevVoteDelegate);
-    mathint mkrBalanceOfNewVoteDelegateAfter = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other2);
+    mathint skyBalanceOfPrevVoteDelegateAfter = sky.balanceOf(prevVoteDelegate);
+    mathint skyBalanceOfNewVoteDelegateAfter = sky.balanceOf(voteDelegate_);
+    mathint skyBalanceOfEngineAfter = sky.balanceOf(currentContract);
+    mathint skyBalanceOfOtherAfter = sky.balanceOf(other2);
 
     assert urnVoteDelegatesUrnAfter == voteDelegate_, "Assert 1";
     assert urnVoteDelegatesOtherAfter == urnVoteDelegatesOtherBefore, "Assert 2";
-    assert prevVoteDelegate == 0 => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore, "Assert 3";
-    assert prevVoteDelegate != 0 => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - vatUrnsIlkUrnInk, "Assert 4";
-    assert voteDelegate_ == 0 => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore, "Assert 5";
-    assert voteDelegate_ != 0 => mkrBalanceOfNewVoteDelegateAfter == mkrBalanceOfNewVoteDelegateBefore + vatUrnsIlkUrnInk, "Assert 6";
-    assert prevVoteDelegate == 0 && voteDelegate_ == 0 || prevVoteDelegate != 0 && voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 7";
-    assert prevVoteDelegate == 0 && voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - vatUrnsIlkUrnInk, "Assert 8";
-    assert prevVoteDelegate != 0 && voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + vatUrnsIlkUrnInk, "Assert 9";
-    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 10";
+    assert prevVoteDelegate == 0 => skyBalanceOfPrevVoteDelegateAfter == skyBalanceOfPrevVoteDelegateBefore, "Assert 3";
+    assert prevVoteDelegate != 0 => skyBalanceOfPrevVoteDelegateAfter == skyBalanceOfPrevVoteDelegateBefore - vatUrnsIlkUrnInk, "Assert 4";
+    assert voteDelegate_ == 0 => skyBalanceOfNewVoteDelegateAfter == skyBalanceOfNewVoteDelegateBefore, "Assert 5";
+    assert voteDelegate_ != 0 => skyBalanceOfNewVoteDelegateAfter == skyBalanceOfNewVoteDelegateBefore + vatUrnsIlkUrnInk, "Assert 6";
+    assert prevVoteDelegate == 0 && voteDelegate_ == 0 || prevVoteDelegate != 0 && voteDelegate_ != 0 => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore, "Assert 7";
+    assert prevVoteDelegate == 0 && voteDelegate_ != 0 => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - vatUrnsIlkUrnInk, "Assert 8";
+    assert prevVoteDelegate != 0 && voteDelegate_ == 0 => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore + vatUrnsIlkUrnInk, "Assert 9";
+    assert skyBalanceOfOtherAfter == skyBalanceOfOtherBefore, "Assert 10";
 }
 
 // Verify revert rules on selectVoteDelegate
@@ -763,12 +754,12 @@ rule selectVoteDelegate_revert(address owner, uint256 index, address voteDelegat
     mathint calcVatIlksIlkRateAfter = dripSummary(ilk);
 
     // Tokens invariants
-    require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(prevVoteDelegate) + mkr.balanceOf(voteDelegate_) + mkr.balanceOf(currentContract);
+    require to_mathint(sky.totalSupply()) >= sky.balanceOf(prevVoteDelegate) + sky.balanceOf(voteDelegate_) + sky.balanceOf(currentContract);
     // Practical Vat assumptions
     require vatUrnsIlkUrnInk * vatIlksIlkSpot <= max_uint256;
     require vatUrnsIlkUrnArt * calcVatIlksIlkRateAfter <= max_uint256;
     // TODO: this might be nice to prove in some sort
-    require prevVoteDelegate == 0 && to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk || prevVoteDelegate != 0 && to_mathint(mkr.balanceOf(prevVoteDelegate)) >= vatUrnsIlkUrnInk && to_mathint(voteDelegate2.stake(currentContract)) >= vatUrnsIlkUrnInk; // TODO: this might be interesting to be proved
+    require prevVoteDelegate == 0 && to_mathint(sky.balanceOf(currentContract)) >= vatUrnsIlkUrnInk || prevVoteDelegate != 0 && to_mathint(sky.balanceOf(prevVoteDelegate)) >= vatUrnsIlkUrnInk && to_mathint(voteDelegate2.stake(currentContract)) >= vatUrnsIlkUrnInk; // TODO: this might be interesting to be proved
     require voteDelegate.stake(currentContract) + vatUrnsIlkUrnInk <= max_uint256;
 
     selectVoteDelegate@withrevert(e, owner, index, voteDelegate_);
@@ -807,33 +798,33 @@ rule selectFarm(address owner, uint256 index, address farm, uint16 ref) {
     vatUrnsIlkUrnInk, a = vat.urns(ilk, urn);
 
     address urnFarmsOtherBefore = urnFarms(other);
-    mathint lsmkrBalanceOfPrevFarmBefore = lsmkr.balanceOf(prevFarm);
-    mathint lsmkrBalanceOfNewFarmBefore = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
+    mathint lsskyBalanceOfPrevFarmBefore = lssky.balanceOf(prevFarm);
+    mathint lsskyBalanceOfNewFarmBefore = lssky.balanceOf(farm);
+    mathint lsskyBalanceOfUrnBefore = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfOtherBefore = lssky.balanceOf(other2);
 
     // Tokens invariants
-    require to_mathint(lsmkr.totalSupply()) >= lsmkrBalanceOfPrevFarmBefore + lsmkrBalanceOfNewFarmBefore + lsmkrBalanceOfUrnBefore + lsmkrBalanceOfOtherBefore;
+    require to_mathint(lssky.totalSupply()) >= lsskyBalanceOfPrevFarmBefore + lsskyBalanceOfNewFarmBefore + lsskyBalanceOfUrnBefore + lsskyBalanceOfOtherBefore;
 
     selectFarm(e, owner, index, farm, ref);
 
     address urnFarmsUrnAfter = urnFarms(urn);
     address urnFarmsOtherAfter = urnFarms(other);
-    mathint lsmkrBalanceOfPrevFarmAfter = lsmkr.balanceOf(prevFarm);
-    mathint lsmkrBalanceOfNewFarmAfter = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
+    mathint lsskyBalanceOfPrevFarmAfter = lssky.balanceOf(prevFarm);
+    mathint lsskyBalanceOfNewFarmAfter = lssky.balanceOf(farm);
+    mathint lsskyBalanceOfUrnAfter = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfOtherAfter = lssky.balanceOf(other2);
 
     assert urnFarmsUrnAfter == farm, "Assert 1";
     assert urnFarmsOtherAfter == urnFarmsOtherBefore, "Assert 2";
-    assert prevFarm == 0 => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "Assert 3";
-    assert prevFarm != 0 => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - vatUrnsIlkUrnInk, "Assert 4";
-    assert farm == 0 => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore, "Assert 5";
-    assert farm != 0 => lsmkrBalanceOfNewFarmAfter == lsmkrBalanceOfNewFarmBefore + vatUrnsIlkUrnInk, "Assert 6";
-    assert prevFarm == 0 && farm == 0 || prevFarm != 0 && farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 7";
-    assert prevFarm == 0 && farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - vatUrnsIlkUrnInk, "Assert 8";
-    assert prevFarm != 0 && farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + vatUrnsIlkUrnInk, "Assert 9";
-    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 10";
+    assert prevFarm == 0 => lsskyBalanceOfPrevFarmAfter == lsskyBalanceOfPrevFarmBefore, "Assert 3";
+    assert prevFarm != 0 => lsskyBalanceOfPrevFarmAfter == lsskyBalanceOfPrevFarmBefore - vatUrnsIlkUrnInk, "Assert 4";
+    assert farm == 0 => lsskyBalanceOfNewFarmAfter == lsskyBalanceOfNewFarmBefore, "Assert 5";
+    assert farm != 0 => lsskyBalanceOfNewFarmAfter == lsskyBalanceOfNewFarmBefore + vatUrnsIlkUrnInk, "Assert 6";
+    assert prevFarm == 0 && farm == 0 || prevFarm != 0 && farm != 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore, "Assert 7";
+    assert prevFarm == 0 && farm != 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore - vatUrnsIlkUrnInk, "Assert 8";
+    assert prevFarm != 0 && farm == 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore + vatUrnsIlkUrnInk, "Assert 9";
+    assert lsskyBalanceOfOtherAfter == lsskyBalanceOfOtherBefore, "Assert 10";
 }
 
 // Verify revert rules on selectFarm
@@ -856,9 +847,9 @@ rule selectFarm_revert(address owner, uint256 index, address farm, uint16 ref) {
     vatUrnsIlkUrnInk, a = vat.urns(ilk, urn);
 
     // TODO: this might be nice to prove in some sort
-    require prevFarm == 0 && to_mathint(lsmkr.balanceOf(urn)) >= vatUrnsIlkUrnInk || prevFarm != 0 && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUrnInk && to_mathint(stakingRewards2.balanceOf(urn)) >= vatUrnsIlkUrnInk;
+    require prevFarm == 0 && to_mathint(lssky.balanceOf(urn)) >= vatUrnsIlkUrnInk || prevFarm != 0 && to_mathint(lssky.balanceOf(prevFarm)) >= vatUrnsIlkUrnInk && to_mathint(stakingRewards2.balanceOf(urn)) >= vatUrnsIlkUrnInk;
     // Token invariants
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(farm) + lsmkr.balanceOf(urn);
+    require to_mathint(lssky.totalSupply()) >= lssky.balanceOf(prevFarm) + lssky.balanceOf(farm) + lssky.balanceOf(urn);
     require stakingRewards2.totalSupply() >= stakingRewards2.balanceOf(urn);
     require stakingRewards.totalSupply() >= stakingRewards.balanceOf(urn);
     // Assumption
@@ -899,45 +890,45 @@ rule lock(address owner, uint256 index, uint256 wad, uint16 ref) {
     bytes32 ilk = ilk();
     mathint vatUrnsIlkUrnInkBefore; mathint a;
     vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
-    mathint mkrBalanceOfSenderBefore = mkr.balanceOf(e.msg.sender);
-    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfVoteDelegateBefore = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
-    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
+    mathint skyBalanceOfSenderBefore = sky.balanceOf(e.msg.sender);
+    mathint skyBalanceOfEngineBefore = sky.balanceOf(currentContract);
+    mathint skyBalanceOfVoteDelegateBefore = sky.balanceOf(voteDelegate_);
+    mathint skyBalanceOfOtherBefore = sky.balanceOf(other);
+    mathint lsskyTotalSupplyBefore = lssky.totalSupply();
+    mathint lsskyBalanceOfUrnBefore = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfFarmBefore = lssky.balanceOf(farm);
+    mathint lsskyBalanceOfOtherBefore = lssky.balanceOf(other2);
 
     // Tokens invariants
-    require to_mathint(mkr.totalSupply()) >= mkrBalanceOfSenderBefore + mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBefore + mkrBalanceOfOtherBefore;
-    require lsmkrTotalSupplyBefore >= lsmkrBalanceOfUrnBefore + lsmkrBalanceOfFarmBefore + lsmkrBalanceOfOtherBefore;
+    require to_mathint(sky.totalSupply()) >= skyBalanceOfSenderBefore + skyBalanceOfEngineBefore + skyBalanceOfVoteDelegateBefore + skyBalanceOfOtherBefore;
+    require lsskyTotalSupplyBefore >= lsskyBalanceOfUrnBefore + lsskyBalanceOfFarmBefore + lsskyBalanceOfOtherBefore;
 
     lock(e, owner, index, wad, ref);
 
     mathint vatUrnsIlkUrnInkAfter;
     vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
-    mathint mkrBalanceOfSenderAfter = mkr.balanceOf(e.msg.sender);
-    mathint mkrBalanceOfVoteDelegateAfter = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
-    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
+    mathint skyBalanceOfSenderAfter = sky.balanceOf(e.msg.sender);
+    mathint skyBalanceOfVoteDelegateAfter = sky.balanceOf(voteDelegate_);
+    mathint skyBalanceOfEngineAfter = sky.balanceOf(currentContract);
+    mathint skyBalanceOfOtherAfter = sky.balanceOf(other);
+    mathint lsskyTotalSupplyAfter = lssky.totalSupply();
+    mathint lsskyBalanceOfFarmAfter = lssky.balanceOf(farm);
+    mathint lsskyBalanceOfUrnAfter = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfOtherAfter = lssky.balanceOf(other2);
 
     assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore + wad, "Assert 1";
-    assert mkrBalanceOfSenderAfter == mkrBalanceOfSenderBefore - wad, "Assert 2";
-    assert voteDelegate_ == 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 3";
-    assert voteDelegate_ != 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore + wad, "Assert 4";
-    assert voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + wad, "Assert 5";
-    assert voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 6";
-    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 7";
-    assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + wad, "Assert 8";
-    assert farm == 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 9";
-    assert farm != 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + wad, "Assert 10";
-    assert farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + wad, "Assert 11";
-    assert farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 12";
-    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 13";
+    assert skyBalanceOfSenderAfter == skyBalanceOfSenderBefore - wad, "Assert 2";
+    assert voteDelegate_ == 0 => skyBalanceOfVoteDelegateAfter == skyBalanceOfVoteDelegateBefore, "Assert 3";
+    assert voteDelegate_ != 0 => skyBalanceOfVoteDelegateAfter == skyBalanceOfVoteDelegateBefore + wad, "Assert 4";
+    assert voteDelegate_ == 0 => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore + wad, "Assert 5";
+    assert voteDelegate_ != 0 => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore, "Assert 6";
+    assert skyBalanceOfOtherAfter == skyBalanceOfOtherBefore, "Assert 7";
+    assert lsskyTotalSupplyAfter == lsskyTotalSupplyBefore + wad, "Assert 8";
+    assert farm == 0 => lsskyBalanceOfFarmAfter == lsskyBalanceOfFarmBefore, "Assert 9";
+    assert farm != 0 => lsskyBalanceOfFarmAfter == lsskyBalanceOfFarmBefore + wad, "Assert 10";
+    assert farm == 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore + wad, "Assert 11";
+    assert farm != 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore, "Assert 12";
+    assert lsskyBalanceOfOtherAfter == lsskyBalanceOfOtherBefore, "Assert 13";
 }
 
 // Verify revert rules on lock
@@ -963,17 +954,17 @@ rule lock_revert(address owner, uint256 index, uint256 wad, uint16 ref) {
     require vat.can(urn, currentContract) == 1;
     // Happening in deploy scripts
     require vat.wards(currentContract) == 1;
-    require lsmkr.wards(currentContract) == 1;
+    require lssky.wards(currentContract) == 1;
     // User balance and approval
-    require mkr.balanceOf(e.msg.sender) >= wad && mkr.allowance(e.msg.sender, currentContract) >= wad;
+    require sky.balanceOf(e.msg.sender) >= wad && sky.allowance(e.msg.sender, currentContract) >= wad;
     // Tokens invariants
-    require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
+    require to_mathint(sky.totalSupply()) >= sky.balanceOf(e.msg.sender) + sky.balanceOf(currentContract) + sky.balanceOf(voteDelegate_);
+    require to_mathint(lssky.totalSupply()) >= lssky.balanceOf(urn) + lssky.balanceOf(farm);
     // TODO: this might be nice to prove in some sort
-    require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
+    require sky.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
     require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
-    require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
-    require lsmkr.totalSupply() + wad <= to_mathint(mkr.totalSupply());
+    require lssky.balanceOf(farm) == stakingRewards.totalSupply();
+    require lssky.totalSupply() + wad <= to_mathint(sky.totalSupply());
     // Practical Vat assumptions
     require vat.live() == 1;
     require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
@@ -983,9 +974,9 @@ rule lock_revert(address owner, uint256 index, uint256 wad, uint16 ref) {
     require vatUrnsIlkUrnArt == 0 || vatIlksIlkRate * vatUrnsIlkUrnArt >= vatIlksIlkDust;
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
-    // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
-    require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
-    require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
+    // Safe to assume as Engine keeps the invariant (rule inkMatchesLsskyFarm)
+    require lssky.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
+    require vatUrnsIlkUrnInk == lssky.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     LockstakeEngine.FarmStatus farmsFarm = farms(farm);
 
@@ -996,153 +987,6 @@ rule lock_revert(address owner, uint256 index, uint256 wad, uint16 ref) {
     bool revert3 = to_mathint(wad) > max_int256();
     bool revert4 = farm != 0 && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
     bool revert5 = farm != 0 && wad == 0;
-
-    assert lastReverted <=> revert1 || revert2 || revert3 ||
-                            revert4 || revert5, "Revert rules failed";
-}
-
-// Verify correct storage changes for non reverting lockSky
-rule lockSky(address owner, uint256 index, uint256 skyWad, uint16 ref) {
-    env e;
-
-    address urn = ownerUrns(owner, index);
-    require urn == lockstakeUrn;
-
-    address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
-    address farm = urnFarms(urn);
-    require farm == 0 || farm == stakingRewards;
-
-    require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
-
-    address other;
-    require other != e.msg.sender && other != currentContract && other != voteDelegate_;
-    address other2;
-    require other2 != urn && other2 != farm;
-
-    mathint mkrSkyRate = mkrSkyRate();
-
-    bytes32 ilk = ilk();
-    mathint vatUrnsIlkUrnInkBefore; mathint a;
-    vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
-    mathint skyTotalSupplyBefore = sky.totalSupply();
-    mathint skyBalanceOfSenderBefore = sky.balanceOf(e.msg.sender);
-    mathint mkrTotalSupplyBefore = mkr.totalSupply();
-    mathint mkrBalanceOfSenderBefore = mkr.balanceOf(e.msg.sender);
-    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfVoteDelegateBefore = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
-    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
-
-    // Happening in constructor
-    require mkrSkyRate == to_mathint(mkrSky.rate());
-    // Tokens invariants
-    require skyTotalSupplyBefore >= skyBalanceOfSenderBefore + sky.balanceOf(currentContract) + sky.balanceOf(mkrSky);
-    require mkrTotalSupplyBefore >= mkrBalanceOfSenderBefore + mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBefore + mkrBalanceOfOtherBefore;
-    require lsmkrTotalSupplyBefore >= lsmkrBalanceOfUrnBefore + lsmkrBalanceOfFarmBefore + lsmkrBalanceOfOtherBefore;
-
-    lockSky(e, owner, index, skyWad, ref);
-
-    mathint vatUrnsIlkUrnInkAfter;
-    vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
-    mathint skyTotalSupplyAfter = sky.totalSupply();
-    mathint skyBalanceOfSenderAfter = sky.balanceOf(e.msg.sender);
-    mathint mkrTotalSupplyAfter = mkr.totalSupply();
-    mathint mkrBalanceOfSenderAfter = mkr.balanceOf(e.msg.sender);
-    mathint mkrBalanceOfVoteDelegateAfter = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
-    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
-
-    assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore + skyWad/mkrSkyRate, "Assert 1";
-    assert skyTotalSupplyAfter == skyTotalSupplyBefore - skyWad, "Assert 2";
-    assert skyBalanceOfSenderAfter == skyBalanceOfSenderBefore - skyWad, "Assert 3";
-    assert mkrTotalSupplyAfter == mkrTotalSupplyBefore + skyWad/mkrSkyRate, "Assert 4";
-    assert voteDelegate_ == 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 5";
-    assert voteDelegate_ != 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore + skyWad/mkrSkyRate, "Assert 6";
-    assert voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + skyWad/mkrSkyRate, "Assert 7";
-    assert voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
-    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 9";
-    assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + skyWad/mkrSkyRate, "Assert 10";
-    assert farm == 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
-    assert farm != 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + skyWad/mkrSkyRate, "Assert 12";
-    assert farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + skyWad/mkrSkyRate, "Assert 13";
-    assert farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
-    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 15";
-}
-
-// Verify revert rules on lockSky
-rule lockSky_revert(address owner, uint256 index, uint256 skyWad, uint16 ref) {
-    env e;
-
-    address urn = ownerUrns(owner, index);
-    require urn == lockstakeUrn;
-
-    address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
-    address farm = urnFarms(urn);
-    require farm == 0 || farm == stakingRewards;
-
-    require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
-
-    mathint mkrSkyRate = mkrSkyRate();
-
-    bytes32 ilk = ilk();
-    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt; mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkDust; mathint a;
-    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
-    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, a, vatIlksIlkDust = vat.ilks(ilk);
-
-    // Happening in constructor
-    require mkrSkyRate == to_mathint(mkrSky.rate());
-    // Avoid division by zero
-    require mkrSkyRate > 0;
-    // Happening in urn init
-    require vat.can(urn, currentContract) == 1;
-    require sky.allowance(currentContract, mkrSky) == max_uint256;
-    // Happening in deploy scripts
-    require vat.wards(currentContract) == 1;
-    require lsmkr.wards(currentContract) == 1;
-    // User balance and approval
-    require sky.balanceOf(e.msg.sender) >= skyWad && sky.allowance(e.msg.sender, currentContract) >= skyWad;
-    // Tokens invariants
-    require to_mathint(sky.totalSupply()) >= sky.balanceOf(e.msg.sender) + sky.balanceOf(currentContract) + sky.balanceOf(mkrSky);
-    require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
-    // Assumption
-    require to_mathint(mkr.totalSupply()) <= max_uint256 - skyWad/mkrSkyRate;
-    // TODO: this might be nice to prove in some sort
-    require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
-    require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
-    require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
-    require lsmkr.totalSupply() + skyWad/mkrSkyRate <= to_mathint(mkr.totalSupply());
-    // Practical Vat assumptions
-    require vat.live() == 1;
-    require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
-    require (vatUrnsIlkUrnInk + skyWad/mkrSkyRate) * vatIlksIlkSpot <= max_uint256;
-    require vatIlksIlkRate * vatIlksIlkArt <= max_uint256;
-    require vatIlksIlkArt >= vatUrnsIlkUrnArt;
-    require vatUrnsIlkUrnArt == 0 || vatIlksIlkRate * vatUrnsIlkUrnArt >= vatIlksIlkDust;
-    // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
-    require vat.gem(ilk, urn) == 0;
-    // Safe to assume as Engine keeps the invariant (rule vatUrnsIlkUrnInkMatchesLsmkrFarm)
-    require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
-    require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
-
-    LockstakeEngine.FarmStatus farmsFarm = farms(farm);
-
-    lockSky@withrevert(e, owner, index, skyWad, ref);
-
-    bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == 0;
-    bool revert3 = skyWad/mkrSkyRate > max_int256();
-    bool revert4 = farm != 0 && farmsFarm != LockstakeEngine.FarmStatus.ACTIVE;
-    bool revert5 = farm != 0 && skyWad/mkrSkyRate == 0;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5, "Revert rules failed";
@@ -1170,54 +1014,54 @@ rule free(address owner, uint256 index, address to, uint256 wad) {
     bytes32 ilk = ilk();
     mathint vatUrnsIlkUrnInkBefore; mathint a;
     vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
-    mathint mkrTotalSupplyBefore = mkr.totalSupply();
-    mathint mkrBalanceOfToBefore = mkr.balanceOf(to);
-    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfVoteDelegateBefore = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
-    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
+    mathint skyTotalSupplyBefore = sky.totalSupply();
+    mathint skyBalanceOfToBefore = sky.balanceOf(to);
+    mathint skyBalanceOfEngineBefore = sky.balanceOf(currentContract);
+    mathint skyBalanceOfVoteDelegateBefore = sky.balanceOf(voteDelegate_);
+    mathint skyBalanceOfOtherBefore = sky.balanceOf(other);
+    mathint lsskyTotalSupplyBefore = lssky.totalSupply();
+    mathint lsskyBalanceOfUrnBefore = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfFarmBefore = lssky.balanceOf(farm);
+    mathint lsskyBalanceOfOtherBefore = lssky.balanceOf(other2);
 
     // Happening in constructor
     require fee < WAD();
     // Tokens invariants
-    require mkrTotalSupplyBefore >= mkrBalanceOfToBefore + mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBefore + mkrBalanceOfOtherBefore;
-    require lsmkrTotalSupplyBefore >= lsmkrBalanceOfUrnBefore + lsmkrBalanceOfFarmBefore + lsmkrBalanceOfOtherBefore;
+    require skyTotalSupplyBefore >= skyBalanceOfToBefore + skyBalanceOfEngineBefore + skyBalanceOfVoteDelegateBefore + skyBalanceOfOtherBefore;
+    require lsskyTotalSupplyBefore >= lsskyBalanceOfUrnBefore + lsskyBalanceOfFarmBefore + lsskyBalanceOfOtherBefore;
 
     free(e, owner, index, to, wad);
 
     mathint vatUrnsIlkUrnInkAfter;
     vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
-    mathint mkrTotalSupplyAfter = mkr.totalSupply();
-    mathint mkrBalanceOfToAfter = mkr.balanceOf(to);
-    mathint mkrBalanceOfVoteDelegateAfter = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
-    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
+    mathint skyTotalSupplyAfter = sky.totalSupply();
+    mathint skyBalanceOfToAfter = sky.balanceOf(to);
+    mathint skyBalanceOfVoteDelegateAfter = sky.balanceOf(voteDelegate_);
+    mathint skyBalanceOfEngineAfter = sky.balanceOf(currentContract);
+    mathint skyBalanceOfOtherAfter = sky.balanceOf(other);
+    mathint lsskyTotalSupplyAfter = lssky.totalSupply();
+    mathint lsskyBalanceOfFarmAfter = lssky.balanceOf(farm);
+    mathint lsskyBalanceOfUrnAfter = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfOtherAfter = lssky.balanceOf(other2);
 
     assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore - wad, "Assert 1";
-    assert mkrTotalSupplyAfter == mkrTotalSupplyBefore - wad * fee / WAD(), "Assert 2";
+    assert skyTotalSupplyAfter == skyTotalSupplyBefore - wad * fee / WAD(), "Assert 2";
     assert to != currentContract && to != voteDelegate_   ||
            to == currentContract && voteDelegate_ != 0 ||
-           to == voteDelegate_ && voteDelegate_ == 0 => mkrBalanceOfToAfter == mkrBalanceOfToBefore + (wad - wad * fee / WAD()), "Assert 3";
+           to == voteDelegate_ && voteDelegate_ == 0 => skyBalanceOfToAfter == skyBalanceOfToBefore + (wad - wad * fee / WAD()), "Assert 3";
     assert to == currentContract && voteDelegate_ == 0 ||
-           to == voteDelegate_ && voteDelegate_ != 0 => mkrBalanceOfToAfter == mkrBalanceOfToBefore - wad * fee / WAD(), "Assert 4";
-    assert to != voteDelegate_ && voteDelegate_ == 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 5";
-    assert to != voteDelegate_ && voteDelegate_ != 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore - wad, "Assert 6";
-    assert to != currentContract && voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - wad, "Assert 7";
-    assert to != currentContract && voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
-    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 9";
-    assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - wad, "Assert 10";
-    assert farm == 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
-    assert farm != 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 12";
-    assert farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 13";
-    assert farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
-    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 15";
+           to == voteDelegate_ && voteDelegate_ != 0 => skyBalanceOfToAfter == skyBalanceOfToBefore - wad * fee / WAD(), "Assert 4";
+    assert to != voteDelegate_ && voteDelegate_ == 0 => skyBalanceOfVoteDelegateAfter == skyBalanceOfVoteDelegateBefore, "Assert 5";
+    assert to != voteDelegate_ && voteDelegate_ != 0 => skyBalanceOfVoteDelegateAfter == skyBalanceOfVoteDelegateBefore - wad, "Assert 6";
+    assert to != currentContract && voteDelegate_ == 0 => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - wad, "Assert 7";
+    assert to != currentContract && voteDelegate_ != 0 => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore, "Assert 8";
+    assert skyBalanceOfOtherAfter == skyBalanceOfOtherBefore, "Assert 9";
+    assert lsskyTotalSupplyAfter == lsskyTotalSupplyBefore - wad, "Assert 10";
+    assert farm == 0 => lsskyBalanceOfFarmAfter == lsskyBalanceOfFarmBefore, "Assert 11";
+    assert farm != 0 => lsskyBalanceOfFarmAfter == lsskyBalanceOfFarmBefore - wad, "Assert 12";
+    assert farm == 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore - wad, "Assert 13";
+    assert farm != 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore, "Assert 14";
+    assert lsskyBalanceOfOtherAfter == lsskyBalanceOfOtherBefore, "Assert 15";
 }
 
 // Verify revert rules on free
@@ -1246,19 +1090,19 @@ rule free_revert(address owner, uint256 index, address to, uint256 wad) {
     require fee < WAD();
     // Happening in urn init
     require vat.can(urn, currentContract) == 1;
-    require lsmkr.allowance(urn, currentContract) == max_uint256;
+    require lssky.allowance(urn, currentContract) == max_uint256;
     // Happening in deploy scripts
     require vat.wards(currentContract) == 1;
-    require lsmkr.wards(currentContract) == 1;
+    require lssky.wards(currentContract) == 1;
     // Tokens invariants
-    require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
+    require to_mathint(sky.totalSupply()) >= sky.balanceOf(e.msg.sender) + sky.balanceOf(currentContract) + sky.balanceOf(voteDelegate_);
+    require to_mathint(lssky.totalSupply()) >= lssky.balanceOf(urn) + lssky.balanceOf(farm);
     // TODO: this might be nice to prove in some sort
-    require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
+    require sky.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
     require voteDelegate_ != 0 => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
-    require voteDelegate_ == 0 => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
+    require voteDelegate_ == 0 => to_mathint(sky.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
     require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
-    require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
+    require lssky.balanceOf(farm) == stakingRewards.totalSupply();
     // Practical Vat assumptions
     require vat.live() == 1;
     require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
@@ -1268,11 +1112,11 @@ rule free_revert(address owner, uint256 index, address to, uint256 wad) {
     require vatUrnsIlkUrnArt == 0 || vatIlksIlkRate * vatUrnsIlkUrnArt >= vatIlksIlkDust;
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
-    // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
-    require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
-    require lsmkr.balanceOf(urn) > 0 => farm == 0;
+    // Safe to assume as Engine keeps the invariant (rule inkMatchesLsskyFarm)
+    require lssky.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
+    require lssky.balanceOf(urn) > 0 => farm == 0;
     require stakingRewards.balanceOf(urn)  > 0 => farm != 0;
-    require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
+    require vatUrnsIlkUrnInk == lssky.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     free@withrevert(e, owner, index, to, wad);
 
@@ -1283,163 +1127,6 @@ rule free_revert(address owner, uint256 index, address to, uint256 wad) {
     bool revert5 = vatUrnsIlkUrnInk < to_mathint(wad) || wad > 0 && (vatUrnsIlkUrnInk - wad) * vatIlksIlkSpot < vatUrnsIlkUrnArt * vatIlksIlkRate;
     bool revert6 = farm != 0 && wad == 0;
     bool revert7 = wad * fee > max_uint256;
-
-    assert lastReverted <=> revert1 || revert2 || revert3 ||
-                            revert4 || revert5 || revert6 ||
-                            revert7, "Revert rules failed";
-}
-
-// Verify correct storage changes for non reverting freeSky
-rule freeSky(address owner, uint256 index, address to, uint256 skyWad) {
-    env e;
-
-    address urn = ownerUrns(owner, index);
-    require urn == lockstakeUrn;
-
-    address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
-    address farm = urnFarms(urn);
-    require farm == 0 || farm == stakingRewards;
-
-    address other;
-    require other != currentContract && other != voteDelegate_;
-    address other2;
-    require other2 != urn && other2 != farm;
-    address other3;
-    require other3 != to;
-
-    mathint mkrSkyRate = mkrSkyRate();
-    mathint fee = fee();
-
-    bytes32 ilk = ilk();
-    mathint vatUrnsIlkUrnInkBefore; mathint a;
-    vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
-    mathint skyTotalSupplyBefore = sky.totalSupply();
-    mathint skyBalanceOfToBefore = sky.balanceOf(to);
-    mathint skyBalanceOfOtherBefore = sky.balanceOf(other3);
-    mathint mkrTotalSupplyBefore = mkr.totalSupply();
-    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfVoteDelegateBefore = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
-    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
-
-    // Happening in constructor
-    require mkrSkyRate == to_mathint(mkrSky.rate());
-    require fee < WAD();
-    // Tokens invariants
-    require skyTotalSupplyBefore >= skyBalanceOfToBefore + skyBalanceOfOtherBefore;
-    require mkrTotalSupplyBefore >= mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBefore + mkrBalanceOfOtherBefore;
-    require lsmkrTotalSupplyBefore >= lsmkrBalanceOfUrnBefore + lsmkrBalanceOfFarmBefore + lsmkrBalanceOfOtherBefore;
-
-    freeSky(e, owner, index, to, skyWad);
-
-    mathint vatUrnsIlkUrnInkAfter;
-    vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
-    mathint skyTotalSupplyAfter = sky.totalSupply();
-    mathint skyBalanceOfToAfter = sky.balanceOf(to);
-    mathint skyBalanceOfOtherAfter = sky.balanceOf(other3);
-    mathint mkrTotalSupplyAfter = mkr.totalSupply();
-    mathint mkrBalanceOfVoteDelegateAfter = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
-    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
-
-    assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore - skyWad/mkrSkyRate, "Assert 1";
-    assert skyTotalSupplyAfter == skyTotalSupplyBefore + (skyWad/mkrSkyRate - skyWad/mkrSkyRate * fee / WAD()) * mkrSkyRate, "Assert 2";
-    assert skyBalanceOfToAfter == skyBalanceOfToBefore + (skyWad/mkrSkyRate - skyWad/mkrSkyRate * fee / WAD()) * mkrSkyRate, "Assert 3";
-    assert skyBalanceOfOtherAfter == skyBalanceOfOtherBefore, "Assert 4";
-    assert mkrTotalSupplyAfter == mkrTotalSupplyBefore - skyWad/mkrSkyRate, "Assert 5";
-    assert to != voteDelegate_ && voteDelegate_ == 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 6";
-    assert to != voteDelegate_ && voteDelegate_ != 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore - skyWad/mkrSkyRate, "Assert 7";
-    assert to != currentContract && voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - skyWad/mkrSkyRate, "Assert 8";
-    assert to != currentContract && voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 9";
-    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 10";
-    assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - skyWad/mkrSkyRate, "Assert 11";
-    assert farm == 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 12";
-    assert farm != 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - skyWad/mkrSkyRate, "Assert 13";
-    assert farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - skyWad/mkrSkyRate, "Assert 14";
-    assert farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 15";
-    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 16";
-}
-
-// Verify revert rules on freeSky
-rule freeSky_revert(address owner, uint256 index, address to, uint256 skyWad) {
-    env e;
-
-    address urn = ownerUrns(owner, index);
-    require urn == lockstakeUrn;
-
-    address voteDelegate_ = urnVoteDelegates(urn);
-    require voteDelegate_ == 0 || voteDelegate_ == voteDelegate;
-    address farm = urnFarms(urn);
-    require farm == 0 || farm == stakingRewards;
-
-    require e.msg.sender != voteDelegate_ && e.msg.sender != currentContract;
-
-    mathint urnCanUrnSender = urnCan(urn, e.msg.sender);
-
-    mathint mkrSkyRate = mkrSkyRate();
-    mathint fee = fee();
-
-    bytes32 ilk = ilk();
-    mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt; mathint vatIlksIlkArt; mathint vatIlksIlkRate; mathint vatIlksIlkSpot; mathint vatIlksIlkDust; mathint a;
-    vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
-    vatIlksIlkArt, vatIlksIlkRate, vatIlksIlkSpot, a, vatIlksIlkDust = vat.ilks(ilk);
-
-    // Happening in constructor
-    require mkrSkyRate == to_mathint(mkrSky.rate());
-    require fee < WAD();
-    require mkr.allowance(currentContract, mkrSky) == max_uint256;
-    // Avoid division by zero
-    require mkrSkyRate > 0;
-    // Happening in urn init
-    require vat.can(urn, currentContract) == 1;
-    require lsmkr.allowance(urn, currentContract) == max_uint256;
-    // Happening in deploy scripts
-    require vat.wards(currentContract) == 1;
-    require lsmkr.wards(currentContract) == 1;
-    // Tokens invariants
-    require sky.totalSupply() >= sky.balanceOf(to);
-    require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
-    // Practical assumption
-    require sky.totalSupply() + skyWad <= max_uint256;
-    // TODO: this might be nice to prove in some sort
-    require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
-    require voteDelegate_ != 0 => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
-    require voteDelegate_ == 0 => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
-    require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
-    require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
-    // Practical Vat assumptions
-    require vat.live() == 1;
-    require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
-    require (vatUrnsIlkUrnInk - skyWad/mkrSkyRate) * vatIlksIlkSpot <= max_uint256;
-    require vatIlksIlkRate * vatIlksIlkArt <= max_uint256;
-    require vatIlksIlkArt >= vatUrnsIlkUrnArt;
-    require vatUrnsIlkUrnArt == 0 || vatIlksIlkRate * vatUrnsIlkUrnArt >= vatIlksIlkDust;
-    // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
-    require vat.gem(ilk, urn) == 0;
-    // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
-    require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
-    require lsmkr.balanceOf(urn) > 0 => farm == 0;
-    require stakingRewards.balanceOf(urn)  > 0 => farm != 0;
-    require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
-
-    freeSky@withrevert(e, owner, index, to, skyWad);
-
-    bool revert1 = e.msg.value > 0;
-    bool revert2 = urn == 0;
-    bool revert3 = owner != e.msg.sender && urnCanUrnSender != 1;
-    bool revert4 = to_mathint(skyWad/mkrSkyRate) > max_int256();
-    bool revert5 = vatUrnsIlkUrnInk < to_mathint(skyWad/mkrSkyRate) || skyWad/mkrSkyRate > 0 && (vatUrnsIlkUrnInk - skyWad/mkrSkyRate) * vatIlksIlkSpot < vatUrnsIlkUrnArt * vatIlksIlkRate;
-    bool revert6 = farm != 0 && skyWad/mkrSkyRate == 0;
-    bool revert7 = skyWad/mkrSkyRate * fee > max_uint256;
 
     assert lastReverted <=> revert1 || revert2 || revert3 ||
                             revert4 || revert5 || revert6 ||
@@ -1466,52 +1153,52 @@ rule freeNoFee(address owner, uint256 index, address to, uint256 wad) {
     bytes32 ilk = ilk();
     mathint vatUrnsIlkUrnInkBefore; mathint a;
     vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
-    mathint mkrTotalSupplyBefore = mkr.totalSupply();
-    mathint mkrBalanceOfToBefore = mkr.balanceOf(to);
-    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfVoteDelegateBefore = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
-    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other2);
+    mathint skyTotalSupplyBefore = sky.totalSupply();
+    mathint skyBalanceOfToBefore = sky.balanceOf(to);
+    mathint skyBalanceOfEngineBefore = sky.balanceOf(currentContract);
+    mathint skyBalanceOfVoteDelegateBefore = sky.balanceOf(voteDelegate_);
+    mathint skyBalanceOfOtherBefore = sky.balanceOf(other);
+    mathint lsskyTotalSupplyBefore = lssky.totalSupply();
+    mathint lsskyBalanceOfUrnBefore = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfFarmBefore = lssky.balanceOf(farm);
+    mathint lsskyBalanceOfOtherBefore = lssky.balanceOf(other2);
 
     // Tokens invariants
-    require mkrTotalSupplyBefore >= mkrBalanceOfToBefore + mkrBalanceOfEngineBefore + mkrBalanceOfVoteDelegateBefore + mkrBalanceOfOtherBefore;
-    require lsmkrTotalSupplyBefore >= lsmkrBalanceOfUrnBefore + lsmkrBalanceOfFarmBefore + lsmkrBalanceOfOtherBefore;
+    require skyTotalSupplyBefore >= skyBalanceOfToBefore + skyBalanceOfEngineBefore + skyBalanceOfVoteDelegateBefore + skyBalanceOfOtherBefore;
+    require lsskyTotalSupplyBefore >= lsskyBalanceOfUrnBefore + lsskyBalanceOfFarmBefore + lsskyBalanceOfOtherBefore;
 
     freeNoFee(e, owner, index, to, wad);
 
     mathint vatUrnsIlkUrnInkAfter;
     vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
-    mathint mkrTotalSupplyAfter = mkr.totalSupply();
-    mathint mkrBalanceOfToAfter = mkr.balanceOf(to);
-    mathint mkrBalanceOfVoteDelegateAfter = mkr.balanceOf(voteDelegate_);
-    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
-    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
-    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other2);
+    mathint skyTotalSupplyAfter = sky.totalSupply();
+    mathint skyBalanceOfToAfter = sky.balanceOf(to);
+    mathint skyBalanceOfVoteDelegateAfter = sky.balanceOf(voteDelegate_);
+    mathint skyBalanceOfEngineAfter = sky.balanceOf(currentContract);
+    mathint skyBalanceOfOtherAfter = sky.balanceOf(other);
+    mathint lsskyTotalSupplyAfter = lssky.totalSupply();
+    mathint lsskyBalanceOfFarmAfter = lssky.balanceOf(farm);
+    mathint lsskyBalanceOfUrnAfter = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfOtherAfter = lssky.balanceOf(other2);
 
     assert vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore - wad, "Assert 1";
-    assert mkrTotalSupplyAfter == mkrTotalSupplyBefore, "Assert 2";
+    assert skyTotalSupplyAfter == skyTotalSupplyBefore, "Assert 2";
     assert to != currentContract && to != voteDelegate_   ||
            to == currentContract && voteDelegate_ != 0 ||
-           to == voteDelegate_ && voteDelegate_ == 0 => mkrBalanceOfToAfter == mkrBalanceOfToBefore + wad, "Assert 3";
+           to == voteDelegate_ && voteDelegate_ == 0 => skyBalanceOfToAfter == skyBalanceOfToBefore + wad, "Assert 3";
     assert to == currentContract && voteDelegate_ == 0 ||
-           to == voteDelegate_ && voteDelegate_ != 0 => mkrBalanceOfToAfter == mkrBalanceOfToBefore, "Assert 4";
-    assert to != voteDelegate_ && voteDelegate_ == 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore, "Assert 5";
-    assert to != voteDelegate_ && voteDelegate_ != 0 => mkrBalanceOfVoteDelegateAfter == mkrBalanceOfVoteDelegateBefore - wad, "Assert 6";
-    assert to != currentContract && voteDelegate_ == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - wad, "Assert 7";
-    assert to != currentContract && voteDelegate_ != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 8";
-    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 9";
-    assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - wad, "Assert 10";
-    assert farm == 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore, "Assert 11";
-    assert farm != 0 => lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 12";
-    assert farm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 13";
-    assert farm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 14";
-    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 15";
+           to == voteDelegate_ && voteDelegate_ != 0 => skyBalanceOfToAfter == skyBalanceOfToBefore, "Assert 4";
+    assert to != voteDelegate_ && voteDelegate_ == 0 => skyBalanceOfVoteDelegateAfter == skyBalanceOfVoteDelegateBefore, "Assert 5";
+    assert to != voteDelegate_ && voteDelegate_ != 0 => skyBalanceOfVoteDelegateAfter == skyBalanceOfVoteDelegateBefore - wad, "Assert 6";
+    assert to != currentContract && voteDelegate_ == 0 => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - wad, "Assert 7";
+    assert to != currentContract && voteDelegate_ != 0 => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore, "Assert 8";
+    assert skyBalanceOfOtherAfter == skyBalanceOfOtherBefore, "Assert 9";
+    assert lsskyTotalSupplyAfter == lsskyTotalSupplyBefore - wad, "Assert 10";
+    assert farm == 0 => lsskyBalanceOfFarmAfter == lsskyBalanceOfFarmBefore, "Assert 11";
+    assert farm != 0 => lsskyBalanceOfFarmAfter == lsskyBalanceOfFarmBefore - wad, "Assert 12";
+    assert farm == 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore - wad, "Assert 13";
+    assert farm != 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore, "Assert 14";
+    assert lsskyBalanceOfOtherAfter == lsskyBalanceOfOtherBefore, "Assert 15";
 }
 
 // Verify revert rules on freeNoFee
@@ -1539,19 +1226,19 @@ rule freeNoFee_revert(address owner, uint256 index, address to, uint256 wad) {
 
     // Happening in urn init
     require vat.can(urn, currentContract) == 1;
-    require lsmkr.allowance(urn, currentContract) == max_uint256;
+    require lssky.allowance(urn, currentContract) == max_uint256;
     // Happening in deploy scripts
     require vat.wards(currentContract) == 1;
-    require lsmkr.wards(currentContract) == 1;
+    require lssky.wards(currentContract) == 1;
     // Tokens invariants
-    require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(e.msg.sender) + mkr.balanceOf(currentContract) + mkr.balanceOf(voteDelegate_);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(urn) + lsmkr.balanceOf(farm);
+    require to_mathint(sky.totalSupply()) >= sky.balanceOf(e.msg.sender) + sky.balanceOf(currentContract) + sky.balanceOf(voteDelegate_);
+    require to_mathint(lssky.totalSupply()) >= lssky.balanceOf(urn) + lssky.balanceOf(farm);
     // TODO: this might be nice to prove in some sort
-    require mkr.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
+    require sky.balanceOf(voteDelegate_) >= voteDelegate.stake(currentContract);
     require voteDelegate_ != 0 => to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk;
-    require voteDelegate_ == 0 => to_mathint(mkr.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
+    require voteDelegate_ == 0 => to_mathint(sky.balanceOf(currentContract)) >= vatUrnsIlkUrnInk;
     require stakingRewards.totalSupply() == stakingRewards.balanceOf(urn);
-    require lsmkr.balanceOf(farm) == stakingRewards.totalSupply();
+    require lssky.balanceOf(farm) == stakingRewards.totalSupply();
     // Practical Vat assumptions
     require vat.live() == 1;
     require vatIlksIlkRate >= RAY() && vatIlksIlkRate <= max_int256();
@@ -1561,11 +1248,11 @@ rule freeNoFee_revert(address owner, uint256 index, address to, uint256 wad) {
     require vatUrnsIlkUrnArt == 0 || vatIlksIlkRate * vatUrnsIlkUrnArt >= vatIlksIlkDust;
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
-    // Safe to assume as Engine keeps the invariant (rule inkMatchesLsmkrFarm)
-    require lsmkr.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
-    require lsmkr.balanceOf(urn) > 0 => farm == 0;
+    // Safe to assume as Engine keeps the invariant (rule inkMatchesLsskyFarm)
+    require lssky.balanceOf(urn) == 0 || stakingRewards.balanceOf(urn) == 0;
+    require lssky.balanceOf(urn) > 0 => farm == 0;
     require stakingRewards.balanceOf(urn)  > 0 => farm != 0;
-    require vatUrnsIlkUrnInk == lsmkr.balanceOf(urn) + stakingRewards.balanceOf(urn);
+    require vatUrnsIlkUrnInk == lssky.balanceOf(urn) + stakingRewards.balanceOf(urn);
 
     freeNoFee@withrevert(e, owner, index, to, wad);
 
@@ -1949,17 +1636,17 @@ rule onKick(address urn, uint256 wad) {
     address urnFarmsOtherBefore = urnFarms(other);
     mathint urnAuctionsUrnBefore = urnAuctions(urn);
     mathint urnAuctionsOtherBefore = urnAuctions(other);
-    mathint mkrBalanceOfPrevVoteDelegateBefore = mkr.balanceOf(prevVoteDelegate);
-    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other2);
-    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfPrevFarmBefore = lsmkr.balanceOf(prevFarm);
-    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other3);
+    mathint skyBalanceOfPrevVoteDelegateBefore = sky.balanceOf(prevVoteDelegate);
+    mathint skyBalanceOfEngineBefore = sky.balanceOf(currentContract);
+    mathint skyBalanceOfOtherBefore = sky.balanceOf(other2);
+    mathint lsskyTotalSupplyBefore = lssky.totalSupply();
+    mathint lsskyBalanceOfPrevFarmBefore = lssky.balanceOf(prevFarm);
+    mathint lsskyBalanceOfUrnBefore = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfOtherBefore = lssky.balanceOf(other3);
 
     // Tokens invariants
-    require to_mathint(mkr.totalSupply()) >= mkrBalanceOfPrevVoteDelegateBefore + mkrBalanceOfEngineBefore + mkrBalanceOfOtherBefore;
-    require lsmkrTotalSupplyBefore >= lsmkrBalanceOfPrevFarmBefore + lsmkrBalanceOfUrnBefore + lsmkrBalanceOfOtherBefore;
+    require to_mathint(sky.totalSupply()) >= skyBalanceOfPrevVoteDelegateBefore + skyBalanceOfEngineBefore + skyBalanceOfOtherBefore;
+    require lsskyTotalSupplyBefore >= lsskyBalanceOfPrevFarmBefore + lsskyBalanceOfUrnBefore + lsskyBalanceOfOtherBefore;
 
     onKick(e, urn, wad);
 
@@ -1969,13 +1656,13 @@ rule onKick(address urn, uint256 wad) {
     address urnFarmsOtherAfter = urnFarms(other);
     mathint urnAuctionsUrnAfter = urnAuctions(urn);
     mathint urnAuctionsOtherAfter = urnAuctions(other);
-    mathint mkrBalanceOfPrevVoteDelegateAfter = mkr.balanceOf(prevVoteDelegate);
-    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other2);
-    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfPrevFarmAfter = lsmkr.balanceOf(prevFarm);
-    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other3);
+    mathint skyBalanceOfPrevVoteDelegateAfter = sky.balanceOf(prevVoteDelegate);
+    mathint skyBalanceOfEngineAfter = sky.balanceOf(currentContract);
+    mathint skyBalanceOfOtherAfter = sky.balanceOf(other2);
+    mathint lsskyTotalSupplyAfter = lssky.totalSupply();
+    mathint lsskyBalanceOfPrevFarmAfter = lssky.balanceOf(prevFarm);
+    mathint lsskyBalanceOfUrnAfter = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfOtherAfter = lssky.balanceOf(other3);
 
     assert urnVoteDelegatesUrnAfter == 0, "Assert 1";
     assert urnVoteDelegatesOtherAfter == urnVoteDelegatesOtherBefore, "Assert 2";
@@ -1983,17 +1670,17 @@ rule onKick(address urn, uint256 wad) {
     assert urnFarmsOtherAfter == urnFarmsOtherBefore, "Assert 4";
     assert urnAuctionsUrnAfter == urnAuctionsUrnBefore + 1, "Assert 5";
     assert urnAuctionsOtherAfter == urnAuctionsOtherBefore, "Assert 6";
-    assert prevVoteDelegate == 0 => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore, "Assert 7";
-    assert prevVoteDelegate != 0 => mkrBalanceOfPrevVoteDelegateAfter == mkrBalanceOfPrevVoteDelegateBefore - vatUrnsIlkUrnInk - wad, "Assert 8";
-    assert prevVoteDelegate == 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore, "Assert 9";
-    assert prevVoteDelegate != 0 => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore + vatUrnsIlkUrnInk + wad, "Assert 10";
-    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 11";
-    assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore - wad, "Assert 12";
-    assert prevFarm == 0 => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore, "Assert 13";
-    assert prevFarm != 0 => lsmkrBalanceOfPrevFarmAfter == lsmkrBalanceOfPrevFarmBefore - vatUrnsIlkUrnInk - wad, "Assert 14";
-    assert prevFarm == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 15";
-    assert prevFarm != 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + vatUrnsIlkUrnInk, "Assert 16";
-    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 17";
+    assert prevVoteDelegate == 0 => skyBalanceOfPrevVoteDelegateAfter == skyBalanceOfPrevVoteDelegateBefore, "Assert 7";
+    assert prevVoteDelegate != 0 => skyBalanceOfPrevVoteDelegateAfter == skyBalanceOfPrevVoteDelegateBefore - vatUrnsIlkUrnInk - wad, "Assert 8";
+    assert prevVoteDelegate == 0 => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore, "Assert 9";
+    assert prevVoteDelegate != 0 => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore + vatUrnsIlkUrnInk + wad, "Assert 10";
+    assert skyBalanceOfOtherAfter == skyBalanceOfOtherBefore, "Assert 11";
+    assert lsskyTotalSupplyAfter == lsskyTotalSupplyBefore - wad, "Assert 12";
+    assert prevFarm == 0 => lsskyBalanceOfPrevFarmAfter == lsskyBalanceOfPrevFarmBefore, "Assert 13";
+    assert prevFarm != 0 => lsskyBalanceOfPrevFarmAfter == lsskyBalanceOfPrevFarmBefore - vatUrnsIlkUrnInk - wad, "Assert 14";
+    assert prevFarm == 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore - wad, "Assert 15";
+    assert prevFarm != 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore + vatUrnsIlkUrnInk, "Assert 16";
+    assert lsskyBalanceOfOtherAfter == lsskyBalanceOfOtherBefore, "Assert 17";
 }
 
 // Verify revert rules on onKick
@@ -2012,16 +1699,16 @@ rule onKick_revert(address urn, uint256 wad) {
     vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk(), urn);
 
     // Happening in urn init
-    require lsmkr.allowance(urn, currentContract) == max_uint256;
+    require lssky.allowance(urn, currentContract) == max_uint256;
     // Tokens invariants
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(urn) + lsmkr.balanceOf(currentContract);
+    require to_mathint(lssky.totalSupply()) >= lssky.balanceOf(prevFarm) + lssky.balanceOf(urn) + lssky.balanceOf(currentContract);
     require stakingRewards.totalSupply() >= stakingRewards.balanceOf(urn);
     // VoteDelegate assumptions
     require prevVoteDelegate == 0 || to_mathint(voteDelegate.stake(currentContract)) >= vatUrnsIlkUrnInk + wad;
-    require prevVoteDelegate == 0 || mkr.balanceOf(voteDelegate) >= voteDelegate.stake(currentContract);
+    require prevVoteDelegate == 0 || sky.balanceOf(voteDelegate) >= voteDelegate.stake(currentContract);
     // StakingRewards assumptions
-    require prevFarm == 0 && lsmkr.balanceOf(urn) >= wad ||
-            prevFarm != 0 && to_mathint(stakingRewards.balanceOf(urn)) >= vatUrnsIlkUrnInk + wad && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUrnInk + wad;
+    require prevFarm == 0 && lssky.balanceOf(urn) >= wad ||
+            prevFarm != 0 && to_mathint(stakingRewards.balanceOf(urn)) >= vatUrnsIlkUrnInk + wad && to_mathint(lssky.balanceOf(prevFarm)) >= vatUrnsIlkUrnInk + wad;
     // LockstakeClipper assumption
     require wad > 0;
     // Practical assumption (vatUrnsIlkUrnInk + wad should be the same than the vatUrnsIlkUrnInk prev to the kick call)
@@ -2043,22 +1730,22 @@ rule onTake(address urn, address who, uint256 wad) {
     address other;
     require other != currentContract && other != who;
 
-    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfWhoBefore = mkr.balanceOf(who);
-    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other);
+    mathint skyBalanceOfEngineBefore = sky.balanceOf(currentContract);
+    mathint skyBalanceOfWhoBefore = sky.balanceOf(who);
+    mathint skyBalanceOfOtherBefore = sky.balanceOf(other);
 
     // Tokens invariants
-    require to_mathint(mkr.totalSupply()) >= mkrBalanceOfEngineBefore + mkrBalanceOfWhoBefore + mkrBalanceOfOtherBefore;
+    require to_mathint(sky.totalSupply()) >= skyBalanceOfEngineBefore + skyBalanceOfWhoBefore + skyBalanceOfOtherBefore;
 
     onTake(e, urn, who, wad);
 
-    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfWhoAfter = mkr.balanceOf(who);
-    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other);
+    mathint skyBalanceOfEngineAfter = sky.balanceOf(currentContract);
+    mathint skyBalanceOfWhoAfter = sky.balanceOf(who);
+    mathint skyBalanceOfOtherAfter = sky.balanceOf(other);
 
-    assert who != currentContract => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - wad, "Assert 1";
-    assert who != currentContract => mkrBalanceOfWhoAfter == mkrBalanceOfWhoBefore + wad, "Assert 2";
-    assert who == currentContract => mkrBalanceOfWhoAfter == mkrBalanceOfWhoBefore, "Assert 3";
+    assert who != currentContract => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - wad, "Assert 1";
+    assert who != currentContract => skyBalanceOfWhoAfter == skyBalanceOfWhoBefore + wad, "Assert 2";
+    assert who == currentContract => skyBalanceOfWhoAfter == skyBalanceOfWhoBefore, "Assert 3";
 }
 
 // Verify revert rules on onTake
@@ -2066,12 +1753,12 @@ rule onTake_revert(address urn, address who, uint256 wad) {
     env e;
 
     mathint wardsSender = wards(e.msg.sender);
-    mathint mkrBalanceOfEngine = mkr.balanceOf(currentContract);
+    mathint skyBalanceOfEngine = sky.balanceOf(currentContract);
 
     // Tokens invariants
-    require to_mathint(mkr.totalSupply()) >= mkrBalanceOfEngine + mkr.balanceOf(who);
+    require to_mathint(sky.totalSupply()) >= skyBalanceOfEngine + sky.balanceOf(who);
     // LockstakeClipper assumption
-    require mkrBalanceOfEngine >= to_mathint(wad);
+    require skyBalanceOfEngine >= to_mathint(wad);
 
     onTake@withrevert(e, urn, who, wad);
 
@@ -2096,18 +1783,18 @@ rule onRemove(address urn, uint256 sold, uint256 left) {
     mathint urnAuctionsOtherBefore = urnAuctions(other);
     mathint vatUrnsIlkUrnInkBefore; mathint a;
     vatUrnsIlkUrnInkBefore, a = vat.urns(ilk, urn);
-    mathint mkrTotalSupplyBefore = mkr.totalSupply();
-    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherBefore = mkr.balanceOf(other2);
-    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfOtherBefore = lsmkr.balanceOf(other);
+    mathint skyTotalSupplyBefore = sky.totalSupply();
+    mathint skyBalanceOfEngineBefore = sky.balanceOf(currentContract);
+    mathint skyBalanceOfOtherBefore = sky.balanceOf(other2);
+    mathint lsskyTotalSupplyBefore = lssky.totalSupply();
+    mathint lsskyBalanceOfUrnBefore = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfOtherBefore = lssky.balanceOf(other);
 
     // Happening in constructor
     require fee < WAD();
     // Tokens invariants
-    require mkrTotalSupplyBefore >= mkrBalanceOfEngineBefore + mkrBalanceOfOtherBefore;
-    require lsmkrTotalSupplyBefore >= lsmkrBalanceOfUrnBefore + lsmkrBalanceOfOtherBefore;
+    require skyTotalSupplyBefore >= skyBalanceOfEngineBefore + skyBalanceOfOtherBefore;
+    require lsskyTotalSupplyBefore >= lsskyBalanceOfUrnBefore + lsskyBalanceOfOtherBefore;
 
     mathint burn = _min(sold * fee / (WAD() - fee), left);
     mathint refund = left - burn;
@@ -2118,25 +1805,25 @@ rule onRemove(address urn, uint256 sold, uint256 left) {
     mathint urnAuctionsOtherAfter = urnAuctions(other);
     mathint vatUrnsIlkUrnInkAfter;
     vatUrnsIlkUrnInkAfter, a = vat.urns(ilk, urn);
-    mathint mkrTotalSupplyAfter = mkr.totalSupply();
-    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(currentContract);
-    mathint mkrBalanceOfOtherAfter = mkr.balanceOf(other2);
-    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(urn);
-    mathint lsmkrBalanceOfOtherAfter = lsmkr.balanceOf(other);
+    mathint skyTotalSupplyAfter = sky.totalSupply();
+    mathint skyBalanceOfEngineAfter = sky.balanceOf(currentContract);
+    mathint skyBalanceOfOtherAfter = sky.balanceOf(other2);
+    mathint lsskyTotalSupplyAfter = lssky.totalSupply();
+    mathint lsskyBalanceOfUrnAfter = lssky.balanceOf(urn);
+    mathint lsskyBalanceOfOtherAfter = lssky.balanceOf(other);
 
     assert urnAuctionsUrnAfter == urnAuctionsUrnBefore - 1, "Assert 1";
     assert urnAuctionsOtherAfter == urnAuctionsOtherBefore, "Assert 2";
     assert refund > 0 => vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore + refund, "Assert 3";
     assert refund == 0 => vatUrnsIlkUrnInkAfter == vatUrnsIlkUrnInkBefore, "Assert 4";
-    assert mkrTotalSupplyAfter == mkrTotalSupplyBefore - burn, "Assert 5";
-    assert mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - burn, "Assert 6";
-    assert mkrBalanceOfOtherAfter == mkrBalanceOfOtherBefore, "Assert 7";
-    assert refund > 0 => lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + refund, "Assert 8";
-    assert refund == 0 => lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore, "Assert 9";
-    assert refund > 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + refund, "Assert 10";
-    assert refund == 0 => lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore, "Assert 11";
-    assert lsmkrBalanceOfOtherAfter == lsmkrBalanceOfOtherBefore, "Assert 12";
+    assert skyTotalSupplyAfter == skyTotalSupplyBefore - burn, "Assert 5";
+    assert skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - burn, "Assert 6";
+    assert skyBalanceOfOtherAfter == skyBalanceOfOtherBefore, "Assert 7";
+    assert refund > 0 => lsskyTotalSupplyAfter == lsskyTotalSupplyBefore + refund, "Assert 8";
+    assert refund == 0 => lsskyTotalSupplyAfter == lsskyTotalSupplyBefore, "Assert 9";
+    assert refund > 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore + refund, "Assert 10";
+    assert refund == 0 => lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore, "Assert 11";
+    assert lsskyBalanceOfOtherAfter == lsskyBalanceOfOtherBefore, "Assert 12";
 }
 
 // Verify revert rules on onRemove
@@ -2151,10 +1838,10 @@ rule onRemove_revert(address urn, uint256 sold, uint256 left) {
     vatIlksIlkArt, vatIlksIlkRate, a, a, a = vat.ilks(ilk);
     mathint vatUrnsIlkUrnInk; mathint vatUrnsIlkUrnArt;
     vatUrnsIlkUrnInk, vatUrnsIlkUrnArt = vat.urns(ilk, urn);
-    mathint mkrTotalSupply = mkr.totalSupply();
-    mathint mkrBalanceOfEngine = mkr.balanceOf(currentContract);
-    mathint lsmkrTotalSupply = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUrn = lsmkr.balanceOf(urn);
+    mathint skyTotalSupply = sky.totalSupply();
+    mathint skyBalanceOfEngine = sky.balanceOf(currentContract);
+    mathint lsskyTotalSupply = lssky.totalSupply();
+    mathint lsskyBalanceOfUrn = lssky.balanceOf(urn);
 
     // Happening in constructor
     require fee < WAD();
@@ -2162,10 +1849,10 @@ rule onRemove_revert(address urn, uint256 sold, uint256 left) {
     require vat.can(urn, currentContract) == 1;
     // Happening in deploy scripts
     require vat.wards(currentContract) == 1;
-    require lsmkr.wards(currentContract) == 1;
+    require lssky.wards(currentContract) == 1;
     // Tokens invariants
-    require mkrTotalSupply >= mkrBalanceOfEngine;
-    require lsmkrTotalSupply >= lsmkrBalanceOfUrn;
+    require skyTotalSupply >= skyBalanceOfEngine;
+    require lsskyTotalSupply >= lsskyBalanceOfUrn;
 
     require sold * fee < max_uint256;
     mathint burn = _min(sold * fee / (WAD() - fee), left);
@@ -2179,10 +1866,10 @@ rule onRemove_revert(address urn, uint256 sold, uint256 left) {
     // Safe to assume as Engine doesn't modify vat.gem(ilk,urn) (rule vatGemKeepsUnchanged)
     require vat.gem(ilk, urn) == 0;
     // Practical token assumptions
-    require lsmkrTotalSupply + refund <= max_uint256;
+    require lsskyTotalSupply + refund <= max_uint256;
     // Assumption from LockstakeClipper
-    require mkrBalanceOfEngine >= burn;
-    require urn != lsmkr && urn != 0;
+    require skyBalanceOfEngine >= burn;
+    require urn != lssky && urn != 0;
 
     onRemove@withrevert(e, urn, sold, left);
 

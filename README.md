@@ -4,40 +4,36 @@ A technical description of the components of the LockStake Engine (LSE).
 
 ## 1. LockstakeEngine
 
-The LockstakeEngine is the main contract in the set of contracts that implement and support the LSE. On a high level, it supports locking MKR in the contract, and using it to:
+The LockstakeEngine is the main contract in the set of contracts that implement and support the LSE. On a high level, it supports locking SKY in the contract, and using it to:
 * Vote through a delegate contract.
 * Farm USDS or SDAO tokens.
 * Borrow USDS through a vault.
 
-When withdrawing back the MKR the user has to pay an exit fee.
-
-There is also support for locking and freeing SKY instead of MKR.
+When withdrawing back the SKY the user has to pay an exit fee.
 
 **System Attributes:**
 
 * A single user address can open multiple positions (each denoted as `urn`).
 * Each `urn` relates to zero or one chosen delegate contract, zero or one chosen farm, and one vault.
-* MKR cannot be moved outside of an `urn` or between `urn`s without paying the exit fee.
-* At any time the `urn`'s entire locked MKR amount is either staked or not, and is either delegated or not.
+* SKY cannot be moved outside of an `urn` or between `urn`s without paying the exit fee.
+* At any time the `urn`'s entire locked SKY amount is either staked or not, and is either delegated or not.
 * Staking rewards are not part of the collateral, and are still claimable after freeing from the engine, changing a farm or being liquidated.
-* The entire locked MKR amount is also credited as collateral for the user. However, the user itself decides if and how much USDS to borrow, and should be aware of liquidation risk.
+* The entire locked SKY amount is also credited as collateral for the user. However, the user itself decides if and how much USDS to borrow, and should be aware of liquidation risk.
 * A user can delegate control of an `urn` that it controls to another EOA/contract. This is helpful for supporting manager-type contracts that can be built on top of the engine.
-* Once a vault goes into liquidation, its MKR is undelegated and unstaked. It and can only be re-delegated or re-staked once there are no more auctions for it.
+* Once a vault goes into liquidation, its SKY is undelegated and unstaked. It and can only be re-delegated or re-staked once there are no more auctions for it.
 
 **User Functions:**
 
 * `open(uint256 index)` - Create a new `urn` for the sender. The `index` parameter specifies how many `urn`s have been created so far by the user (should be 0 for the first call). It is used to avoid race conditions.
 * `hope(address owner, uint256 index, address usr)` - Allow `usr` to also manage the `owner-index` `urn`.
 * `nope(address owner, uint256 index, address usr)` - Disallow `usr` from managing the `owner-index` `urn`.
-* `lock(address owner, uint256 index, uint256 wad, uint16 ref)` - Deposit `wad` amount of MKR into the `owner-index` `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
-* `lockSky(address owner, uint256 index, uint256 skyWad, uint16 ref)` - Deposit `skyWad` amount of SKY. The SKY is first converted to MKR, which then gets deposited into the `owner-index` `urn`. This also delegates the MKR to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
-* `free(address owner, uint256 index, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `owner-index` `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed.
-* `freeSky(address owner, uint256 index, address to, uint256 skyWad)` - Withdraw `skyWad - skyWad % mkrSkyRate` amount of SKY to the `to` address. In practice, a proportional amount of MKR is first freed from the `owner-index` `urn` (minus the exit fee), then gets converted to SKY and sent out. This will undelegate the MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. Note that freeing SKY is possible even if the position was previously entered via regular locking (using MKR), and vice-vera.
-* `freeNoFee(address owner, uint256 index, address to, uint256 wad)` - Withdraw `wad` amount of MKR from the `owner-index` `urn` to the `to` address without paying any fee. This will undelegate the requested amount of MKR (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. This function can only be called by an address which was both authorized on the contract by governance and for which the urn owner has called `hope`. It is useful for implementing a migration contract that will move the funds to another engine contract (if ever needed).
-* `selectVoteDelegate(address owner, uint256 index, address voteDelegate)` - Choose which delegate contract to delegate the `owner-index` `urn`'s entire MKR amount to. In case it is `address(0)` the MKR will stay (or become) undelegated.
-* `selectFarm(address owner, uint256 index, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `owner-index` `urn`'s MKR to (along with the `ref` code). In case it is `address(0)` the MKR will stay (or become) unstaked.
-* `draw(address owner, uint256 index, address to, uint256 wad)` - Generate `wad` amount of USDS using the `owner-index` `urn`’s MKR as collateral and send it to the `to` address.
-* `wipe(address owner, uint256 index, uint256 wad)` - Repay `wad` amount of USDS backed by the `owner-index` `urn`’s MKR.
+* `lock(address owner, uint256 index, uint256 wad, uint16 ref)` - Deposit `wad` amount of SKY into the `owner-index` `urn`. This also delegates the SKY to the chosen delegate (if such exists) and stakes it to the chosen farm (if such exists) using the `ref` code.
+* `free(address owner, uint256 index, address to, uint256 wad)` - Withdraw `wad` amount of SKY from the `owner-index` `urn` to the `to` address (which will receive it minus the exit fee). This will undelegate the requested amount of SKY (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed.
+* `freeNoFee(address owner, uint256 index, address to, uint256 wad)` - Withdraw `wad` amount of SKY from the `owner-index` `urn` to the `to` address without paying any fee. This will undelegate the requested amount of SKY (if a delegate was chosen) and unstake it (if a farm was chosen). It will require the user to pay down debt beforehand if needed. This function can only be called by an address which was both authorized on the contract by governance and for which the urn owner has called `hope`. It is useful for implementing a migration contract that will move the funds to another engine contract (if ever needed).
+* `selectVoteDelegate(address owner, uint256 index, address voteDelegate)` - Choose which delegate contract to delegate the `owner-index` `urn`'s entire SKY amount to. In case it is `address(0)` the SKY will stay (or become) undelegated.
+* `selectFarm(address owner, uint256 index, address farm, uint16 ref)` - Select which farm (from the whitelisted ones) to stake the `owner-index` `urn`'s SKY to (along with the `ref` code). In case it is `address(0)` the SKY will stay (or become) unstaked.
+* `draw(address owner, uint256 index, address to, uint256 wad)` - Generate `wad` amount of USDS using the `owner-index` `urn`’s SKY as collateral and send it to the `to` address.
+* `wipe(address owner, uint256 index, uint256 wad)` - Repay `wad` amount of USDS backed by the `owner-index` `urn`’s SKY.
 * `wipeAll(address owner, uint256 index)` - Repay the amount of USDS that is needed to wipe the `owner-index` `urn`’s entire debt.
 * `getReward(address owner, uint256 index, address farm, address to)` - Claim the reward generated from a farm on behalf of the `owner-index` `urn` and send it to the specified `to` address.
 * `multicall(bytes[] calldata data)` - Batch multiple methods in a single call to the contract.
@@ -96,9 +92,9 @@ Upon calling `open`, an `urn` contract is deployed for each position. The `urn` 
 
 The following functions are called from the LockstakeClipper (see below) throughout the liquidation process.
 
-* `onKick(address urn, uint256 wad)` - Undelegate and unstake the entire `urn`'s MKR amount. Users need to manually delegate and stake again if there are leftovers after liquidation finishes.
-* `onTake(address urn, address who, uint256 wad)` - Transfer MKR to the liquidation auction buyer.
-* `onRemove(address urn, uint256 sold, uint256 left)` - Burn a proportional amount of the MKR which was bought in the auction and return the rest to the `urn`.
+* `onKick(address urn, uint256 wad)` - Undelegate and unstake the entire `urn`'s SKY amount. Users need to manually delegate and stake again if there are leftovers after liquidation finishes.
+* `onTake(address urn, address who, uint256 wad)` - Transfer SKY to the liquidation auction buyer.
+* `onRemove(address urn, uint256 sold, uint256 left)` - Burn a proportional amount of the SKY which was bought in the auction and return the rest to the `urn`.
 
 **Configurable Parameters:**
 
@@ -113,11 +109,11 @@ A modified version of the Liquidations 2.0 Clipper contract, which uses specific
 
 Specifically, the LockstakeEngine is called upon a beginning of an auction (`onKick`), a sell of collateral (`onTake`), and when the auction is concluded (`onRemove`).
 
-The LSE liquidation process differs from the usual liquidations by the fact that it sends the taker callee the collateral (MKR) in the form of ERC20 tokens and not `vat.gem`.
+The LSE liquidation process differs from the usual liquidations by the fact that it sends the taker callee the collateral (SKY) in the form of ERC20 tokens and not `vat.gem`.
 
 **Exit Fee on Liquidation**
 
-For a liquidated position the relative exit fee is burned from the MKR (collateral) leftovers upon completion of the auction. To ensure enough MKR is left, and also prevent incentives for self-liquidation, the ilk's liquidation ratio (`mat`) must be set high enough. We calculate below the minimal `mat` (while ignoring parameters resolution for simplicity):
+For a liquidated position the relative exit fee is burned from the SKY (collateral) leftovers upon completion of the auction. To ensure enough SKY is left, and also prevent incentives for self-liquidation, the ilk's liquidation ratio (`mat`) must be set high enough. We calculate below the minimal `mat` (while ignoring parameters resolution for simplicity):
 
 To be able to liquidate we need the vault to be liquidate-able. The point where that happens is:
 `① ink * price / mat = debt`
@@ -170,10 +166,8 @@ Note that the increased gas cost should be taken into consideration when determi
 ## 3. Vote Delegation
 ### 3.a. VoteDelegate
 
-The LSE integrates with the current [VoteDelegate](https://github.com/makerdao/vote-delegate/blob/c2345b78376d5b0bb24749a97f82fe9171b53394/src/VoteDelegate.sol) contracts almost as is. However, there are three changes done:
-* In order to support long-term locking, the delegate's expiration functionality needs to be removed.
-* In order to simplify the logic, the IOU tokens generated by DSChief are kept in the new VoteDelegate contract.
-* In order to protect against an attack vector of delaying liquidations or blocking freeing of MKR, an on-demand window where locking MKR is blocked is introduced. The need for this stems from the Chief's flash loan protection, which doesn't allow to free MKR from a delegate in case MKR locking was already done in the same block.
+The LSE integrates with [VoteDelegate v3](https://github.com/makerdao/vote-delegate/commits/ca1f2fb9b85ca2f3d89dc200766139c1613809ca) contract.
+* This version removes the on-demand window function, that exists in the previous one, as the flash loan protection has been upgraded in the new Chief version.
 
 ### 3.b. VoteDelegateFactory
 
@@ -183,12 +177,11 @@ Note that it is important for the LSE to only allow using VoteDelegate contracts
 
 ## 4. Keepers Support
 
-In general participating in MKR liquidations should be pretty straightforward using the existing on-chain liquidity. However there is a small caveat:
+In general participating in SKY liquidations should be pretty straightforward using the existing on-chain liquidity. However there is a small caveat:
 
-Current Makerdao ecosystem keepers expect receiving collateral in the form of `vat.gem` (usually to a keeper arbitrage callee contract), which they then need to `exit` to ERC20 from. However the LSE liquidation mechanism sends the MKR directly in the form of ERC20, which requires a slight change in the keepers mode of operation.
+Current Makerdao ecosystem keepers expect receiving collateral in the form of `vat.gem` (usually to a keeper arbitrage callee contract), which they then need to `exit` to ERC20 from. However the LSE liquidation mechanism sends the SKY directly in the form of ERC20, which requires a slight change in the keepers mode of operation.
 
 For example, keepers using the Maker supplied [exchange-callee for Uniswap V2](https://github.com/makerdao/exchange-callees/blob/3b080ecd4169fe09a59be51e2f85ddcea3242461/src/UniswapV2Callee.sol#L109) would need to use a version that gets the `gem` instead of the `gemJoin` and does not call `gemJoin.exit`.
-Additionaly, the callee might need to convert the MKR to SKY, in case it interacts with the USDS/SKY Uniswap pool.
 
 ## 5. Splitter
 
@@ -217,9 +210,32 @@ The StakingRewards contract `setRewardsDuration` function was modified to enable
 * `rewardsDistribution` - The address which is allowed to start a rewards distribution. Will be set to the splitter.
 * `rewardsDuration` - The amount of seconds each distribution should take.
 
+## 7. LockstakeMigrator
+
+A contract which has the purpose to move `urn`s from a deprecated Lockstake version to a newer one, without having to pay the `exit` fee which would be required if the user would want to do this manually via the regular functions.
+This contract uses the `LockstakeEngine.freeNoFee` function ensuring the collateral will still remain locked in a `LockstakeEngine`.
+The migrator requires to be added to the `wards` mapping of the old `LockstakeEngine` and to the `wards` mapping of the `Vat`.
+
+There are two paths that the user could take when calling the `migrate` function for the desired `urn`:
+- If the `urn` doesn't have any debt. This is the simplest path where the collateral is just `free`d from the old engine and `lock`ed in the new one.
+- If the `urn` has debt. This path uses the `DssFlash` module to `wipe` the debt in the old `urn` to be able to move the collateral. After doing so, the debt will be `draw`n in the new `urn` and the funds will be returned to the `DssFlash` module (all happens atomically).
+
+The first path requires the migrator to be `hope`d in the old Engine for the `urn` being migrated. An authed address needs to call this `hope` function previously. It is also required that the caller of `migrate` be an authed address in the `urn` being migrated and in the recipient one.
+For the second path, apart from the same requirements of the simplest one, it is also necessary that an authed address in the `urn` that is receiving the position in the new Lockstake has `hope`d the migrator.
+
+Note: The caller authed requirement for the recipient `urn` in the first path is just an extra safety measure to avoid migrating collateral to an undesired `urn`. However for the second path it is indeed mandatory as migrating debt increases the debt of the recipient `urn`.
+
+Note 2: Even though migrating debt manually outside the migrator is not supported, it is not guaranteed that a migrate call would not revert. It depends on governance parameters such as liquidation ratios and dust, and the system state such as whether a position is under liquidation or should use the `reserveHatch` mechanism. Governance is assumed to configure the parameters in a user-friendly way. The user is of course assumed to be aware of the parameters (for example if after migrating they become closer to liquidation).
+
+Note 3: It is assumed that the debt of the old engine does not exceed the amount filed in onVatDaiFlashLoan prior to the migrator being enabled, and that governance do not change the old ilk line from 0 throughout the process.
+
+Note 4: It is assumed that after a certain period the migrator's permission over the `Vat` will be removed, and the debt ceiling will be managed as usual using the autoline.
+
+Note 5: Migration won't transfer the `VoteDelegate` nor the farm selected in the old `urn` to the destination one. This needs to be manually done by an `urn` authed user directly in the new Engine (before or after the migration).
+
+Note 6: Migrator assumes `MkrSky` is configured without a penalty. So as soon as, the penalty is set above 0, the migrator will generally stop working. It also expects MKR to SKY conversions are not blocked.
+
 ## General Notes
-* In many of the modules, such as the splitter and the flappers, USDS can replace DAI. This will usually require a deployment of the contract with UsdsJoin as a replacement of the DaiJoin address.
 * The LSE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.
 * Freeing very small amounts could bypass the exit fees (due to the rounding down) but since the LSE is meant to only be deployed on Ethereum, this is assumed to not be economically viable.
 * As opposed to other collateral types, if a user notices an upcoming governance action that can hurt their position (or that they just don't like), they can not exit their position without losing the exit fee.
-* It is assumed that MKR to/from SKY conversions are not blocked.

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// LockstakeMkr.sol -- LockstakeMkr token
+/// LockstakeSky.sol -- LockstakeSky token
 
 // Copyright (C) 2017, 2018, 2019 dbrock, rain, mrchico
 // Copyright (C) 2023 Dai Foundation
@@ -20,12 +20,12 @@
 
 pragma solidity ^0.8.21;
 
-contract LockstakeMkr {
+contract LockstakeSky {
     mapping (address => uint256) public wards;
 
     // --- ERC20 Data ---
-    string  public constant name     = "LockstakeMkr";
-    string  public constant symbol   = "lsMKR";
+    string  public constant name     = "LockstakeSky";
+    string  public constant symbol   = "lsSKY";
     string  public constant version  = "1";
     uint8   public constant decimals = 18;
     uint256 public totalSupply;
@@ -40,7 +40,7 @@ contract LockstakeMkr {
     event Transfer(address indexed from, address indexed to, uint256 value);
 
     modifier auth {
-        require(wards[msg.sender] == 1, "LockstakeMkr/not-authorized");
+        require(wards[msg.sender] == 1, "LockstakeSky/not-authorized");
         _;
     }
 
@@ -62,9 +62,9 @@ contract LockstakeMkr {
 
     // --- ERC20 Mutations ---
     function transfer(address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "LockstakeMkr/invalid-address");
+        require(to != address(0) && to != address(this), "LockstakeSky/invalid-address");
         uint256 balance = balanceOf[msg.sender];
-        require(balance >= value, "LockstakeMkr/insufficient-balance");
+        require(balance >= value, "LockstakeSky/insufficient-balance");
 
         unchecked {
             balanceOf[msg.sender] = balance - value;
@@ -77,14 +77,14 @@ contract LockstakeMkr {
     }
 
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        require(to != address(0) && to != address(this), "LockstakeMkr/invalid-address");
+        require(to != address(0) && to != address(this), "LockstakeSky/invalid-address");
         uint256 balance = balanceOf[from];
-        require(balance >= value, "LockstakeMkr/insufficient-balance");
+        require(balance >= value, "LockstakeSky/insufficient-balance");
 
         if (from != msg.sender) {
             uint256 allowed = allowance[from][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= value, "LockstakeMkr/insufficient-allowance");
+                require(allowed >= value, "LockstakeSky/insufficient-allowance");
 
                 unchecked {
                     allowance[from][msg.sender] = allowed - value;
@@ -112,7 +112,7 @@ contract LockstakeMkr {
 
     // --- Mint/Burn ---
     function mint(address to, uint256 value) external auth {
-        require(to != address(0) && to != address(this), "LockstakeMkr/invalid-address");
+        require(to != address(0) && to != address(this), "LockstakeSky/invalid-address");
         unchecked {
             balanceOf[to] = balanceOf[to] + value; // note: we don't need an overflow check here b/c balanceOf[to] <= totalSupply and there is an overflow check below
         }
@@ -123,12 +123,12 @@ contract LockstakeMkr {
 
     function burn(address from, uint256 value) external {
         uint256 balance = balanceOf[from];
-        require(balance >= value, "LockstakeMkr/insufficient-balance");
+        require(balance >= value, "LockstakeSky/insufficient-balance");
 
         if (from != msg.sender) {
             uint256 allowed = allowance[from][msg.sender];
             if (allowed != type(uint256).max) {
-                require(allowed >= value, "LockstakeMkr/insufficient-allowance");
+                require(allowed >= value, "LockstakeSky/insufficient-allowance");
 
                 unchecked {
                     allowance[from][msg.sender] = allowed - value;

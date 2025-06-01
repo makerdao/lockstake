@@ -2,8 +2,8 @@
 
 using LockstakeEngine as lockstakeEngine;
 using LockstakeUrn as lockstakeUrn;
-using LockstakeMkr as lsmkr;
-using MkrMock as mkr;
+using LockstakeSky as lssky;
+using SkyMock as sky;
 using Vat as vat;
 using Spotter as spotter;
 using Dog as dog;
@@ -44,12 +44,12 @@ methods {
     function lockstakeEngine.urnFarms(address) external returns (address) envfree;
     function lockstakeEngine.ilk() external returns (bytes32) envfree;
     function lockstakeEngine.fee() external returns (uint256) envfree;
-    function mkr.totalSupply() external returns (uint256) envfree;
-    function mkr.balanceOf(address) external returns (uint256) envfree;
-    function lsmkr.wards(address) external returns (uint256) envfree;
-    function lsmkr.totalSupply() external returns (uint256) envfree;
-    function lsmkr.allowance(address,address) external returns (uint256) envfree;
-    function lsmkr.balanceOf(address) external returns (uint256) envfree;
+    function sky.totalSupply() external returns (uint256) envfree;
+    function sky.balanceOf(address) external returns (uint256) envfree;
+    function lssky.wards(address) external returns (uint256) envfree;
+    function lssky.totalSupply() external returns (uint256) envfree;
+    function lssky.allowance(address,address) external returns (uint256) envfree;
+    function lssky.balanceOf(address) external returns (uint256) envfree;
     function stakingRewards.balanceOf(address) external returns (uint256) envfree;
     function stakingRewards.totalSupply() external returns (uint256) envfree;
     function voteDelegate.stake(address) external returns (uint256) envfree;
@@ -440,16 +440,16 @@ rule kick_revert(uint256 tab, uint256 lot, address usr, address kpr) {
     require vat.wards(currentContract) == 1;
     require lockstakeEngine.wards(currentContract) == 1;
     // Happening in urn (usr) init
-    require lsmkr.allowance(usr, lockstakeEngine) == max_uint256;
+    require lssky.allowance(usr, lockstakeEngine) == max_uint256;
     // Tokens invariants
-    require to_mathint(lsmkr.totalSupply()) >= lsmkr.balanceOf(prevFarm) + lsmkr.balanceOf(usr) + lsmkr.balanceOf(lockstakeEngine);
+    require to_mathint(lssky.totalSupply()) >= lssky.balanceOf(prevFarm) + lssky.balanceOf(usr) + lssky.balanceOf(lockstakeEngine);
     require stakingRewards.totalSupply() >= stakingRewards.balanceOf(usr);
     // VoteDelegate assumptions
     require prevVoteDelegate == 0 || to_mathint(voteDelegate.stake(lockstakeEngine)) >= vatUrnsIlkUsrInk + lot;
-    require prevVoteDelegate == 0 || mkr.balanceOf(voteDelegate) >= voteDelegate.stake(lockstakeEngine);
+    require prevVoteDelegate == 0 || sky.balanceOf(voteDelegate) >= voteDelegate.stake(lockstakeEngine);
     // StakingRewards assumptions
-    require prevFarm == 0 && lsmkr.balanceOf(usr) >= lot ||
-            prevFarm != 0 && to_mathint(stakingRewards.balanceOf(usr)) >= vatUrnsIlkUsrInk + lot && to_mathint(lsmkr.balanceOf(prevFarm)) >= vatUrnsIlkUsrInk + lot;
+    require prevFarm == 0 && lssky.balanceOf(usr) >= lot ||
+            prevFarm != 0 && to_mathint(stakingRewards.balanceOf(usr)) >= vatUrnsIlkUsrInk + lot && to_mathint(lssky.balanceOf(prevFarm)) >= vatUrnsIlkUsrInk + lot;
     // Practical Vat assumptions
     require vat.sin(vow()) + coin <= max_uint256;
     require vat.dai(kpr) + coin <= max_uint256;
@@ -621,9 +621,9 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     mathint salesOtherPosBefore; mathint salesOtherTabBefore; mathint salesOtherLotBefore; mathint salesOtherTotBefore; address salesOtherUsrBefore; mathint salesOtherTicBefore; mathint salesOtherTopBefore;
     salesOtherPosBefore, salesOtherTabBefore, salesOtherLotBefore, salesOtherTotBefore, salesOtherUsrBefore, salesOtherTicBefore, salesOtherTopBefore = sales(otherUint256);
     mathint vatGemIlkClipperBefore = vat.gem(ilk, currentContract);
-    mathint mkrTotalSupplyBefore = mkr.totalSupply();
-    mathint mkrBalanceOfEngineBefore = mkr.balanceOf(lockstakeEngine);
-    mathint mkrBalanceOfWhoBefore = mkr.balanceOf(who);
+    mathint skyTotalSupplyBefore = sky.totalSupply();
+    mathint skyBalanceOfEngineBefore = sky.balanceOf(lockstakeEngine);
+    mathint skyBalanceOfWhoBefore = sky.balanceOf(who);
     mathint vatDaiSenderBefore = vat.dai(e.msg.sender);
     mathint vatDaiVowBefore = vat.dai(vow);
     mathint dogDirtBefore = dog.Dirt();
@@ -632,16 +632,16 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     a, b, b, dogIlkDirtBefore = dog.ilks(ilk);
     mathint vatUrnsIlkUsrInkBefore;
     vatUrnsIlkUsrInkBefore, b = vat.urns(ilk, salesIdUsrBefore);
-    mathint lsmkrTotalSupplyBefore = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUsrBefore = lsmkr.balanceOf(salesIdUsrBefore);
+    mathint lsskyTotalSupplyBefore = lssky.totalSupply();
+    mathint lsskyBalanceOfUsrBefore = lssky.balanceOf(salesIdUsrBefore);
     mathint engineUrnAuctionsUsrBefore = lockstakeEngine.urnAuctions(salesIdUsrBefore);
 
     mathint price = calcPriceSummary();
     // Avoid division by zero
     require price > 0;
     // Token invariants
-    require mkrTotalSupplyBefore >= mkrBalanceOfEngineBefore + mkrBalanceOfWhoBefore;
-    require lsmkrTotalSupplyBefore >= lsmkrBalanceOfUsrBefore;
+    require skyTotalSupplyBefore >= skyBalanceOfEngineBefore + skyBalanceOfWhoBefore;
+    require lsskyTotalSupplyBefore >= lsskyBalanceOfUsrBefore;
     // LockstakeEngine assumption
     require lockstakeEngine.ilk() == ilk;
     // Governance setting assumption
@@ -692,9 +692,9 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     mathint salesOtherPosAfter; mathint salesOtherTabAfter; mathint salesOtherLotAfter; mathint salesOtherTotAfter; address salesOtherUsrAfter; mathint salesOtherTicAfter; mathint salesOtherTopAfter;
     salesOtherPosAfter, salesOtherTabAfter, salesOtherLotAfter, salesOtherTotAfter, salesOtherUsrAfter, salesOtherTicAfter, salesOtherTopAfter = sales(otherUint256);
     mathint vatGemIlkClipperAfter = vat.gem(ilk, currentContract);
-    mathint mkrTotalSupplyAfter = mkr.totalSupply();
-    mathint mkrBalanceOfEngineAfter = mkr.balanceOf(lockstakeEngine);
-    mathint mkrBalanceOfWhoAfter = mkr.balanceOf(who);
+    mathint skyTotalSupplyAfter = sky.totalSupply();
+    mathint skyBalanceOfEngineAfter = sky.balanceOf(lockstakeEngine);
+    mathint skyBalanceOfWhoAfter = sky.balanceOf(who);
     mathint vatDaiSenderAfter = vat.dai(e.msg.sender);
     mathint vatDaiVowAfter = vat.dai(vow);
     mathint dogDirtAfter = dog.Dirt();
@@ -702,8 +702,8 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     a, b, b, dogIlkDirtAfter = dog.ilks(ilk);
     mathint vatUrnsIlkUsrInkAfter;
     vatUrnsIlkUsrInkAfter, b = vat.urns(ilk, salesIdUsrBefore);
-    mathint lsmkrTotalSupplyAfter = lsmkr.totalSupply();
-    mathint lsmkrBalanceOfUsrAfter = lsmkr.balanceOf(salesIdUsrBefore);
+    mathint lsskyTotalSupplyAfter = lssky.totalSupply();
+    mathint lsskyBalanceOfUsrAfter = lssky.balanceOf(salesIdUsrBefore);
     mathint engineUrnAuctionsUsrAfter = lockstakeEngine.urnAuctions(salesIdUsrBefore);
 
     assert countAfter == (isRemoved ? countBefore - 1 : countBefore), "Assert 1";
@@ -722,17 +722,17 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     assert salesOtherTicAfter == salesOtherTicBefore, "Assert 14";
     assert salesOtherTopAfter == salesOtherTopBefore, "Assert 15";
     assert vatGemIlkClipperAfter == vatGemIlkClipperBefore - (calcLotAfter > 0 && calcTabAfter == 0 ? salesIdLotBefore : slice), "Assert 16";
-    assert mkrTotalSupplyAfter == mkrTotalSupplyBefore - burn, "Assert 17";
-    assert who == lockstakeEngine => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - burn, "Assert 18";
-    assert who != lockstakeEngine => mkrBalanceOfEngineAfter == mkrBalanceOfEngineBefore - slice - burn, "Assert 19";
-    assert who != lockstakeEngine && who != salesIdUsrBefore => mkrBalanceOfWhoAfter == mkrBalanceOfWhoBefore + slice, "Assert 20";
+    assert skyTotalSupplyAfter == skyTotalSupplyBefore - burn, "Assert 17";
+    assert who == lockstakeEngine => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - burn, "Assert 18";
+    assert who != lockstakeEngine => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - slice - burn, "Assert 19";
+    assert who != lockstakeEngine && who != salesIdUsrBefore => skyBalanceOfWhoAfter == skyBalanceOfWhoBefore + slice, "Assert 20";
     assert vatDaiSenderAfter == vatDaiSenderBefore - owe, "Assert 21";
     assert vatDaiVowAfter == vatDaiVowBefore + owe, "Assert 22";
     assert dogDirtAfter == dogDirtBefore - (calcLotAfter == 0 ? salesIdTabBefore : owe), "Assert 23";
     assert dogIlkDirtAfter == dogIlkDirtBefore - (calcLotAfter == 0 ? salesIdTabBefore : owe), "Assert 24";
     assert vatUrnsIlkUsrInkAfter == vatUrnsIlkUsrInkBefore + refund, "Assert 25";
-    assert lsmkrTotalSupplyAfter == lsmkrTotalSupplyBefore + refund, "Assert 26";
-    assert lsmkrBalanceOfUsrAfter == lsmkrBalanceOfUsrBefore + refund, "Assert 27";
+    assert lsskyTotalSupplyAfter == lsskyTotalSupplyBefore + refund, "Assert 26";
+    assert lsskyBalanceOfUsrAfter == lsskyBalanceOfUsrBefore + refund, "Assert 27";
     assert engineUrnAuctionsUsrAfter == engineUrnAuctionsUsrBefore - (isRemoved ? 1 : 0), "Assert 28";
 }
 
@@ -810,7 +810,7 @@ rule take_revert(uint256 id, uint256 amt, uint256 max, address who, bytes data) 
     require salesIdTot >= salesIdLot;
     // Happening in Engine constructor
     require fee < WAD();
-    require lsmkr.wards(lockstakeEngine) == 1;
+    require lssky.wards(lockstakeEngine) == 1;
     mathint sold = calcLotAfter == 0 ? salesIdTot : (calcTabAfter == 0 ? salesIdTot - calcLotAfter : 0);
     mathint left = calcTabAfter == 0 ? calcLotAfter : 0;
     mathint burn = _min(sold * fee / (WAD() - fee), left);
@@ -818,8 +818,8 @@ rule take_revert(uint256 id, uint256 amt, uint256 max, address who, bytes data) 
     // Happening in urn init
     require vat.can(salesIdUsr, lockstakeEngine) == 1;
     // Tokens invariants
-    require to_mathint(mkr.totalSupply()) >= mkr.balanceOf(lockstakeEngine) + mkr.balanceOf(who);
-    require lsmkr.totalSupply() >= mkr.balanceOf(salesIdUsr);
+    require to_mathint(sky.totalSupply()) >= sky.balanceOf(lockstakeEngine) + sky.balanceOf(who);
+    require lssky.totalSupply() >= sky.balanceOf(salesIdUsr);
     // Happening in deploy scripts
     require vat.wards(currentContract) == 1;
     require vat.wards(lockstakeEngine) == 1;
@@ -827,13 +827,13 @@ rule take_revert(uint256 id, uint256 amt, uint256 max, address who, bytes data) 
     require lockstakeEngine.wards(currentContract) == 1;
     // LockstakeEngine assumtions
     require lockstakeEngine.ilk() == ilk;
-    require to_mathint(mkr.balanceOf(lockstakeEngine)) >= slice + burn;
+    require to_mathint(sky.balanceOf(lockstakeEngine)) >= slice + burn;
     require lockstakeEngine.urnAuctions(salesIdUsr) > 0;
     require sold * fee <= max_uint256;
     require refund <= max_int256();
     require vat.gem(ilk, salesIdUsr) + refund <= max_uint256;
-    require salesIdUsr != 0 && salesIdUsr != lsmkr;
-    require lsmkr.totalSupply() + refund <= max_uint256;
+    require salesIdUsr != 0 && salesIdUsr != lssky;
+    require lssky.totalSupply() + refund <= max_uint256;
     // Dog assumptions
     require dogDirt >= digAmt;
     require dogIlkDirt >= digAmt;

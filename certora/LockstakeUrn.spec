@@ -1,16 +1,16 @@
 // LockstakeUrn.spec
 
 using Vat as vat;
-using LockstakeMkr as lsmkr;
+using LockstakeSky as lssky;
 using StakingRewardsMock as stakingRewards;
 using RewardsMock as rewardsToken;
 
 methods {
     function engine() external returns (address) envfree;
     function vat.can(address,address) external returns (uint256) envfree;
-    function lsmkr.allowance(address,address) external returns (uint256) envfree;
-    function lsmkr.balanceOf(address) external returns (uint256) envfree;
-    function lsmkr.totalSupply() external returns (uint256) envfree;
+    function lssky.allowance(address,address) external returns (uint256) envfree;
+    function lssky.balanceOf(address) external returns (uint256) envfree;
+    function lssky.totalSupply() external returns (uint256) envfree;
     function stakingRewards.balanceOf(address) external returns (uint256) envfree;
     function stakingRewards.totalSupply() external returns (uint256) envfree;
     function stakingRewards.rewards(address) external returns (uint256) envfree;
@@ -33,10 +33,10 @@ rule init() {
     init(e);
 
     mathint vatCanUrnEngineAfter = vat.can(currentContract, engine);
-    mathint lsmkrAllowanceUrnEngineAfter = lsmkr.allowance(currentContract, engine);
+    mathint lsskyAllowanceUrnEngineAfter = lssky.allowance(currentContract, engine);
 
     assert vatCanUrnEngineAfter == 1, "Assert 1";
-    assert lsmkrAllowanceUrnEngineAfter == max_uint256, "Assert 2";
+    assert lsskyAllowanceUrnEngineAfter == max_uint256, "Assert 2";
 }
 
 // Verify revert rules on init
@@ -59,21 +59,21 @@ rule stake(address farm, uint256 wad, uint16 ref) {
 
     require farm == stakingRewards;
 
-    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(currentContract);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkrBalanceOfUrnBefore + lsmkrBalanceOfFarmBefore;
+    mathint lsskyBalanceOfUrnBefore = lssky.balanceOf(currentContract);
+    mathint lsskyBalanceOfFarmBefore = lssky.balanceOf(farm);
+    require to_mathint(lssky.totalSupply()) >= lsskyBalanceOfUrnBefore + lsskyBalanceOfFarmBefore;
     mathint farmBalanceOfUrnBefore = stakingRewards.balanceOf(currentContract);
 
     stake(e, farm, wad, ref);
 
-    mathint lsmkrAllowanceUrnFarmAfter = lsmkr.allowance(currentContract, farm);
-    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(currentContract);
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
+    mathint lsskyAllowanceUrnFarmAfter = lssky.allowance(currentContract, farm);
+    mathint lsskyBalanceOfUrnAfter = lssky.balanceOf(currentContract);
+    mathint lsskyBalanceOfFarmAfter = lssky.balanceOf(farm);
     mathint farmBalanceOfUrnAfter = stakingRewards.balanceOf(currentContract);
 
-    assert lsmkrAllowanceUrnFarmAfter == 0 || lsmkrAllowanceUrnFarmAfter == max_uint256, "Assert 1";
-    assert lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore - wad, "Assert 2";
-    assert lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore + wad, "Assert 3";
+    assert lsskyAllowanceUrnFarmAfter == 0 || lsskyAllowanceUrnFarmAfter == max_uint256, "Assert 1";
+    assert lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore - wad, "Assert 2";
+    assert lsskyBalanceOfFarmAfter == lsskyBalanceOfFarmBefore + wad, "Assert 3";
     assert farmBalanceOfUrnAfter == farmBalanceOfUrnBefore + wad, "Assert 4";
 }
 
@@ -84,8 +84,8 @@ rule stake_revert(address farm, uint256 wad, uint16 ref) {
     require farm == stakingRewards;
 
     require wad > 0;
-    require lsmkr.balanceOf(currentContract) >= wad;
-    require lsmkr.totalSupply() >= wad;
+    require lssky.balanceOf(currentContract) >= wad;
+    require lssky.totalSupply() >= wad;
     require stakingRewards.balanceOf(currentContract) + wad <= max_uint256;
     require stakingRewards.totalSupply() + wad <= max_uint256;
 
@@ -105,19 +105,19 @@ rule withdraw(address farm, uint256 wad) {
 
     require farm == stakingRewards;
 
-    mathint lsmkrBalanceOfUrnBefore = lsmkr.balanceOf(currentContract);
-    mathint lsmkrBalanceOfFarmBefore = lsmkr.balanceOf(farm);
-    require to_mathint(lsmkr.totalSupply()) >= lsmkrBalanceOfUrnBefore + lsmkrBalanceOfFarmBefore;
+    mathint lsskyBalanceOfUrnBefore = lssky.balanceOf(currentContract);
+    mathint lsskyBalanceOfFarmBefore = lssky.balanceOf(farm);
+    require to_mathint(lssky.totalSupply()) >= lsskyBalanceOfUrnBefore + lsskyBalanceOfFarmBefore;
     mathint farmBalanceOfUrnBefore = stakingRewards.balanceOf(currentContract);
 
     withdraw(e, farm, wad);
 
-    mathint lsmkrBalanceOfUrnAfter = lsmkr.balanceOf(currentContract);
-    mathint lsmkrBalanceOfFarmAfter = lsmkr.balanceOf(farm);
+    mathint lsskyBalanceOfUrnAfter = lssky.balanceOf(currentContract);
+    mathint lsskyBalanceOfFarmAfter = lssky.balanceOf(farm);
     mathint farmBalanceOfUrnAfter = stakingRewards.balanceOf(currentContract);
 
-    assert lsmkrBalanceOfUrnAfter == lsmkrBalanceOfUrnBefore + wad, "Assert 1";
-    assert lsmkrBalanceOfFarmAfter == lsmkrBalanceOfFarmBefore - wad, "Assert 2";
+    assert lsskyBalanceOfUrnAfter == lsskyBalanceOfUrnBefore + wad, "Assert 1";
+    assert lsskyBalanceOfFarmAfter == lsskyBalanceOfFarmBefore - wad, "Assert 2";
     assert farmBalanceOfUrnAfter == farmBalanceOfUrnBefore - wad, "Assert 3";
 }
 
@@ -128,9 +128,9 @@ rule withdraw_revert(address farm, uint256 wad) {
     require farm == stakingRewards;
 
     require wad > 0;
-    require lsmkr.balanceOf(farm) >= wad;
-    require lsmkr.balanceOf(currentContract) + wad <= max_uint256;
-    require lsmkr.totalSupply() + wad <= max_uint256;
+    require lssky.balanceOf(farm) >= wad;
+    require lssky.balanceOf(currentContract) + wad <= max_uint256;
+    require lssky.totalSupply() + wad <= max_uint256;
     require stakingRewards.balanceOf(currentContract) >= wad;
     require stakingRewards.totalSupply() >= wad;
 

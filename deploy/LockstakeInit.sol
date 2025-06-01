@@ -19,7 +19,7 @@ pragma solidity >=0.8.0;
 import { DssInstance } from "dss-test/MCD.sol";
 import { LockstakeInstance } from "./LockstakeInstance.sol";
 
-interface LockstakeMkrLike {
+interface LockstakeSkyLike {
     function rely(address) external;
 }
 
@@ -29,14 +29,11 @@ interface LockstakeEngineLike {
     function usdsJoin() external view returns (address);
     function usds() external view returns (address);
     function ilk() external view returns (bytes32);
-    function mkr() external view returns (address);
-    function lsmkr() external view returns (address);
-    function fee() external view returns (uint256);
-    function mkrSky() external view returns (address);
     function sky() external view returns (address);
+    function lssky() external view returns (address);
+    function fee() external view returns (uint256);
     function rely(address) external;
     function file(bytes32, address) external;
-    function file(bytes32, uint256) external;
     function addFarm(address) external;
 }
 
@@ -52,6 +49,13 @@ interface LockstakeClipperLike {
     function upchost() external;
 }
 
+interface LockstakeMigratorLike {
+    function oldEngine() external view returns (address);
+    function newEngine() external view returns (address);
+    function mkrSky() external view returns (address);
+    function flash() external view returns (address);
+}
+
 interface PipLike {
     function kiss(address) external;
     function rely(address) external;
@@ -62,7 +66,8 @@ interface CalcLike {
 }
 
 interface AutoLineLike {
-    function setIlk(bytes32, uint256, uint256, uint256) external;
+    function ilks(bytes32) external returns (uint256, uint256, uint48, uint48, uint48);
+    function remIlk(bytes32) external;
 }
 
 interface OsmMomLike {
@@ -97,17 +102,8 @@ interface IlkRegistryLike {
 
 struct LockstakeConfig {
     bytes32   ilk;
-    address   voteDelegateFactory;
-    address   usdsJoin;
-    address   usds;
-    address   mkr;
-    address   mkrSky;
-    address   sky;
     address[] farms;
     uint256   fee;
-    uint256   maxLine;
-    uint256   gap;
-    uint256   ttl;
     uint256   dust;
     uint256   duty;
     uint256   mat;
@@ -128,6 +124,17 @@ struct LockstakeConfig {
     string    symbol;
 }
 
+struct StackExtension {
+    LockstakeSkyLike lssky;
+    LockstakeEngineLike engine;
+    LockstakeClipperLike clipper;
+    CalcLike calc;
+    LockstakeMigratorLike migrator;
+    LockstakeEngineLike oldEngine;
+    AutoLineLike autoLine;
+    address sky;
+}
+
 library LockstakeInit {
     uint256 constant internal RATES_ONE_HUNDRED_PCT = 1000000021979553151239153027;
     uint256 constant internal WAD = 10**18;
@@ -139,53 +146,71 @@ library LockstakeInit {
         LockstakeInstance  memory lockstakeInstance,
         LockstakeConfig    memory cfg
     ) internal {
-        LockstakeEngineLike  engine  = LockstakeEngineLike(lockstakeInstance.engine);
-        LockstakeClipperLike clipper = LockstakeClipperLike(lockstakeInstance.clipper);
-        CalcLike calc                = CalcLike(lockstakeInstance.clipperCalc);
+        StackExtension memory se = StackExtension ({
+            lssky:     LockstakeSkyLike(lockstakeInstance.lssky),
+            engine:    LockstakeEngineLike(lockstakeInstance.engine),
+            clipper:   LockstakeClipperLike(lockstakeInstance.clipper),
+            calc:      CalcLike(lockstakeInstance.clipperCalc),
+            migrator:  LockstakeMigratorLike(lockstakeInstance.migrator),
+            oldEngine: LockstakeEngineLike(dss.chainlog.getAddress("LOCKSTAKE_ENGINE")),
+            autoLine:  AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")),
+            sky:       dss.chainlog.getAddress("SKY")
+        });
+
+        bytes32 oldEngineIlk = se.oldEngine.ilk();
 
         // Sanity checks
-        require(engine.voteDelegateFactory() == cfg.voteDelegateFactory,   "Engine voteDelegateFactory mismatch");
-        require(engine.vat()                 == address(dss.vat),          "Engine vat mismatch");
-        require(engine.usdsJoin()            == cfg.usdsJoin,              "Engine usdsJoin mismatch");
-        require(engine.usds()                == cfg.usds,                  "Engine usds mismatch");
-        require(engine.ilk()                 == cfg.ilk,                   "Engine ilk mismatch");
-        require(engine.mkr()                 == cfg.mkr,                   "Engine mkr mismatch");
-        require(engine.lsmkr()               == lockstakeInstance.lsmkr,   "Engine lsmkr mismatch");
-        require(engine.mkrSky()              == cfg.mkrSky,                "Engine mkrSky mismatch");
-        require(engine.sky()                 == cfg.sky,                   "Engine sky mismatch");
-        require(clipper.ilk()                == cfg.ilk,                   "Clipper ilk mismatch");
-        require(clipper.vat()                == address(dss.vat),          "Clipper vat mismatch");
-        require(clipper.engine()             == address(engine),           "Clipper engine mismatch");
-        require(clipper.dog()                == address(dss.dog),          "Clipper dog mismatch");
-        require(clipper.spotter()            == address(dss.spotter),      "Clipper spotter mismatch");
+        require(oldEngineIlk                    != cfg.ilk);
+        require(se.engine.voteDelegateFactory() == dss.chainlog.getAddress("VOTE_DELEGATE_FACTORY"));
+        require(se.engine.vat()                 == address(dss.vat));
+        require(se.engine.usdsJoin()            == dss.chainlog.getAddress("USDS_JOIN"));
+        require(se.engine.usds()                == dss.chainlog.getAddress("USDS"));
+        require(se.engine.ilk()                 == cfg.ilk);
+        require(se.engine.sky()                 == se.sky);
+        require(se.engine.lssky()               == address(se.lssky));
+        require(se.engine.fee()                 == cfg.fee);
+        require(se.clipper.ilk()                == cfg.ilk);
+        require(se.clipper.vat()                == address(dss.vat));
+        require(se.clipper.engine()             == address(se.engine));
+        require(se.clipper.dog()                == address(dss.dog));
+        require(se.clipper.spotter()            == address(dss.spotter));
+        require(se.migrator.oldEngine()         == address(se.oldEngine));
+        require(se.migrator.newEngine()         == address(se.engine));
+        require(se.migrator.mkrSky()            == dss.chainlog.getAddress("MKR_SKY"));
+        require(se.migrator.flash()             == dss.chainlog.getAddress("MCD_FLASH"));
+        (,,, uint256 line,) = dss.vat.ilks(cfg.ilk);
+        require(line                            == 0);
+        (line,,,,) = se.autoLine.ilks(cfg.ilk);
+        require(line                            == 0);
 
-        require(cfg.gap <= cfg.maxLine, "gap greater than max line");
-        require(cfg.dust <= cfg.hole, "dust greater than hole");
-        require(cfg.duty >= RAY && cfg.duty <= RATES_ONE_HUNDRED_PCT, "duty out of boundaries");
-        require(cfg.mat >= RAY && cfg.mat < 10 * RAY, "mat out of boundaries");
-        require(cfg.buf >= RAY && cfg.buf < 10 * RAY, "buf out of boundaries");
-        require(cfg.cusp < RAY, "cusp negative drop value");
-        require(cfg.chip < WAD, "chip equal or greater than 100%");
-        require(cfg.tip <= 1_000 * RAD, "tip out of boundaries");
-        require(cfg.chop >= WAD && cfg.chop < 2 * WAD, "chop out of boundaries");
-        require(cfg.tolerance < RAY, "tolerance equal or greater than 100%");
+        require(cfg.dust <= cfg.hole);
+        require(cfg.duty >= RAY && cfg.duty <= RATES_ONE_HUNDRED_PCT);
+        require(cfg.mat >= RAY && cfg.mat < 10 * RAY);
+        require(cfg.buf >= RAY && cfg.buf < 10 * RAY);
+        require(cfg.cusp < RAY);
+        require(cfg.chip < WAD);
+        require(cfg.tip <= 1_000 * RAD);
+        require(cfg.chop >= WAD && cfg.chop < 2 * WAD);
+        require(cfg.tolerance < RAY);
+
+        se.oldEngine.rely(address(se.migrator));
+
+        dss.vat.file(oldEngineIlk, "line", 0); // Clean only ilk line, as there will probably be existing debt. Line can be adjusted in a later stage.
+        se.autoLine.remIlk(oldEngineIlk);
 
         dss.vat.init(cfg.ilk);
-        dss.vat.file(cfg.ilk, "line", cfg.gap);
-        dss.vat.file("Line", dss.vat.Line() + cfg.gap);
         dss.vat.file(cfg.ilk, "dust", cfg.dust);
-        dss.vat.rely(address(engine));
-        dss.vat.rely(address(clipper));
-
-        AutoLineLike(dss.chainlog.getAddress("MCD_IAM_AUTO_LINE")).setIlk(cfg.ilk, cfg.maxLine, cfg.gap, cfg.ttl);
+        dss.vat.rely(address(se.engine));
+        dss.vat.rely(address(se.clipper));
+        dss.vat.rely(address(se.migrator));
 
         dss.jug.init(cfg.ilk);
         dss.jug.file(cfg.ilk, "duty", cfg.duty);
 
-        address pip = dss.chainlog.getAddress("PIP_MKR");
+        address pip = dss.chainlog.getAddress("PIP_SKY");
         address clipperMom = dss.chainlog.getAddress("CLIPPER_MOM");
         PipLike(pip).kiss(address(dss.spotter));
-        PipLike(pip).kiss(address(clipper));
+        PipLike(pip).kiss(address(se.clipper));
         PipLike(pip).kiss(clipperMom);
         PipLike(pip).kiss(address(dss.end));
         // This assumes pip is a standard Osm sourced by a Median
@@ -199,61 +224,67 @@ library LockstakeInit {
         dss.spotter.file(cfg.ilk, "pip", pip);
         dss.spotter.poke(cfg.ilk);
 
-        dss.dog.file(cfg.ilk, "clip", address(clipper));
+        dss.dog.file(cfg.ilk, "clip", address(se.clipper));
         dss.dog.file(cfg.ilk, "chop", cfg.chop);
         dss.dog.file(cfg.ilk, "hole", cfg.hole);
-        dss.dog.rely(address(clipper));
+        dss.dog.rely(address(se.clipper));
 
-        LockstakeMkrLike(lockstakeInstance.lsmkr).rely(address(engine));
+        se.lssky.rely(address(se.engine));
 
-        engine.file("jug", address(dss.jug));
-        engine.file("fee", cfg.fee);
+        se.engine.file("jug", address(dss.jug));
         for (uint256 i = 0; i < cfg.farms.length; i++) {
-            require(StakingRewardsLike(cfg.farms[i]).stakingToken() == lockstakeInstance.lsmkr, "Farm staking token mismatch");
-            engine.addFarm(cfg.farms[i]);
+            require(StakingRewardsLike(cfg.farms[i]).stakingToken() == lockstakeInstance.lssky);
+            se.engine.addFarm(cfg.farms[i]);
         }
-        engine.rely(address(clipper));
+        se.engine.rely(address(se.clipper));
 
-        clipper.file("buf",     cfg.buf);
-        clipper.file("tail",    cfg.tail);
-        clipper.file("cusp",    cfg.cusp);
-        clipper.file("chip",    cfg.chip);
-        clipper.file("tip",     cfg.tip);
-        clipper.file("stopped", cfg.stopped);
-        clipper.file("vow",     address(dss.vow));
-        clipper.file("calc",    address(calc));
-        clipper.upchost();
-        clipper.rely(address(dss.dog));
-        clipper.rely(address(dss.end));
-        clipper.rely(clipperMom);
+        se.clipper.file("buf",     cfg.buf);
+        se.clipper.file("tail",    cfg.tail);
+        se.clipper.file("cusp",    cfg.cusp);
+        se.clipper.file("chip",    cfg.chip);
+        se.clipper.file("tip",     cfg.tip);
+        se.clipper.file("stopped", cfg.stopped);
+        se.clipper.file("vow",     address(dss.vow));
+        se.clipper.file("calc",    address(se.calc));
+        se.clipper.upchost();
+        se.clipper.rely(address(dss.dog));
+        se.clipper.rely(address(dss.end));
+        se.clipper.rely(clipperMom);
 
-        if (cfg.tau  > 0) calc.file("tau",  cfg.tau);
-        if (cfg.cut  > 0) calc.file("cut",  cfg.cut);
-        if (cfg.step > 0) calc.file("step", cfg.step);
+        if (cfg.tau  > 0) se.calc.file("tau",  cfg.tau);
+        if (cfg.cut  > 0) se.calc.file("cut",  cfg.cut);
+        if (cfg.step > 0) se.calc.file("step", cfg.step);
 
         if (cfg.lineMom) {
             LineMomLike(dss.chainlog.getAddress("LINE_MOM")).addIlk(cfg.ilk);
         }
 
         if (cfg.tolerance > 0) {
-            ClipperMomLike(clipperMom).setPriceTolerance(address(clipper), cfg.tolerance);
+            ClipperMomLike(clipperMom).setPriceTolerance(address(se.clipper), cfg.tolerance);
         }
 
         IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY")).put(
             cfg.ilk,
             address(0),
-            cfg.mkr,
+            se.sky,
             18,
             7, // New class
             pip,
-            address(clipper),
+            address(se.clipper),
             cfg.name,
             cfg.symbol
         );
 
-        dss.chainlog.setAddress("LOCKSTAKE_MKR",       lockstakeInstance.lsmkr);
-        dss.chainlog.setAddress("LOCKSTAKE_ENGINE",    address(engine));
-        dss.chainlog.setAddress("LOCKSTAKE_CLIP",      address(clipper));
-        dss.chainlog.setAddress("LOCKSTAKE_CLIP_CALC", address(calc));
+        dss.chainlog.setAddress("LOCKSTAKE_MKR_OLD_V1",       dss.chainlog.getAddress("LOCKSTAKE_MKR"));
+        dss.chainlog.setAddress("LOCKSTAKE_ENGINE_OLD_V1",    address(se.oldEngine));
+        dss.chainlog.setAddress("LOCKSTAKE_CLIP_OLD_V1",      dss.chainlog.getAddress("LOCKSTAKE_CLIP"));
+        dss.chainlog.setAddress("LOCKSTAKE_CLIP_CALC_OLD_V1", dss.chainlog.getAddress("LOCKSTAKE_CLIP_CALC"));
+        dss.chainlog.removeAddress("LOCKSTAKE_MKR");
+
+        dss.chainlog.setAddress("LOCKSTAKE_SKY",       address(se.lssky));
+        dss.chainlog.setAddress("LOCKSTAKE_ENGINE",    address(se.engine));
+        dss.chainlog.setAddress("LOCKSTAKE_CLIP",      address(se.clipper));
+        dss.chainlog.setAddress("LOCKSTAKE_CLIP_CALC", address(se.calc));
+        dss.chainlog.setAddress("LOCKSTAKE_MIGRATOR",  address(se.migrator));
     }
 }

@@ -17,8 +17,9 @@
 pragma solidity >=0.8.0;
 
 struct LockstakeInstance {
-    address lsmkr;
+    address lssky;
     address engine;
     address clipper;
     address clipperCalc;
+    address migrator;
 }

@@ -5,14 +5,13 @@ pragma solidity ^0.8.21;
 import "dss-test/DssTest.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
-import { LockstakeMkr } from "src/LockstakeMkr.sol";
+import { LockstakeSky } from "src/LockstakeSky.sol";
 import { PipMock } from "test/mocks/PipMock.sol";
 import { VoteDelegateFactoryMock, VoteDelegateMock } from "test/mocks/VoteDelegateMock.sol";
 import { GemMock } from "test/mocks/GemMock.sol";
 import { UsdsMock } from "test/mocks/UsdsMock.sol";
 import { UsdsJoinMock } from "test/mocks/UsdsJoinMock.sol";
 import { StakingRewardsMock } from "test/mocks/StakingRewardsMock.sol";
-import { MkrSkyMock } from "test/mocks/MkrSkyMock.sol";
 import { LockstakeHandler } from "test/handlers/LockstakeHandler.sol";
 
 interface ChainlogLike {
@@ -60,7 +59,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
     VatLike             public vat;
     address             public spot;
     DogLike             public dog;
-    GemMock             public mkr;
+    GemMock             public sky;
     address             public jug;
     LockstakeEngine     public engine;
     address             public urn;
@@ -69,12 +68,10 @@ contract LockstakeEngineIntegrationTest is DssTest {
     VoteDelegateFactoryMock public delFactory;
     UsdsMock            public usds;
     UsdsJoinMock        public usdsJoin;
-    LockstakeMkr        public lsmkr;
+    LockstakeSky        public lssky;
     GemMock             public rTok;
     StakingRewardsMock  public farm0;
     StakingRewardsMock  public farm1;
-    MkrSkyMock          public mkrSky;
-    GemMock             public sky;
     bytes32             public ilk = "LSE";
     address             public voter0;
     address             public voter1;
@@ -106,35 +103,32 @@ contract LockstakeEngineIntegrationTest is DssTest {
         vat = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
         spot = ChainlogLike(LOG).getAddress("MCD_SPOT");
         dog = DogLike(ChainlogLike(LOG).getAddress("MCD_DOG"));
-        mkr = new GemMock(0);
+        sky = new GemMock(0);
         jug = ChainlogLike(LOG).getAddress("MCD_JUG");
         usds = new UsdsMock();
         usdsJoin = new UsdsJoinMock(address(vat), address(usds));
-        lsmkr = new LockstakeMkr();
+        lssky = new LockstakeSky();
         rTok = new GemMock(0);
-        farm0 = new StakingRewardsMock(address(rTok), address(lsmkr));
-        farm1 = new StakingRewardsMock(address(rTok), address(lsmkr));
-        sky = new GemMock(0);
-        mkrSky = new MkrSkyMock(address(mkr), address(sky), 25_000);
+        farm0 = new StakingRewardsMock(address(rTok), address(lssky));
+        farm1 = new StakingRewardsMock(address(rTok), address(lssky));
 
         pip = new PipMock();
-        delFactory = new VoteDelegateFactoryMock(address(mkr));
+        delFactory = new VoteDelegateFactoryMock(address(sky));
         voter0 = address(123);
         voter1 = address(456);
         vm.prank(voter0); voterDelegate0 = delFactory.create();
         vm.prank(voter1); voterDelegate1 = delFactory.create();
 
         vm.startPrank(pauseProxy);
-        engine = new LockstakeEngine(address(delFactory), address(usdsJoin), ilk, address(mkrSky), address(lsmkr));
+        engine = new LockstakeEngine(address(delFactory), address(usdsJoin), ilk, address(sky), address(lssky), 15 * WAD / 100);
         engine.file("jug", jug);
-        engine.file("fee", 15 * WAD / 100);
         vat.rely(address(engine));
         vat.init(ilk);
         JugLike(jug).init(ilk);
         JugLike(jug).file(ilk, "duty", 1000000021979553151239153027); // 100% APY
         SpotterLike(spot).file(ilk, "pip", address(pip));
         SpotterLike(spot).file(ilk, "mat", 3 * 10**27); // 300% coll ratio
-        pip.setPrice(1000 * 10**18); // 1 MKR = 1000 USD
+        pip.setPrice(1000 * 10**18); // 1 SKY = 1000 USD
         SpotterLike(spot).poke(ilk);
         vat.file(ilk, "dust", rad(20 ether)); // $20 dust
 
@@ -166,10 +160,9 @@ contract LockstakeEngineIntegrationTest is DssTest {
         clip.file("tail", 3600);              // 1 hour before reset
         vm.stopPrank();
 
-        lsmkr.rely(address(engine));
+        lssky.rely(address(engine));
 
-        deal(address(mkr), address(this), 100_000 * 10**18, true);
-        deal(address(sky), address(this), 100_000 * 25_000 * 10**18, true);
+        deal(address(sky), address(this), 100_000 * 10**18, true);
 
         // Add some existing DAI assigned to usdsJoin to avoid a particular error
         stdstore.target(address(vat)).sig("dai(address)").with_key(address(usdsJoin)).depth(0).checked_write(100_000 * RAD);
@@ -211,13 +204,13 @@ contract LockstakeEngineIntegrationTest is DssTest {
         targetContract(address(handler)); // invariant tests should fuzz only handler functions
     }
 
-    function invariant_system_mkr_equals_ink() public view {
+    function invariant_system_sky_equals_ink() public view {
         (uint256 ink,) = vat.urns(ilk, urn);
-        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), ink);
+        assertEq(sky.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), ink);
     }
 
-    function invariant_system_mkr_equals_lsmkr_total_supply() public view {
-        assertEq(mkr.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), lsmkr.totalSupply());
+    function invariant_system_sky_equals_lssky_total_supply() public view {
+        assertEq(sky.balanceOf(address(engine)) + handler.sumDelegated() - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), lssky.totalSupply());
     }
 
     function invariant_delegation_exclusiveness() public view {
@@ -229,9 +222,9 @@ contract LockstakeEngineIntegrationTest is DssTest {
         (uint256 ink,) = vat.urns(ilk, urn);
 
         if (urnDelegate == address(0)) {
-            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), ink);
+            assertEq(sky.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), ink);
         } else {
-            assertEq(mkr.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), 0);
+            assertEq(sky.balanceOf(address(engine)) - vat.gem(ilk, address(clip)) - vat.gem(ilk, pauseProxy), 0);
             assertEq(handler.delegatedTo(urnDelegate), ink);
         }
     }
@@ -245,9 +238,9 @@ contract LockstakeEngineIntegrationTest is DssTest {
         (uint256 ink,) = vat.urns(ilk, urn);
 
         if (urnFarm == address(0)) {
-            assertEq(lsmkr.balanceOf(urn), ink);
+            assertEq(lssky.balanceOf(urn), ink);
         } else {
-            assertEq(lsmkr.balanceOf(urn), 0);
+            assertEq(lssky.balanceOf(urn), 0);
             assertEq(GemMock(urnFarm).balanceOf(urn), ink);
         }
     }
@@ -267,9 +260,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
         console.log("selectFarm", handler.numCalls("selectFarm"));
         console.log("selectVoteDelegate", handler.numCalls("selectVoteDelegate"));
         console.log("lock", handler.numCalls("lock"));
-        console.log("lockSky", handler.numCalls("lockSky"));
         console.log("free", handler.numCalls("free"));
-        console.log("freeSky", handler.numCalls("freeSky"));
         console.log("draw", handler.numCalls("draw"));
         console.log("wipe", handler.numCalls("wipe"));
         console.log("dropPriceAndBark", handler.numCalls("dropPriceAndBark"));
@@ -277,8 +268,7 @@ contract LockstakeEngineIntegrationTest is DssTest {
         console.log("yank", handler.numCalls("yank"));
         console.log("warp", handler.numCalls("warp"));
         console.log("total count", handler.numCalls("addFarm") + handler.numCalls("selectFarm") + handler.numCalls("selectVoteDelegate") +
-                                   handler.numCalls("lock") + handler.numCalls("lockSky") + handler.numCalls("free") +
-                                   handler.numCalls("freeSky") + handler.numCalls("draw") + handler.numCalls("wipe") +
+                                   handler.numCalls("lock") + handler.numCalls("free") + handler.numCalls("draw") + handler.numCalls("wipe") +
                                    handler.numCalls("dropPriceAndBark") + handler.numCalls("take") + handler.numCalls("yank") +
                                    handler.numCalls("warp"));
     }

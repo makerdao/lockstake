@@ -46,7 +46,7 @@ contract LockstakeMigratorTest is DssTest {
     }
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("ETH_RPC_URL"), 22082132);
+        vm.createSelectFork(vm.envString("ETH_RPC_URL"), 22517470);
 
         dss = MCD.loadFromChainlog(LOG);
 

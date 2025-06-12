@@ -386,14 +386,15 @@ contract LockstakeClipperTest is DssTest {
         vm.prank(ali); dss.dog.bark(ilk, address(this), address(ali));
 
         assertEq(clip.kicks(), 1);
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(1);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, rad(110 ether));
-        assertEq(sale.lot, 40 ether);
-        assertEq(sale.tot, 40 ether);
-        assertEq(sale.usr, address(this));
-        assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, ray(4 ether));
+        LockstakeClipper.Sale memory sale2;
+        (sale2.pos, sale2.tab, sale2.due, sale2.lot, sale2.tot, sale2.usr, sale2.tic, sale2.top) = clip.sales(1);
+        assertEq(sale2.pos, 0);
+        assertEq(sale2.tab, rad(110 ether));
+        assertEq(sale2.lot, 40 ether);
+        assertEq(sale2.tot, 40 ether);
+        assertEq(sale2.usr, address(this));
+        assertEq(sale2.tic, block.timestamp);
+        assertEq(sale2.top, ray(4 ether));
         assertEq(dss.vat.gem(ilk, address(this)), 960 ether);
         assertEq(dss.vat.dai(ali), rad(1100 ether)); // Paid "tip" amount of DAI for calling bark()
         (ink, art) = dss.vat.urns(ilk, address(this));
@@ -409,14 +410,15 @@ contract LockstakeClipperTest is DssTest {
         pip.setPrice(4 ether); // Spot = $2
         dss.spotter.poke(ilk); // Now unsafe
 
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(2);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, 0);
-        assertEq(sale.lot, 0);
-        assertEq(sale.tot, 0);
-        assertEq(sale.usr, address(0));
-        assertEq(sale.tic, 0);
-        assertEq(sale.top, 0);
+        LockstakeClipper.Sale memory sale3;
+        (sale3.pos, sale3.tab, sale3.due, sale3.lot, sale3.tot, sale3.usr, sale3.tic, sale3.top) = clip.sales(2);
+        assertEq(sale3.pos, 0);
+        assertEq(sale3.tab, 0);
+        assertEq(sale3.lot, 0);
+        assertEq(sale3.tot, 0);
+        assertEq(sale3.usr, address(0));
+        assertEq(sale3.tic, 0);
+        assertEq(sale3.top, 0);
         assertEq(dss.vat.gem(ilk, address(this)), 920 ether);
 
         clip.file(bytes32("buf"),  ray(1.25 ether)); // 25% Initial price buffer
@@ -429,20 +431,21 @@ contract LockstakeClipperTest is DssTest {
         vm.prank(bob); dss.dog.bark(ilk, address(this), address(bob));
 
         assertEq(clip.kicks(), 2);
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(2);
-        assertEq(sale.pos, 1);
-        assertEq(sale.tab, rad(110 ether));
-        assertEq(sale.lot, 40 ether);
-        assertEq(sale.tot, 40 ether);
-        assertEq(sale.usr, address(this));
-        assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, ray(5 ether));
+        LockstakeClipper.Sale memory sale4;
+        (sale4.pos, sale4.tab, sale4.due, sale4.lot, sale4.tot, sale4.usr, sale4.tic, sale4.top) = clip.sales(2);
+        assertEq(sale4.pos, 1);
+        assertEq(sale4.tab, rad(110 ether));
+        assertEq(sale4.lot, 40 ether);
+        assertEq(sale4.tot, 40 ether);
+        assertEq(sale4.usr, address(this));
+        assertEq(sale4.tic, block.timestamp);
+        assertEq(sale4.top, ray(5 ether));
         assertEq(dss.vat.gem(ilk, address(this)), 920 ether);
         (ink, art) = dss.vat.urns(ilk, address(this));
         assertEq(ink, 0 ether);
         assertEq(art, 0 ether);
 
-        uint256 bobVatDai = rad(1000 ether) + rad(100 ether) + sale.tab * 0.02 ether / WAD;
+        uint256 bobVatDai = rad(1000 ether) + rad(100 ether) + sale4.tab * 0.02 ether / WAD;
         assertEq(dss.vat.dai(bob), bobVatDai); // Paid (tip + due * chip) amount of DAI for calling bark()
 
         pip.setPrice(price);   // Spot = $2.5
@@ -538,14 +541,15 @@ contract LockstakeClipperTest is DssTest {
         dss.dog.bark(ilk, address(this), address(this)); // art - dart = 100 - 80 = dust (= 20)
 
         assertEq(clip.kicks(), 1);
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(1);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, rad(80 ether)); // No chop
-        assertEq(sale.lot, 32 ether);
-        assertEq(sale.tot, 32 ether);
-        assertEq(sale.usr, address(this));
-        assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, ray(4 ether));
+        LockstakeClipper.Sale memory sale2;
+        (sale2.pos, sale2.tab, sale2.due, sale2.lot, sale2.tot, sale2.usr, sale2.tic, sale2.top) = clip.sales(1);
+        assertEq(sale2.pos, 0);
+        assertEq(sale2.tab, rad(80 ether)); // No chop
+        assertEq(sale2.lot, 32 ether);
+        assertEq(sale2.tot, 32 ether);
+        assertEq(sale2.usr, address(this));
+        assertEq(sale2.tic, block.timestamp);
+        assertEq(sale2.top, ray(4 ether));
         assertEq(dss.vat.gem(ilk, address(this)), 960 ether);
         (ink, art) = dss.vat.urns(ilk, address(this));
         assertEq(ink, 8 ether);
@@ -574,14 +578,15 @@ contract LockstakeClipperTest is DssTest {
         dss.dog.bark(ilk, address(this), address(this)); // art - dart = 100 - (80 + 1 wei) < dust (= 20) then the whole debt is taken
 
         assertEq(clip.kicks(), 1);
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(1);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, rad(100 ether)); // No chop
-        assertEq(sale.lot, 40 ether);
-        assertEq(sale.tot, 40 ether);
-        assertEq(sale.usr, address(this));
-        assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, ray(4 ether));
+        LockstakeClipper.Sale memory sale2;
+        (sale2.pos, sale2.tab, sale2.due, sale2.lot, sale2.tot, sale2.usr, sale2.tic, sale2.top) = clip.sales(1);
+        assertEq(sale2.pos, 0);
+        assertEq(sale2.tab, rad(100 ether)); // No chop
+        assertEq(sale2.lot, 40 ether);
+        assertEq(sale2.tot, 40 ether);
+        assertEq(sale2.usr, address(this));
+        assertEq(sale2.tic, block.timestamp);
+        assertEq(sale2.top, ray(4 ether));
         assertEq(dss.vat.gem(ilk, address(this)), 960 ether);
         (ink, art) = dss.vat.urns(ilk, address(this));
         assertEq(ink, 0 ether);
@@ -618,14 +623,15 @@ contract LockstakeClipperTest is DssTest {
         dss.dog.bark(ilk, address(this), address(this));
 
         assertEq(clip.kicks(), 1);
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(1);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, 100 ether * rate);  // No chop
-        assertEq(sale.lot, 40 ether);
-        assertEq(sale.tot, 40 ether);
-        assertEq(sale.usr, address(this));
-        assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, ray(4 ether));
+        LockstakeClipper.Sale memory sale2;
+        (sale2.pos, sale2.tab, sale2.due, sale2.lot, sale2.tot, sale2.usr, sale2.tic, sale2.top) = clip.sales(1);
+        assertEq(sale2.pos, 0);
+        assertEq(sale2.tab, 100 ether * rate);  // No chop
+        assertEq(sale2.lot, 40 ether);
+        assertEq(sale2.tot, 40 ether);
+        assertEq(sale2.usr, address(this));
+        assertEq(sale2.tic, block.timestamp);
+        assertEq(sale2.top, ray(4 ether));
         assertEq(dss.vat.gem(ilk, address(this)), 960 ether);
         (ink, art) = dss.vat.urns(ilk, address(this));
         assertEq(ink, 0);
@@ -662,14 +668,15 @@ contract LockstakeClipperTest is DssTest {
         dss.dog.bark(ilk, address(this), address(this));
 
         assertEq(clip.kicks(), 1);
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(1);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, 816 * RAD / 10);  // Equal to ilk.hole
-        assertEq(sale.lot, 32 ether);
-        assertEq(sale.tot, 32 ether);
-        assertEq(sale.usr, address(this));
-        assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, ray(4 ether));
+        LockstakeClipper.Sale memory sale2;
+        (sale2.pos, sale2.tab, sale2.due, sale2.lot, sale2.tot, sale2.usr, sale2.tic, sale2.top) = clip.sales(1);
+        assertEq(sale2.pos, 0);
+        assertEq(sale2.tab, 816 * RAD / 10);  // Equal to ilk.hole
+        assertEq(sale2.lot, 32 ether);
+        assertEq(sale2.tot, 32 ether);
+        assertEq(sale2.usr, address(this));
+        assertEq(sale2.tic, block.timestamp);
+        assertEq(sale2.top, ray(4 ether));
         assertEq(dss.vat.gem(ilk, address(this)), 960 ether);
         (ink, art) = dss.vat.urns(ilk, address(this));
         assertEq(ink, 8 ether);
@@ -1111,14 +1118,15 @@ contract LockstakeClipperTest is DssTest {
         });
 
         // Assert auction is over
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(1);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, 0);
-        assertEq(sale.lot, 0);
-        assertEq(sale.tot, 0);
-        assertEq(sale.usr, address(0));
-        assertEq(sale.tic, 0);
-        assertEq(sale.top, 0);
+        LockstakeClipper.Sale memory sale2;
+        (sale2.pos, sale2.tab, sale2.due, sale2.lot, sale2.tot, sale2.usr, sale2.tic, sale2.top) = clip.sales(1);
+        assertEq(sale2.pos, 0);
+        assertEq(sale2.tab, 0);
+        assertEq(sale2.lot, 0);
+        assertEq(sale2.tot, 0);
+        assertEq(sale2.usr, address(0));
+        assertEq(sale2.tic, 0);
+        assertEq(sale2.top, 0);
 
         uint256 expectedGem = (RAY * 60 ether) / _price;  // tab / price
         assertEq(dss.vat.gem(ilk, bob), expectedGem);         // Didn't take whole lot
@@ -1164,9 +1172,10 @@ contract LockstakeClipperTest is DssTest {
         assertTrue(needsRedo);
         clip.redo(1, address(this));
 
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(1);
-        assertEq(sale.tic, startTime + 3601 seconds);     // (block.timestamp)
-        assertEq(sale.top, ray(3.75 ether)); // $3 spot + 25% buffer = $5 (used most recent OSM price)
+        LockstakeClipper.Sale memory sale2;
+        (sale2.pos, sale2.tab, sale2.due, sale2.lot, sale2.tot, sale2.usr, sale2.tic, sale2.top) = clip.sales(1);
+        assertEq(sale2.tic, startTime + 3601 seconds);     // (block.timestamp)
+        assertEq(sale2.top, ray(3.75 ether)); // $3 spot + 25% buffer = $5 (used most recent OSM price)
     }
 
     function testAuctionResetCusp() public {
@@ -1189,9 +1198,10 @@ contract LockstakeClipperTest is DssTest {
         assertTrue(needsRedo);
         clip.redo(1, address(this));
 
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(1);
-        assertEq(sale.tic, startTime + 1801 seconds);     // (block.timestamp)
-        assertEq(sale.top, ray(3.75 ether)); // $3 spot + 25% buffer = $3.75 (used most recent OSM price)
+        LockstakeClipper.Sale memory sale2;
+        (sale2.pos, sale2.tab, sale2.due, sale2.lot, sale2.tot, sale2.usr, sale2.tic, sale2.top) = clip.sales(1);
+        assertEq(sale2.tic, startTime + 1801 seconds);     // (block.timestamp)
+        assertEq(sale2.top, ray(3.75 ether)); // $3 spot + 25% buffer = $3.75 (used most recent OSM price)
     }
 
     function testAuctionResetTailTwice() public {

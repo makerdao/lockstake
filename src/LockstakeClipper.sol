@@ -46,7 +46,7 @@ interface AbacusLike {
     function price(uint256, uint256) external view returns (uint256);
 }
 
-interface BadLike {
+interface CutteeLike {
     function cut(uint256) external;
     function drip() external;
 }
@@ -78,7 +78,7 @@ contract LockstakeClipper {
     address     public vow;      // Recipient of dai raised in auctions
     SpotterLike public spotter;  // Collateral price module
     AbacusLike  public calc;     // Current price calculator
-    address     public bad;      // Contract for accounting bad debt (if not set, callback won't be executed)
+    address     public cuttee;   // Contract for accounting bad debt (if not set, callback won't be executed)
 
     uint256 public buf;    // Multiplicative factor to increase starting price                  [ray]
     uint256 public tail;   // Time elapsed before auction reset                                 [seconds]
@@ -187,10 +187,10 @@ contract LockstakeClipper {
     }
     function file(bytes32 what, address data) external auth lock {
         if (what == "spotter") spotter = SpotterLike(data);
-        else if (what == "dog")    dog = DogLike(data);
-        else if (what == "vow")    vow = data;
-        else if (what == "calc")  calc = AbacusLike(data);
-        else if (what == "bad")    bad = data;
+        else if (what == "dog")       dog = DogLike(data);
+        else if (what == "vow")       vow = data;
+        else if (what == "calc")     calc = AbacusLike(data);
+        else if (what == "cuttee") cuttee = data;
         else revert("LockstakeClipper/file-unrecognized-param");
         emit File(what, data);
     }
@@ -276,10 +276,8 @@ contract LockstakeClipper {
 
         // Trigger engine liquidation call-back
         engine.onKick(usr, lot);
-        // Trigger bad accounting (will update line accordingly)
-        if (bad != address(0)) {
-            BadLike(bad).drip();
-        }
+        // Trigger bad debt accounting (will update line accordingly)
+        if (cuttee != address(0)) { CutteeLike(cuttee).drip(); }
 
         emit Kick(id, top, tab, lot, usr, kpr, coin);
     }
@@ -426,8 +424,8 @@ contract LockstakeClipper {
         if (sale.lot == 0) {
             engine.onRemove(sale.usr, sales[id].tot, 0);
             uint256 due = sales[id].due;
-            if (due > owe && bad != address(0)) {
-                BadLike(bad).cut(due - owe);
+            if (due > owe && cuttee != address(0)) {
+                CutteeLike(cuttee).cut(due - owe);
             }
             Due -= due;
             _remove(id);

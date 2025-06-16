@@ -94,7 +94,7 @@ contract LockstakeEngineTest is DssTest {
     }
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("ETH_RPC_URL"));
+        vm.createSelectFork(vm.envString("ETH_RPC_URL"), 22517470);
 
         dss = MCD.loadFromChainlog(LOG);
 

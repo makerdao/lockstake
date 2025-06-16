@@ -289,8 +289,8 @@ contract LockstakeHandler is StdUtils, StdCheats {
 
     function take(uint256 auctionIndex) external {
         numCalls["take"]++;
-        LockstakeClipper.Sale memory sale;
         uint256 auctionId = _getRandomAuctionId(auctionIndex);
+        LockstakeClipper.Sale memory sale;
         (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(auctionId);
 
         vm.startPrank(pauseProxy); // we use startPrank as cannot override an ongoing prank with a single vm.prank

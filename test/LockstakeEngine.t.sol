@@ -1106,14 +1106,15 @@ contract LockstakeEngineTest is DssTest {
         vm.prank(buyer); clip.take(id, 20_000 * 10**18, type(uint256).max, buyer, "");
         assertEq(sky.balanceOf(buyer), 20_000 * 10**18);
 
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, (2_000 - 20_000 * 0.05 * 1.25) * 10**45);
-        assertEq(sale.lot, 80_000 * 10**18);
-        assertEq(sale.tot, 100_000 * 10**18);
-        assertEq(sale.usr, address(urn));
-        assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, uint256(pip.read()) * (1.25 * 10**9));
+        LockstakeClipper.Sale memory sale2;
+        (sale2.pos, sale2.tab, sale2.due, sale2.lot, sale2.tot, sale2.usr, sale2.tic, sale2.top) = clip.sales(id);
+        assertEq(sale2.pos, 0);
+        assertEq(sale2.tab, (2_000 - 20_000 * 0.05 * 1.25) * 10**45);
+        assertEq(sale2.lot, 80_000 * 10**18);
+        assertEq(sale2.tot, 100_000 * 10**18);
+        assertEq(sale2.usr, address(urn));
+        assertEq(sale2.tic, block.timestamp);
+        assertEq(sale2.top, uint256(pip.read()) * (1.25 * 10**9));
 
         assertEq(_ink(ilk, urn), 0);
         assertEq(_art(ilk, urn), 0);
@@ -1140,14 +1141,15 @@ contract LockstakeEngineTest is DssTest {
         assertEq(sky.balanceOf(buyer), 32_000 * 10**18);
         assertEq(engine.urnAuctions(urn), 0);
 
-        (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, 0);
-        assertEq(sale.lot, 0);
-        assertEq(sale.tot, 0);
-        assertEq(sale.usr, address(0));
-        assertEq(sale.tic, 0);
-        assertEq(sale.top, 0);
+        LockstakeClipper.Sale memory sale3;
+        (sale3.pos, sale3.tab, sale3.due, sale3.lot, sale3.tot, sale3.usr, sale3.tic, sale3.top) = clip.sales(id);
+        assertEq(sale3.pos, 0);
+        assertEq(sale3.tab, 0);
+        assertEq(sale3.lot, 0);
+        assertEq(sale3.tot, 0);
+        assertEq(sale3.usr, address(0));
+        assertEq(sale3.tic, 0);
+        assertEq(sale3.top, 0);
 
         assertEq(_ink(ilk, urn), 100_000 * 10**18 - 32_000 * 10**18 - burn);
         assertEq(_art(ilk, urn), 0);

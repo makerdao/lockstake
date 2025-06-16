@@ -976,6 +976,7 @@ contract LockstakeEngineTest is DssTest {
         (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, 2_000 * 10**45);
+        assertEq(sale.due, 2_000 * 10**45);
         assertEq(sale.lot, 100_000 * 10**18);
         assertEq(sale.tot, 100_000 * 10**18);
         assertEq(sale.usr, address(urn));
@@ -1025,6 +1026,7 @@ contract LockstakeEngineTest is DssTest {
         (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, 500 * 10**45);
+        assertEq(sale.due, 500 * 10**45);
         assertEq(sale.lot, 25_000 * 10**18);
         assertEq(sale.tot, 25_000 * 10**18);
         assertEq(sale.usr, address(urn));
@@ -1076,6 +1078,7 @@ contract LockstakeEngineTest is DssTest {
         (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, 2_000 * 10**45);
+        assertEq(sale.due, 2_000 * 10**45);
         assertEq(sale.lot, 100_000 * 10**18);
         assertEq(sale.tot, 100_000 * 10**18);
         assertEq(sale.usr, address(urn));
@@ -1110,6 +1113,7 @@ contract LockstakeEngineTest is DssTest {
         (sale2.pos, sale2.tab, sale2.due, sale2.lot, sale2.tot, sale2.usr, sale2.tic, sale2.top) = clip.sales(id);
         assertEq(sale2.pos, 0);
         assertEq(sale2.tab, (2_000 - 20_000 * 0.05 * 1.25) * 10**45);
+        assertEq(sale2.due, (2_000 - 20_000 * 0.05 * 1.25) * 10**45);
         assertEq(sale2.lot, 80_000 * 10**18);
         assertEq(sale2.tot, 100_000 * 10**18);
         assertEq(sale2.usr, address(urn));
@@ -1145,6 +1149,7 @@ contract LockstakeEngineTest is DssTest {
         (sale3.pos, sale3.tab, sale3.due, sale3.lot, sale3.tot, sale3.usr, sale3.tic, sale3.top) = clip.sales(id);
         assertEq(sale3.pos, 0);
         assertEq(sale3.tab, 0);
+        assertEq(sale3.due, 0);
         assertEq(sale3.lot, 0);
         assertEq(sale3.tot, 0);
         assertEq(sale3.usr, address(0));
@@ -1194,6 +1199,7 @@ contract LockstakeEngineTest is DssTest {
         (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, 2_000 * 10**45);
+        assertEq(sale.due, 2_000 * 10**45);
         assertEq(sale.lot, 100_000 * 10**18);
         assertEq(sale.tot, 100_000 * 10**18);
         assertEq(sale.usr, address(urn));
@@ -1275,6 +1281,7 @@ contract LockstakeEngineTest is DssTest {
         (sale.pos, sale.tab, sale.due, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
         assertEq(sale.pos, 0);
         assertEq(sale.tab, 2_000 * 10**45);
+        assertEq(sale.due, 2_000 * 10**45);
         assertEq(sale.lot, 100_000 * 10**18);
         assertEq(sale.tot, 100_000 * 10**18);
         assertEq(sale.usr, address(urn));

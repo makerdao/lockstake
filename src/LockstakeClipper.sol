@@ -254,7 +254,7 @@ contract LockstakeClipper {
         sales[id].pos = active.length - 1;
 
         sales[id].tab = tab;
-        Due += sales[id].due = tab * WAD / dog.chop(ilk); // Rounding down shouldn't be a problem
+        Due += sales[id].due = tab * WAD / dog.chop(ilk); // Under approximation is not a problem for this
         sales[id].lot = lot;
         sales[id].tot = lot;
         sales[id].usr = usr;
@@ -493,6 +493,7 @@ contract LockstakeClipper {
     }
 
     // Cancel an auction during End.cage or via other governance action.
+    // It is up to governance to define if cuttee.cut(sales[id].due) needs to be called whenever yank is called
     function yank(uint256 id) external auth lock {
         require(sales[id].usr != address(0), "LockstakeClipper/not-running-auction");
         dog.digs(ilk, sales[id].tab);
@@ -500,7 +501,6 @@ contract LockstakeClipper {
         vat.flux(ilk, address(this), msg.sender, lot);
         engine.onRemove(sales[id].usr, 0, 0);
         Due -= sales[id].due;
-        // TODO: evaluate if we want the callback for accruing bad debt here or not
         _remove(id);
         emit Yank(id);
     }

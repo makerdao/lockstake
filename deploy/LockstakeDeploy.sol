@@ -27,6 +27,8 @@ import { LockstakeMigrator } from "src/LockstakeMigrator.sol";
 // Deploy a Lockstake instance
 library LockstakeDeploy {
 
+    address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
+
     function deployLockstake(
         address deployer,
         address owner,
@@ -36,7 +38,7 @@ library LockstakeDeploy {
         bytes4  calcSig,
         address mkrSky // new address won't be in chainlog at deploy time
     ) internal returns (LockstakeInstance memory lockstakeInstance) {
-        DssInstance memory dss = MCD.loadFromChainlog(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
 
         lockstakeInstance.lssky   = address(new LockstakeSky());
         lockstakeInstance.engine  = address(new LockstakeEngine(
@@ -66,5 +68,21 @@ library LockstakeDeploy {
         ScriptTools.switchOwner(lockstakeInstance.lssky, deployer, owner);
         ScriptTools.switchOwner(lockstakeInstance.engine, deployer, owner);
         ScriptTools.switchOwner(lockstakeInstance.clipper, deployer, owner);
+    }
+
+    function deployClipper(
+        address deployer,
+        address owner
+    ) internal returns (address clipper) {
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
+
+        clipper = address(new LockstakeClipper(
+                            address(dss.vat),
+                            address(dss.spotter),
+                            address(dss.dog),
+                            dss.chainlog.getAddress("LOCKSTAKE_ENGINE")
+                        ));
+
+        ScriptTools.switchOwner(clipper, deployer, owner);
     }
 }

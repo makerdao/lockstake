@@ -39,6 +39,7 @@ interface LockstakeEngineLike {
 }
 
 interface LockstakeClipperLike {
+    function wards(address) external view returns (uint256);
     function vat() external view returns (address);
     function dog() external view returns (address);
     function spotter() external view returns (address);
@@ -351,7 +352,9 @@ library LockstakeInit {
         se.clipper.rely(address(dss.dog));
         se.clipper.rely(address(dss.end));
         ClipperMomLike clipperMom = ClipperMomLike(dss.chainlog.getAddress("CLIPPER_MOM"));
-        se.clipper.rely(address(clipperMom));
+        if (se.oldClipper.wards(address(clipperMom)) == 1) {
+            se.clipper.rely(address(clipperMom));
+        }
 
         uint256 tolerance = clipperMom.tolerance(address(se.oldClipper));
         if (tolerance > 0) {

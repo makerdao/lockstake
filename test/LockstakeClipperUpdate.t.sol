@@ -103,13 +103,6 @@ contract LockstakeClipperUpdate is DssTest {
         vm.label(clipperMom, "clipperMom");
         vm.label(address(newClip), "newClip");
 
-        // TODO: Review the following pre-setup
-        vm.startPrank(pauseProxy);
-        clip.rely(clipperMom);
-        clip.file("stopped", 0);
-        dss.vat.file(ilk, "line", 1_000_000_000 * 10**45);
-        vm.stopPrank();
-
         vm.prank(pauseProxy); pip.kiss(address(this));
         _setMedianPrice(0.08 * 10**18);
         assertEq(uint256(pip.read()), 0.08 * 10**18);
@@ -119,8 +112,8 @@ contract LockstakeClipperUpdate is DssTest {
         (clipV,,,) = dss.dog.ilks(ilk_);
     }
 
+    uint256 clipWardsClipperMom;
     string name1; string symbol1; uint256 class1; uint256 dec1; address gem1; address pip1; address join1; address xlip1;
-    string name2; string symbol2; uint256 class2; uint256 dec2; address gem2; address pip2; address join2; address xlip2;
 
     function testValuesAndPermissions() public {
         assertEq(dss.vat.wards(address(clip)), 1);
@@ -146,7 +139,7 @@ contract LockstakeClipperUpdate is DssTest {
         assertEq(newClip.wards(address(dss.dog)), 0);
         assertEq(clip.wards(address(dss.end)), 1);
         assertEq(newClip.wards(address(dss.end)), 0);
-        assertEq(clip.wards(clipperMom), 1);
+        clipWardsClipperMom = clip.wards(clipperMom);
         assertEq(newClip.wards(clipperMom), 0);
         name1 = ilkRegistry.name(ilk);
         symbol1 = ilkRegistry.symbol(ilk);
@@ -185,8 +178,8 @@ contract LockstakeClipperUpdate is DssTest {
         assertEq(newClip.wards(address(dss.dog)), 1);
         assertEq(clip.wards(address(dss.end)), 1);
         assertEq(newClip.wards(address(dss.end)), 1);
-        assertEq(clip.wards(clipperMom), 1);
-        assertEq(newClip.wards(clipperMom), 1);
+        assertEq(clip.wards(clipperMom), clipWardsClipperMom);
+        assertEq(newClip.wards(clipperMom), clipWardsClipperMom);
         assertEq(ilkRegistry.name(ilk), name1);
         assertEq(ilkRegistry.symbol(ilk), symbol1);
         assertEq(ilkRegistry.class(ilk), class1);
@@ -213,6 +206,12 @@ contract LockstakeClipperUpdate is DssTest {
     uint256 dirt1; uint256 dirt2; uint256 dirt3; uint256 dirt4; uint256 dirt5;
 
     function testFunctionality() public {
+        vm.startPrank(pauseProxy);
+        clip.rely(clipperMom);
+        clip.file("stopped", 0);
+        dss.vat.file(ilk, "line", 1_000_000_000 * 10**45);
+        vm.stopPrank();
+
         assertEq(clip.kicks(), 0);
         assertEq(newClip.kicks(), 0);
         (,,, dirt1) = dss.dog.ilks(ilk);

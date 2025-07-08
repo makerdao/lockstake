@@ -205,7 +205,7 @@ contract LockstakeClipperUpdate is DssTest {
 
     uint256 dirt1; uint256 dirt2; uint256 dirt3; uint256 dirt4; uint256 dirt5;
 
-    function testFunctionality() public {
+    function testFunctionalityTake() public {
         vm.startPrank(pauseProxy);
         clip.rely(clipperMom);
         clip.file("stopped", 0);
@@ -250,5 +250,54 @@ contract LockstakeClipperUpdate is DssTest {
 
         (,,, dirt5) = dss.dog.ilks(ilk);
         assertEq(dirt5, dirt1);
+    }
+
+    function testFunctionalityRedoYank() public {
+        vm.startPrank(pauseProxy);
+        clip.rely(clipperMom);
+        clip.file("stopped", 0);
+        dss.vat.file(ilk, "line", 1_000_000_000 * 10**45);
+        vm.stopPrank();
+
+        assertEq(clip.kicks(), 0);
+        assertEq(newClip.kicks(), 0);
+        (,,, dirt1) = dss.dog.ilks(ilk);
+        address urn = _urnSetUp(0);
+        address urn2 = _urnSetUp(1);
+        uint256 id = _forceLiquidation(clip, urn);
+        assertEq(clip.kicks(), 1);
+        assertEq(newClip.kicks(), 0);
+        (,,, dirt2) = dss.dog.ilks(ilk);
+        assertGt(dirt2, dirt1);
+
+        vm.startPrank(pauseProxy);
+        LockstakeInit.updateClipper(dss, address(newClip), address(0));
+        vm.stopPrank();
+
+        uint256 id2 = _forceLiquidation(newClip, urn2); // New clipper kick works
+
+        assertEq(clip.kicks(), 1);
+        assertEq(newClip.kicks(), 1);
+
+        (,,, dirt3) = dss.dog.ilks(ilk);
+        assertGt(dirt3, dirt2);
+
+        vm.warp(block.timestamp + clip.tail() + 1);
+
+        (bool needsRedo,,,) = clip.getStatus(id);
+        assertTrue(needsRedo);
+        (needsRedo,,,) = newClip.getStatus(id2);
+        assertTrue(needsRedo);
+
+        clip.redo(id, address(this));
+        newClip.redo(id2, address(this));
+
+        vm.startPrank(pauseProxy);
+        clip.yank(id);
+        newClip.yank(id2);
+        vm.stopPrank();
+
+        (,,, dirt4) = dss.dog.ilks(ilk);
+        assertEq(dirt4, dirt1);
     }
 }

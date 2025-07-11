@@ -950,6 +950,32 @@ contract LockstakeClipperTest is DssTest {
             who: address(engine),
             data: "aaa"
         });
+        vm.revertToState(snapshotId);
+        vm.prank(ali); clip.take({
+            id:  1,
+            amt: 11 ether,
+            max: ray(5 ether),
+            who: address(cuttee),
+            data: "aaa"
+        });
+        vm.revertToState(snapshotId);
+        clip.file("cuttee", address(0));
+        vm.expectRevert();
+        vm.prank(ali); clip.take({
+            id:  1,
+            amt: 11 ether,
+            max: ray(5 ether),
+            who: address(0),
+            data: "aaa"
+        });
+        vm.expectRevert();
+        vm.prank(ali); clip.take({
+            id:  1,
+            amt: 11 ether,
+            max: ray(5 ether),
+            who: address(cuttee),
+            data: "aaa"
+        });
     }
 
     function testTakeUnderTab() public takeSetup {

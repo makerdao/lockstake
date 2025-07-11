@@ -410,7 +410,13 @@ contract LockstakeClipper {
             // extremely careful we don't allow to do it to the three
             // contracts which the LockstakeClipper needs to be authorized
             DogLike dog_ = dog;
-            if (data.length > 0 && who != address(vat) && who != address(dog_) && who != address(engine)) {
+            if (
+                data.length > 0 &&
+                who != address(vat) &&
+                who != address(dog_) &&
+                who != address(engine) &&
+                (cuttee == address(0) || who != cuttee)
+            ) {
                 ClipperCallee(who).clipperCall(msg.sender, owe, slice, data);
             }
 

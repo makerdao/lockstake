@@ -105,11 +105,16 @@ The following functions are called from the LockstakeClipper (see below) through
 
 ## 2. LockstakeClipper
 
-A modified version of the Liquidations 2.0 Clipper contract, which uses specific callbacks to the LockstakeEngine on certain events. This follows the same paradigm which was introduced in [proxy-manager-clipper](https://github.com/makerdao/proxy-manager-clipper/blob/67b7b5661c01bb09d771803a2be48f0455cd3bd3/src/ProxyManagerClipper.sol) (used for [dss-crop-join](https://github.com/makerdao/dss-crop-join)).
+A modified version of the Liquidations 2.0 Clipper contract, which uses specific callbacks to the LockstakeEngine on certain events and callbacks to a Cuttee contract to account for bad debt generation. This follows the same paradigm which was introduced in [proxy-manager-clipper](https://github.com/makerdao/proxy-manager-clipper/blob/67b7b5661c01bb09d771803a2be48f0455cd3bd3/src/ProxyManagerClipper.sol) (used for [dss-crop-join](https://github.com/makerdao/dss-crop-join)).
 
 Specifically, the LockstakeEngine is called upon a beginning of an auction (`onKick`), a sell of collateral (`onTake`), and when the auction is concluded (`onRemove`).
+The Cuttee is also called upon a beginning on an auction (`drip`) and when a sell of collateral concludes with part of the original debt not being recovered (`cut`).
 
 The LSE liquidation process differs from the usual liquidations by the fact that it sends the taker callee the collateral (SKY) in the form of ERC20 tokens and not `vat.gem`.
+
+**Due concept**
+The LSE liquidation also brings a new value per auction called `due` and a global one called `Due`.
+`due` tracks the real original debt of a liquidation (`tab` minus penalty fee) and `Due` is the global accumulator for all of the current ongoing auctions.
 
 **Exit Fee on Liquidation**
 

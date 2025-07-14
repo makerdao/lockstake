@@ -415,7 +415,7 @@ contract LockstakeClipper {
                 who != address(vat) &&
                 who != address(dog_) &&
                 who != address(engine) &&
-                (who != cuttee || cuttee == address(0))
+                (who != cuttee || cuttee == address(0)) // Keep consistency executing with address(0) to revert
             ) {
                 ClipperCallee(who).clipperCall(msg.sender, owe, slice, data);
             }

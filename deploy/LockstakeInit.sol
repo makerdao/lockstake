@@ -398,7 +398,5 @@ library LockstakeInit {
         oldClipper.deny(address(dss.dog));
         oldClipper.deny(address(dss.end));
         oldClipper.deny(dss.chainlog.getAddress("CLIPPER_MOM"));
-
-        // TODO: define if we want to reset the tolerance for oldClipper in ClipperMom
     }
 }

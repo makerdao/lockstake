@@ -160,7 +160,7 @@ library LockstakeInit {
         LockstakeInstance  memory lockstakeInstance,
         LockstakeConfig    memory cfg
     ) internal {
-        StackExtension memory se = StackExtension ({
+        StackExtension memory se = StackExtension({
             lssky:     LockstakeSkyLike(lockstakeInstance.lssky),
             engine:    LockstakeEngineLike(lockstakeInstance.engine),
             clipper:   LockstakeClipperLike(lockstakeInstance.clipper),
@@ -303,7 +303,6 @@ library LockstakeInit {
     }
 
     struct StackExtension2 {
-        address sky;
         LockstakeEngineLike engine;
         LockstakeClipperLike clipper;
         LockstakeClipperLike oldClipper;
@@ -314,16 +313,12 @@ library LockstakeInit {
         address            clipper_,
         address            cuttee
     ) internal {
-        StackExtension2 memory se = StackExtension2 ({
-            sky:        dss.chainlog.getAddress("SKY"),
+        StackExtension2 memory se = StackExtension2({
             engine:     LockstakeEngineLike(dss.chainlog.getAddress("LOCKSTAKE_ENGINE")),
             clipper:    LockstakeClipperLike(clipper_),
             oldClipper: LockstakeClipperLike(dss.chainlog.getAddress("LOCKSTAKE_CLIP"))
         });
 
-        bytes32 ilk = se.oldClipper.ilk();
-
-        require(se.clipper.ilk()     == ilk);
         require(se.clipper.vat()     == address(dss.vat));
         require(se.clipper.engine()  == address(se.engine));
         require(se.clipper.dog()     == address(dss.dog));
@@ -334,6 +329,7 @@ library LockstakeInit {
         address pip = dss.chainlog.getAddress("PIP_SKY");
         PipLike(pip).kiss(address(se.clipper));
 
+        bytes32 ilk = se.clipper.ilk();
         dss.dog.file(ilk, "clip", address(se.clipper));
         dss.dog.rely(address(se.clipper));
 
@@ -367,7 +363,7 @@ library LockstakeInit {
         ilkRegistry.put(
             ilk,
             address(0),
-            se.sky,
+            dss.chainlog.getAddress("SKY"),
             18,
             7,
             pip,

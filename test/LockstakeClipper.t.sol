@@ -733,11 +733,11 @@ contract LockstakeClipperTest is DssTest {
 
         dss.dog.bark(ilk, address(this), address(this));
 
-        LockstakeClipper.Sale memory sale1A = _sales(1);
+        LockstakeClipper.Sale memory clip1Sale1 = _sales(1);
 
-        assertEq(dss.dog.Dirt(), sale1A.tab);
+        assertEq(dss.dog.Dirt(), clip1Sale1.tab);
         (,,, dirt) = dss.dog.ilks(ilk);
-        assertEq(dirt, sale1A.tab);
+        assertEq(dirt, clip1Sale1.tab);
 
         bytes32 ilk2 = "LSE2";
         LockstakeEngineMock engine2 = new LockstakeEngineMock(address(dss.vat), ilk2);
@@ -753,9 +753,9 @@ contract LockstakeClipperTest is DssTest {
 
         vm.prank(pauseProxy); dss.vat.init(ilk2);
         vm.prank(pauseProxy); dss.vat.rely(address(clip2));
-        vm.prank(pauseProxy); dss.vat.file(ilk2, "line", rad(100 ether));
+        vm.prank(pauseProxy); dss.vat.file(ilk2, "line", rad(150 ether));
 
-        vm.prank(pauseProxy); dss.vat.slip(ilk2, address(this), 40 ether);
+        vm.prank(pauseProxy); dss.vat.slip(ilk2, address(this), 60 ether);
 
         PipMock pip2 = new PipMock();
         pip2.setPrice(price); // Spot = $2.5
@@ -763,19 +763,21 @@ contract LockstakeClipperTest is DssTest {
         vm.prank(pauseProxy); dss.spotter.file(ilk2, "pip", address(pip2));
         vm.prank(pauseProxy); dss.spotter.file(ilk2, "mat", ray(2 ether));
         dss.spotter.poke(ilk2);
-        dss.vat.frob(ilk2, address(this), address(this), address(this), 40 ether, 100 ether);
+        dss.vat.frob(ilk2, address(this), address(this), address(this), 60 ether, 150 ether);
         pip2.setPrice(4 ether); // Spot = $2
         dss.spotter.poke(ilk2);
 
         dss.dog.bark(ilk2, address(this), address(this));
 
-        LockstakeClipper.Sale memory sale1B = _sales(1);
+        LockstakeClipper.Sale memory clip2Sale1;
+        (clip2Sale1.pos, clip2Sale1.tab, clip2Sale1.due, clip2Sale1.lot, clip2Sale1.tot, clip2Sale1.usr, clip2Sale1.tic, clip2Sale1.top) = clip2.sales(1);
 
-        assertEq(dss.dog.Dirt(), sale1A.tab + sale1B.tab);
+        assertEq(dss.dog.Dirt(), clip1Sale1.tab + clip2Sale1.tab);
+        assertEq(dss.dog.Dirt(), rad(250 * 1.1 ether));
         (,,, dirt) = dss.dog.ilks(ilk);
         (,,, uint256 dirt2) = dss.dog.ilks(ilk2);
-        assertEq(dirt, sale1A.tab);
-        assertEq(dirt2, sale1B.tab);
+        assertEq(dirt, clip1Sale1.tab);
+        assertEq(dirt2, clip2Sale1.tab);
     }
 
     function testPartialLiquidationHoleLimit() public {
@@ -859,7 +861,7 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue);
 
-        // Assert auction ends
+        // Assert auction ended
         LockstakeClipper.Sale memory sale1B = _sales(1); // sale1A skipped as initial state is checked in takeSetup
         assertEq(sale1B.pos, 0);
         assertEq(sale1B.tab, 0);
@@ -891,7 +893,7 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue);
 
-        // Assert auction ends
+        // Assert auction ended
         LockstakeClipper.Sale memory sale1B = _sales(1); // sale1A skipped as initial state is checked in takeSetup
         assertEq(sale1B.pos, 0);
         assertEq(sale1B.tab, 0);
@@ -994,7 +996,7 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue + rad(45 ether));
 
-        // Assert auction DID NOT end
+        // Assert auction did not end
         LockstakeClipper.Sale memory sale1B = _sales(1); // sale1A skipped as initial state is checked in takeSetup
         assertEq(sale1B.pos, 0);
         assertEq(sale1B.tab, rad(55 ether));  // 110 - 5 * 11
@@ -1027,7 +1029,7 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue);
 
-        // Assert auction DID NOT end
+        // Assert auction did not end
         LockstakeClipper.Sale memory sale1C = _sales(1);
         assertEq(sale1C.pos, 0);
         assertEq(sale1C.tab, rad(5 ether));   // 110 - 5 * 11 - 5 * 10
@@ -1048,7 +1050,7 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue);
 
-        // Assert auction DID NOT end
+        // Assert auction ended
         LockstakeClipper.Sale memory sale1D = _sales(1);
         assertEq(sale1D.pos, 0);
         assertEq(sale1D.tab, 0);
@@ -1108,7 +1110,7 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue);
 
-        // Assert auction ends
+        // Assert auction ended
         LockstakeClipper.Sale memory sale1B = _sales(1); // sale1A skipped as initial state is checked in takeSetup
         assertEq(sale1B.pos, 0);
         assertEq(sale1B.tab, 0);
@@ -1152,7 +1154,7 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue);
 
-        // Assert auction ends
+        // Assert auction ended
         LockstakeClipper.Sale memory sale1B = _sales(1); // sale1A skipped as initial state is checked in takeSetup
         assertEq(sale1B.pos, 0);
         assertEq(sale1B.tab, 0);
@@ -1196,7 +1198,7 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue);
 
-        // Assert auction ends
+        // Assert auction ended
         LockstakeClipper.Sale memory sale1B = _sales(1); // sale1A skipped as initial state is checked in takeSetup
         assertEq(sale1B.pos, 0);
         assertEq(sale1B.tab, 0);
@@ -1314,9 +1316,9 @@ contract LockstakeClipperTest is DssTest {
 
         LockstakeClipper.Sale memory sale1B = _sales(1); // sale1A skipped as initial state is checked in takeSetup
         assertEq(sale1B.tab, rad(22 ether));
+        assertEq(sale1B.tab, clip.chost());
         assertEq(sale1B.due, rad(12 ether));
         assertEq(sale1B.lot, 22.4 ether);
-        assertTrue(!(sale1B.tab > clip.chost()));
 
         vm.expectRevert("LockstakeClipper/no-partial-purchase");
         clip.take({
@@ -1352,7 +1354,7 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue + rad(50 ether));
 
-        // Assert auction DID NOT end
+        // Assert auction did not end
         LockstakeClipper.Sale memory sale1B = _sales(1); // sale1A skipped as initial state is checked in takeSetup
         assertEq(sale1B.pos, 0);
         assertEq(sale1B.tab, rad(60 ether));  // 110 - 5 * 10
@@ -1376,7 +1378,7 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue);
 
-        // Assert auction is over
+        // Assert auction ended
         LockstakeClipper.Sale memory sale1C = _sales(1);
         assertEq(sale1C.pos, 0);
         assertEq(sale1C.tab, 0);
@@ -1430,7 +1432,7 @@ contract LockstakeClipperTest is DssTest {
         assertTrue(needsRedo);
         clip.redo(1, address(this));
 
-        LockstakeClipper.Sale memory sale1B = _sales(1); // sale1A skipped as initial state is checked in takeSetup
+        LockstakeClipper.Sale memory sale1B = _sales(1);
         assertEq(sale1B.tic, startTime + 3601 seconds);     // (block.timestamp)
         assertEq(sale1B.top, ray(3.75 ether)); // $3 spot + 25% buffer = $5 (used most recent OSM price)
     }
@@ -2000,7 +2002,7 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue + rad(45 ether));
 
-        // Assert auction DID NOT end
+        // Assert auction did not end
         LockstakeClipper.Sale memory sale1B = _sales(1); // sale1A skipped as initial state is checked in takeSetup
         assertEq(sale1B.pos, 0);
         assertEq(sale1B.tab, rad(55 ether));  // 110 - 5 * 11
@@ -2032,15 +2034,15 @@ contract LockstakeClipperTest is DssTest {
 
         assertEq(clip.Due(), takeSetupInitialDue);
 
-        // Assert auction ends
-        LockstakeClipper.Sale memory sale1 = _sales(1);
-        assertEq(sale1.pos, 0);
-        assertEq(sale1.tab, 0);
-        assertEq(sale1.due, 0);
-        assertEq(sale1.lot, 0);
-        assertEq(sale1.tot, 0);
-        assertEq(sale1.usr, address(0));
-        assertEq(sale1.tic, 0);
-        assertEq(sale1.top, 0);
+        // Assert auction ended
+        LockstakeClipper.Sale memory sale1B = _sales(1); // sale1A skipped as initial state is checked in takeSetup
+        assertEq(sale1B.pos, 0);
+        assertEq(sale1B.tab, 0);
+        assertEq(sale1B.due, 0);
+        assertEq(sale1B.lot, 0);
+        assertEq(sale1B.tot, 0);
+        assertEq(sale1B.usr, address(0));
+        assertEq(sale1B.tic, 0);
+        assertEq(sale1B.top, 0);
     }
 }

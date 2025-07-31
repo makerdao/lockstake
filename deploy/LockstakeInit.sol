@@ -45,6 +45,7 @@ interface LockstakeClipperLike {
     function spotter() external view returns (address);
     function engine() external view returns (address);
     function calc() external view returns (address);
+    function cuttee() external view returns (address);
     function ilk() external view returns (bytes32);
     function buf() external view returns (uint256);
     function tail() external view returns (uint256);
@@ -112,6 +113,10 @@ interface IlkRegistryLike {
         string memory _name,
         string memory _symbol
     ) external;
+}
+
+interface CutteeLike {
+    function rely(address) external;
 }
 
 struct LockstakeConfig {
@@ -340,22 +345,16 @@ library LockstakeInit {
         se.clipper.file("cusp",    se.oldClipper.cusp());
         se.clipper.file("chip",    se.oldClipper.chip());
         se.clipper.file("tip",     se.oldClipper.tip());
-        se.clipper.file("stopped", se.oldClipper.stopped());
+        se.clipper.file("stopped", 3);
         se.clipper.file("vow",     address(dss.vow));
         se.clipper.file("calc",    se.oldClipper.calc());
         se.clipper.file("cuttee",  cuttee);
         se.clipper.upchost();
         se.clipper.rely(address(dss.dog));
         se.clipper.rely(address(dss.end));
-        ClipperMomLike clipperMom = ClipperMomLike(dss.chainlog.getAddress("CLIPPER_MOM"));
-        if (se.oldClipper.wards(address(clipperMom)) == 1) {
-            se.clipper.rely(address(clipperMom));
-        }
 
-        uint256 tolerance = clipperMom.tolerance(address(se.oldClipper));
-        if (tolerance > 0) {
-            clipperMom.setPriceTolerance(address(se.clipper), tolerance);
-        }
+        ClipperMomLike clipperMom = ClipperMomLike(dss.chainlog.getAddress("CLIPPER_MOM"));
+        clipperMom.setPriceTolerance(address(se.clipper), clipperMom.tolerance(address(se.oldClipper)));
 
         IlkRegistryLike ilkRegistry = IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY"));
         string memory name = ilkRegistry.name(ilk);
@@ -394,5 +393,12 @@ library LockstakeInit {
         oldClipper.deny(address(dss.dog));
         oldClipper.deny(address(dss.end));
         oldClipper.deny(dss.chainlog.getAddress("CLIPPER_MOM"));
+    }
+
+    function enableLiquidations(DssInstance memory dss) internal {
+        LockstakeClipperLike clipper = LockstakeClipperLike(dss.chainlog.getAddress("LOCKSTAKE_CLIP"));
+        clipper.rely(dss.chainlog.getAddress("CLIPPER_MOM"));
+        clipper.file("stopped", 0);
+        CutteeLike(clipper.cuttee()).rely(address(clipper));
     }
 }

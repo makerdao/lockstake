@@ -45,7 +45,7 @@ contract LockstakeClipperUpdateTest is DssTest {
     LockstakeClipper    clip;
     LockstakeClipper    newClip;
     address             calc;
-    address             cuttee;
+    CutteeMock          cuttee;
     
     address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
@@ -93,7 +93,8 @@ contract LockstakeClipperUpdateTest is DssTest {
         pip = OsmAbstract(dss.chainlog.getAddress("PIP_SKY"));
         clipperMom = ClipperMomLike(dss.chainlog.getAddress("CLIPPER_MOM"));
         newClip = LockstakeClipper(LockstakeDeploy.deployClipper(address(this), pauseProxy));
-        cuttee = address(new CutteeMock());
+        cuttee = new CutteeMock();
+        cuttee.rely(pauseProxy);
 
         ilk = engine.ilk();
 
@@ -106,7 +107,7 @@ contract LockstakeClipperUpdateTest is DssTest {
         vm.label(address(pip), "pip");
         vm.label(address(clipperMom), "clipperMom");
         vm.label(address(newClip), "newClip");
-        vm.label(cuttee, "cuttee");
+        vm.label(address(cuttee), "cuttee");
 
         vm.prank(pauseProxy); pip.kiss(address(this));
         _setMedianPrice(0.08 * 10**18);
@@ -157,7 +158,7 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP"), address(clip));
 
         vm.startPrank(pauseProxy);
-        LockstakeInit.updateClipper(dss, address(newClip), cuttee);
+        LockstakeInit.updateClipper(dss, address(newClip), address(cuttee));
         vm.stopPrank();
 
         assertEq(dss.vat.wards(address(clip)), 1);
@@ -174,17 +175,17 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertEq(newClip.cusp(), clip.cusp());
         assertEq(newClip.chip(), clip.chip());
         assertEq(newClip.tip(), clip.tip());
-        assertEq(newClip.stopped(), clip.stopped());
+        assertEq(newClip.stopped(), 3);
         assertEq(newClip.vow(), clip.vow());
         assertEq(address(newClip.calc()), address(clip.calc()));
-        assertEq(newClip.cuttee(), cuttee);
+        assertEq(newClip.cuttee(), address(cuttee));
         assertEq(newClip.chost(), clip.chost());
         assertEq(clip.wards(address(dss.dog)), 1);
         assertEq(newClip.wards(address(dss.dog)), 1);
         assertEq(clip.wards(address(dss.end)), 1);
         assertEq(newClip.wards(address(dss.end)), 1);
         assertEq(clip.wards(address(clipperMom)), clipWardsClipperMom);
-        assertEq(newClip.wards(address(clipperMom)), clipWardsClipperMom);
+        assertEq(newClip.wards(address(clipperMom)), 0);
         assertEq(clipperMom.tolerance(address(newClip)), clipperMom.tolerance(address(clip)));
         assertEq(ilkRegistry.name(ilk), nameV);
         assertEq(ilkRegistry.symbol(ilk), symbolV);
@@ -207,6 +208,14 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertEq(clip.wards(address(dss.dog)), 0);
         assertEq(clip.wards(address(dss.end)), 0);
         assertEq(clip.wards(address(clipperMom)), 0);
+
+        vm.startPrank(pauseProxy);
+        LockstakeInit.enableLiquidations(dss);
+        vm.stopPrank();
+
+        assertEq(newClip.wards(address(clipperMom)), 1);
+        assertEq(newClip.stopped(), 0);
+        assertEq(cuttee.wards(address(newClip)), 1);
     }
 
     uint256 clipKicks;
@@ -214,7 +223,6 @@ contract LockstakeClipperUpdateTest is DssTest {
 
     function testFunctionalityTake() public {
         vm.startPrank(pauseProxy);
-        clip.rely(address(clipperMom));
         clip.file("stopped", 0);
         dss.vat.file(ilk, "line", 1_000_000_000 * 10**45);
         vm.stopPrank();
@@ -231,7 +239,8 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertGt(dirt2, dirt1);
 
         vm.startPrank(pauseProxy);
-        LockstakeInit.updateClipper(dss, address(newClip), address(0));
+        LockstakeInit.updateClipper(dss, address(newClip), address(cuttee));
+        LockstakeInit.enableLiquidations(dss);
         vm.stopPrank();
 
         uint256 id2 = _forceLiquidation(newClip, urn2); // New clipper kick works
@@ -261,7 +270,6 @@ contract LockstakeClipperUpdateTest is DssTest {
 
     function testFunctionalityRedoYank() public {
         vm.startPrank(pauseProxy);
-        clip.rely(address(clipperMom));
         clip.file("stopped", 0);
         dss.vat.file(ilk, "line", 1_000_000_000 * 10**45);
         vm.stopPrank();
@@ -278,7 +286,8 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertGt(dirt2, dirt1);
 
         vm.startPrank(pauseProxy);
-        LockstakeInit.updateClipper(dss, address(newClip), address(0));
+        LockstakeInit.updateClipper(dss, address(newClip), address(cuttee));
+        LockstakeInit.enableLiquidations(dss);
         vm.stopPrank();
 
         uint256 id2 = _forceLiquidation(newClip, urn2); // New clipper kick works

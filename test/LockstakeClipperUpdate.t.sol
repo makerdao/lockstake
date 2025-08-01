@@ -58,26 +58,6 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertEq(uint256(pip.read()), price);
     }
 
-    function _urnSetUp(uint256 index) internal returns (address urn) {
-        urn = engine.open(index);
-        deal(address(sky), address(this), 1_000_000 * 10**18);
-        sky.approve(address(engine), 1_000_000 * 10**18);
-        engine.lock(address(this), index, 1_000_000 * 10**18, 5);
-        engine.draw(address(this), index, address(this), 50_000 * 10**18);
-    }
-
-    function _forceLiquidation(LockstakeClipper clipper, address urn) internal returns (uint256 id) {
-        if (uint256(pip.read()) == 0.08 * 10**18) {
-            _setMedianPrice(0.04 * 10**18); // Force liquidation
-        }
-        dss.spotter.poke(ilk);
-        uint256 kicks = clipper.kicks();
-        assertEq(engine.urnAuctions(urn), 0);
-        id = dss.dog.bark(ilk, address(urn), address(this));
-        assertEq(clipper.kicks(), kicks + 1);
-        assertEq(engine.urnAuctions(urn), 1);
-    }
-
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
@@ -111,6 +91,7 @@ contract LockstakeClipperUpdateTest is DssTest {
 
         vm.prank(pauseProxy); pip.kiss(address(this));
         _setMedianPrice(0.08 * 10**18);
+        dss.spotter.poke(ilk);
     }
 
     function _clip(bytes32 ilk_) internal view returns (address clipV) {
@@ -144,7 +125,7 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertEq(newClip.wards(address(dss.dog)), 0);
         assertEq(clip.wards(address(dss.end)), 1);
         assertEq(newClip.wards(address(dss.end)), 0);
-        clipWardsClipperMom = clip.wards(address(clipperMom));
+        assertEq(clip.wards(address(clipperMom)), 0);
         assertEq(newClip.wards(address(clipperMom)), 0);
         assertEq(clipperMom.tolerance(address(newClip)), 0);
         nameV = ilkRegistry.name(ilk);
@@ -161,14 +142,14 @@ contract LockstakeClipperUpdateTest is DssTest {
         LockstakeInit.updateClipper(dss, address(newClip), address(cuttee));
         vm.stopPrank();
 
-        assertEq(dss.vat.wards(address(clip)), 1);
+        assertEq(dss.vat.wards(address(clip)), 0);
         assertEq(dss.vat.wards(address(newClip)), 1);
-        assertEq(pip.bud(address(clip)), 1);
+        assertEq(pip.bud(address(clip)), 0);
         assertEq(pip.bud(address(newClip)), 1);
         assertEq(_clip(ilk), address(newClip));
-        assertEq(dss.dog.wards(address(clip)), 1);
+        assertEq(dss.dog.wards(address(clip)), 0);
         assertEq(dss.dog.wards(address(newClip)), 1);
-        assertEq(engine.wards(address(clip)), 1);
+        assertEq(engine.wards(address(clip)), 0);
         assertEq(engine.wards(address(newClip)), 1);
         assertEq(newClip.buf(), clip.buf());
         assertEq(newClip.tail(), clip.tail());
@@ -180,12 +161,13 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertEq(address(newClip.calc()), address(clip.calc()));
         assertEq(newClip.cuttee(), address(cuttee));
         assertEq(newClip.chost(), clip.chost());
-        assertEq(clip.wards(address(dss.dog)), 1);
+        assertEq(clip.wards(address(dss.dog)), 0);
         assertEq(newClip.wards(address(dss.dog)), 1);
-        assertEq(clip.wards(address(dss.end)), 1);
+        assertEq(clip.wards(address(dss.end)), 0);
         assertEq(newClip.wards(address(dss.end)), 1);
-        assertEq(clip.wards(address(clipperMom)), clipWardsClipperMom);
+        assertEq(clip.wards(address(clipperMom)), 0);
         assertEq(newClip.wards(address(clipperMom)), 0);
+        assertEq(cuttee.wards(address(newClip)), 1);
         assertEq(clipperMom.tolerance(address(newClip)), clipperMom.tolerance(address(clip)));
         assertEq(ilkRegistry.name(ilk), nameV);
         assertEq(ilkRegistry.symbol(ilk), symbolV);
@@ -197,16 +179,6 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertEq(ilkRegistry.xlip(ilk), address(newClip));
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP"), address(newClip));
 
-        vm.startPrank(pauseProxy);
-        LockstakeInit.removeClipper(dss, address(clip));
-        vm.stopPrank();
-
-        assertEq(dss.vat.wards(address(clip)), 0);
-        assertEq(pip.bud(address(clip)), 0);
-        assertEq(dss.dog.wards(address(clip)), 0);
-        assertEq(engine.wards(address(clip)), 0);
-        assertEq(clip.wards(address(dss.dog)), 0);
-        assertEq(clip.wards(address(dss.end)), 0);
         assertEq(clip.wards(address(clipperMom)), 0);
 
         vm.startPrank(pauseProxy);
@@ -215,105 +187,69 @@ contract LockstakeClipperUpdateTest is DssTest {
 
         assertEq(newClip.wards(address(clipperMom)), 1);
         assertEq(newClip.stopped(), 0);
-        assertEq(cuttee.wards(address(newClip)), 1);
     }
 
     uint256 clipKicks;
-    uint256 dirt1; uint256 dirt2; uint256 dirt3; uint256 dirt4; uint256 dirt5;
+    uint256 dirt1; uint256 dirt2; uint256 dirt3;
 
-    function testFunctionalityTake() public {
+    function testFunctionality() public {
         vm.startPrank(pauseProxy);
-        clip.file("stopped", 0);
         dss.vat.file(ilk, "line", 1_000_000_000 * 10**45);
         vm.stopPrank();
 
-        clipKicks = clip.kicks();
-        assertEq(newClip.kicks(), 0);
         (,,, dirt1) = dss.dog.ilks(ilk);
-        address urn = _urnSetUp(0);
-        address urn2 = _urnSetUp(1);
-        uint256 id = _forceLiquidation(clip, urn);
-        assertEq(clip.kicks(), clipKicks + 1);
-        assertEq(newClip.kicks(), 0);
-        (,,, dirt2) = dss.dog.ilks(ilk);
-        assertGt(dirt2, dirt1);
+
+        address urn = engine.open(0);
+        deal(address(sky), address(this), 1_000_000 * 10**18);
+        sky.approve(address(engine), 1_000_000 * 10**18);
+        engine.lock(address(this), 0, 1_000_000 * 10**18, 5);
+        engine.draw(address(this), 0, address(this), 50_000 * 10**18);
 
         vm.startPrank(pauseProxy);
         LockstakeInit.updateClipper(dss, address(newClip), address(cuttee));
         LockstakeInit.enableLiquidations(dss);
         vm.stopPrank();
 
-        uint256 id2 = _forceLiquidation(newClip, urn2); // New clipper kick works
+        _setMedianPrice(0.04 * 10**18);
+        dss.spotter.poke(ilk);
+        uint256 kicks = newClip.kicks();
+        assertEq(engine.urnAuctions(urn), 0);
+        uint256 salesId = dss.dog.bark(ilk, address(urn), address(this));
+        assertEq(newClip.kicks(), kicks + 1);
+        assertEq(engine.urnAuctions(urn), 1);
 
-        assertEq(clip.kicks(), clipKicks + 1);
         assertEq(newClip.kicks(), 1);
 
-        (,,, dirt3) = dss.dog.ilks(ilk);
-        assertGt(dirt3, dirt2);
+        (,,, dirt2) = dss.dog.ilks(ilk);
+        assertGt(dirt2, dirt1);
 
-        (, uint256 tab, uint256 lot,,,,) = OldClipperSales(address(clip)).sales(id);
-        vm.prank(pauseProxy); dss.vat.suck(address(0), address(this), tab);
-        dss.vat.hope(address(clip));
-        clip.take(id, lot, type(uint256).max, address(this), ""); // Old clip auction can still be taken
+        uint256 snapshotId = vm.snapshotState();
 
-        (,,, dirt4) = dss.dog.ilks(ilk);
-        assertEq(dirt4, dirt2);
-
-        (, tab,, lot,,,,) = newClip.sales(id2);
+        (, uint256 tab,, uint256 lot,,,,) = newClip.sales(salesId);
         vm.prank(pauseProxy); dss.vat.suck(address(0), address(this), tab);
         dss.vat.hope(address(newClip));
-        newClip.take(id2, lot, type(uint256).max, address(this), ""); // New clipper take works
-
-        (,,, dirt5) = dss.dog.ilks(ilk);
-        assertEq(dirt5, dirt1);
-    }
-
-    function testFunctionalityRedoYank() public {
-        vm.startPrank(pauseProxy);
-        clip.file("stopped", 0);
-        dss.vat.file(ilk, "line", 1_000_000_000 * 10**45);
-        vm.stopPrank();
-
-        clipKicks = clip.kicks();
-        assertEq(newClip.kicks(), 0);
-        (,,, dirt1) = dss.dog.ilks(ilk);
-        address urn = _urnSetUp(0);
-        address urn2 = _urnSetUp(1);
-        uint256 id = _forceLiquidation(clip, urn);
-        assertEq(clip.kicks(), clipKicks + 1);
-        assertEq(newClip.kicks(), 0);
-        (,,, dirt2) = dss.dog.ilks(ilk);
-        assertGt(dirt2, dirt1);
-
-        vm.startPrank(pauseProxy);
-        LockstakeInit.updateClipper(dss, address(newClip), address(cuttee));
-        LockstakeInit.enableLiquidations(dss);
-        vm.stopPrank();
-
-        uint256 id2 = _forceLiquidation(newClip, urn2); // New clipper kick works
-
-        assertEq(clip.kicks(), clipKicks + 1);
-        assertEq(newClip.kicks(), 1);
+        newClip.take(salesId, lot, type(uint256).max, address(this), ""); // New clipper take works
 
         (,,, dirt3) = dss.dog.ilks(ilk);
-        assertGt(dirt3, dirt2);
+        assertEq(dirt3, dirt1);
+
+        vm.revertToState(snapshotId);
+
+        (,,, dirt2) = dss.dog.ilks(ilk);
+        assertGt(dirt2, dirt1);
 
         vm.warp(block.timestamp + clip.tail() + 1);
 
-        (bool needsRedo,,,) = clip.getStatus(id);
-        assertTrue(needsRedo);
-        (needsRedo,,,) = newClip.getStatus(id2);
+        (bool needsRedo,,,) = newClip.getStatus(salesId);
         assertTrue(needsRedo);
 
-        clip.redo(id, address(this));
-        newClip.redo(id2, address(this));
+        newClip.redo(salesId, address(this));
 
         vm.startPrank(pauseProxy);
-        clip.yank(id);
-        newClip.yank(id2);
+        newClip.yank(salesId);
         vm.stopPrank();
 
-        (,,, dirt4) = dss.dog.ilks(ilk);
-        assertEq(dirt4, dirt1);
+        (,,, dirt3) = dss.dog.ilks(ilk);
+        assertEq(dirt3, dirt1);
     }
 }

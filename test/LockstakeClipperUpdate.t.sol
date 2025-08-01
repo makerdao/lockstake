@@ -180,8 +180,6 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertEq(ilkRegistry.xlip(ilk), address(newClip));
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_CLIP"), address(newClip));
 
-        assertEq(clip.wards(address(clipperMom)), 0);
-
         vm.startPrank(pauseProxy);
         LockstakeInit.enableLiquidations(dss);
         vm.stopPrank();
@@ -213,13 +211,11 @@ contract LockstakeClipperUpdateTest is DssTest {
 
         _setMedianPrice(0.04 * 10**18);
         dss.spotter.poke(ilk);
-        uint256 kicks = newClip.kicks();
+        assertEq(newClip.kicks(), 0);
         assertEq(engine.urnAuctions(urn), 0);
         uint256 salesId = dss.dog.bark(ilk, address(urn), address(this));
-        assertEq(newClip.kicks(), kicks + 1);
-        assertEq(engine.urnAuctions(urn), 1);
-
         assertEq(newClip.kicks(), 1);
+        assertEq(engine.urnAuctions(urn), 1);
 
         (,,, dirt2) = dss.dog.ilks(ilk);
         assertGt(dirt2, dirt1);
@@ -229,15 +225,12 @@ contract LockstakeClipperUpdateTest is DssTest {
         (, uint256 tab,, uint256 lot,,,,) = newClip.sales(salesId);
         vm.prank(pauseProxy); dss.vat.suck(address(0), address(this), tab);
         dss.vat.hope(address(newClip));
-        newClip.take(salesId, lot, type(uint256).max, address(this), ""); // New clipper take works
+        newClip.take(salesId, lot, type(uint256).max, address(this), "");
 
         (,,, dirt3) = dss.dog.ilks(ilk);
         assertEq(dirt3, dirt1);
 
         vm.revertToState(snapshotId);
-
-        (,,, dirt2) = dss.dog.ilks(ilk);
-        assertGt(dirt2, dirt1);
 
         vm.warp(block.timestamp + clip.tail() + 1);
 

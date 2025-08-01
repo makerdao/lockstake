@@ -367,7 +367,7 @@ library LockstakeInit {
         ClipperMomLike clipperMom = ClipperMomLike(dss.chainlog.getAddress("CLIPPER_MOM"));
         clipperMom.setPriceTolerance(address(se.clipper), clipperMom.tolerance(address(se.oldClipper)));
 
-        se.oldClipper.deny(address(clipperMom));
+        se.oldClipper.deny(address(clipperMom)); // Should be already denied and it doesn't actually matter, but still do it
 
         IlkRegistryLike ilkRegistry = IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY"));
         string memory name = ilkRegistry.name(ilk);

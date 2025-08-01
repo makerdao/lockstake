@@ -98,7 +98,7 @@ contract LockstakeClipperUpdateTest is DssTest {
         (clipV,,,) = dss.dog.ilks(ilk_);
     }
 
-    uint256 clipWardsClipperMom;
+    uint256 clipperMomToleranceClipper;
     string nameV; string symbolV; uint256 classV; uint256 decV; address gemV; address pipV; address joinV;
 
     function testValuesAndPermissions() public {
@@ -127,6 +127,7 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertEq(newClip.wards(address(dss.end)), 0);
         assertEq(clip.wards(address(clipperMom)), 0);
         assertEq(newClip.wards(address(clipperMom)), 0);
+        clipperMomToleranceClipper = clipperMom.tolerance(address(clip));
         assertEq(clipperMom.tolerance(address(newClip)), 0);
         nameV = ilkRegistry.name(ilk);
         symbolV = ilkRegistry.symbol(ilk);
@@ -168,7 +169,7 @@ contract LockstakeClipperUpdateTest is DssTest {
         assertEq(clip.wards(address(clipperMom)), 0);
         assertEq(newClip.wards(address(clipperMom)), 0);
         assertEq(cuttee.wards(address(newClip)), 1);
-        assertEq(clipperMom.tolerance(address(newClip)), clipperMom.tolerance(address(clip)));
+        assertEq(clipperMom.tolerance(address(newClip)), clipperMomToleranceClipper);
         assertEq(ilkRegistry.name(ilk), nameV);
         assertEq(ilkRegistry.symbol(ilk), symbolV);
         assertEq(ilkRegistry.class(ilk), classV);

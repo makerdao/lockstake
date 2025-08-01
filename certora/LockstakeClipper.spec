@@ -71,6 +71,7 @@ methods {
     function dog.chop(bytes32) external returns (uint256) envfree;
     function dog.Dirt() external returns (uint256) envfree;
     function dog.ilks(bytes32) external returns (address,uint256,uint256,uint256) envfree;
+    function cuttee.wards(address) external returns (uint256) envfree;
     function cuttee.dripCalled() external returns (bool) envfree;
     function cuttee.cutCalled() external returns (bool) envfree;
     function cuttee.cutValue() external returns (uint256) envfree;
@@ -900,6 +901,7 @@ rule take_revert(uint256 id, uint256 amt, uint256 max, address who, bytes data) 
     require vat.wards(lockstakeEngine) == 1;
     require dog.wards(currentContract) == 1;
     require lockstakeEngine.wards(currentContract) == 1;
+    require cuttee.wards(currentContract) == 1;
     // LockstakeEngine assumtions
     require lockstakeEngine.ilk() == ilk;
     require to_mathint(sky.balanceOf(lockstakeEngine)) >= slice + burn;

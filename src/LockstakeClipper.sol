@@ -276,7 +276,7 @@ contract LockstakeClipper {
 
         // Trigger engine liquidation call-back
         engine.onKick(usr, lot);
-        // Trigger bad debt accounting (will update line accordingly)
+        // Trigger cuttee accounting (will update line accordingly)
         if (cuttee != address(0)) { CutteeLike(cuttee).drip(); }
 
         emit Kick(id, top, tab, lot, usr, kpr, coin);

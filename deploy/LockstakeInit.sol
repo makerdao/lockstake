@@ -312,6 +312,7 @@ library LockstakeInit {
         LockstakeEngineLike engine;
         LockstakeClipperLike clipper;
         LockstakeClipperLike oldClipper;
+        ClipperMomLike clipperMom;
     }
 
     function updateClipper(
@@ -322,15 +323,17 @@ library LockstakeInit {
         StackExtension2 memory se = StackExtension2({
             engine:     LockstakeEngineLike(dss.chainlog.getAddress("LOCKSTAKE_ENGINE")),
             clipper:    LockstakeClipperLike(clipper_),
-            oldClipper: LockstakeClipperLike(dss.chainlog.getAddress("LOCKSTAKE_CLIP"))
+            oldClipper: LockstakeClipperLike(dss.chainlog.getAddress("LOCKSTAKE_CLIP")),
+            clipperMom: ClipperMomLike(dss.chainlog.getAddress("CLIPPER_MOM"))
         });
 
-        require(se.clipper.vat()         == address(dss.vat));
-        require(se.clipper.engine()      == address(se.engine));
-        require(se.clipper.dog()         == address(dss.dog));
-        require(se.clipper.spotter()     == address(dss.spotter));
-        require(se.oldClipper.stopped()  == 3);
-        require(se.oldClipper.count()    == 0);
+        require(se.clipper.vat()                            == address(dss.vat));
+        require(se.clipper.engine()                         == address(se.engine));
+        require(se.clipper.dog()                            == address(dss.dog));
+        require(se.clipper.spotter()                        == address(dss.spotter));
+        require(se.oldClipper.stopped()                     == 3);
+        require(se.oldClipper.count()                       == 0);
+        require(se.oldClipper.wards(address(se.clipperMom)) == 0);
 
         dss.vat.rely(address(se.clipper));
         dss.vat.deny(address(se.oldClipper));
@@ -364,10 +367,7 @@ library LockstakeInit {
 
         CutteeLike(se.clipper.cuttee()).rely(address(se.clipper));
 
-        ClipperMomLike clipperMom = ClipperMomLike(dss.chainlog.getAddress("CLIPPER_MOM"));
-        clipperMom.setPriceTolerance(address(se.clipper), clipperMom.tolerance(address(se.oldClipper)));
-
-        se.oldClipper.deny(address(clipperMom)); // Should be already denied and it doesn't actually matter, but still do it
+        se.clipperMom.setPriceTolerance(address(se.clipper), se.clipperMom.tolerance(address(se.oldClipper)));
 
         IlkRegistryLike ilkRegistry = IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY"));
         string memory name = ilkRegistry.name(ilk);

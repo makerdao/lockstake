@@ -306,6 +306,7 @@ contract LockstakeClipperTest is DssTest {
 
         cuttee = new CutteeMock();
         clip.file("cuttee", address(cuttee));
+        cuttee.rely(address(clip));
 
         vm.startPrank(pauseProxy);
         dss.dog.file(ilk, "clip", address(clip));

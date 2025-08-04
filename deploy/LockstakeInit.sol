@@ -45,6 +45,7 @@ interface LockstakeClipperLike {
     function spotter() external view returns (address);
     function engine() external view returns (address);
     function calc() external view returns (address);
+    function cuttee() external view returns (address);
     function ilk() external view returns (bytes32);
     function buf() external view returns (uint256);
     function tail() external view returns (uint256);
@@ -52,6 +53,7 @@ interface LockstakeClipperLike {
     function chip() external view returns (uint256);
     function tip() external view returns (uint256);
     function stopped() external view returns (uint256);
+    function count() external view returns (uint256);
     function rely(address) external;
     function deny(address) external;
     function file(bytes32, address) external;
@@ -112,6 +114,10 @@ interface IlkRegistryLike {
         string memory _name,
         string memory _symbol
     ) external;
+}
+
+interface CutteeLike {
+    function rely(address) external;
 }
 
 struct LockstakeConfig {
@@ -306,6 +312,7 @@ library LockstakeInit {
         LockstakeEngineLike engine;
         LockstakeClipperLike clipper;
         LockstakeClipperLike oldClipper;
+        ClipperMomLike clipperMom;
     }
 
     function updateClipper(
@@ -316,46 +323,51 @@ library LockstakeInit {
         StackExtension2 memory se = StackExtension2({
             engine:     LockstakeEngineLike(dss.chainlog.getAddress("LOCKSTAKE_ENGINE")),
             clipper:    LockstakeClipperLike(clipper_),
-            oldClipper: LockstakeClipperLike(dss.chainlog.getAddress("LOCKSTAKE_CLIP"))
+            oldClipper: LockstakeClipperLike(dss.chainlog.getAddress("LOCKSTAKE_CLIP")),
+            clipperMom: ClipperMomLike(dss.chainlog.getAddress("CLIPPER_MOM"))
         });
 
-        require(se.clipper.vat()     == address(dss.vat));
-        require(se.clipper.engine()  == address(se.engine));
-        require(se.clipper.dog()     == address(dss.dog));
-        require(se.clipper.spotter() == address(dss.spotter));
+        require(se.clipper.vat()                            == address(dss.vat));
+        require(se.clipper.engine()                         == address(se.engine));
+        require(se.clipper.dog()                            == address(dss.dog));
+        require(se.clipper.spotter()                        == address(dss.spotter));
+        require(se.oldClipper.stopped()                     == 3);
+        require(se.oldClipper.count()                       == 0);
+        require(se.oldClipper.wards(address(se.clipperMom)) == 0);
 
         dss.vat.rely(address(se.clipper));
+        dss.vat.deny(address(se.oldClipper));
 
         address pip = dss.chainlog.getAddress("PIP_SKY");
         PipLike(pip).kiss(address(se.clipper));
+        PipLike(pip).diss(address(se.oldClipper));
 
         bytes32 ilk = se.clipper.ilk();
         dss.dog.file(ilk, "clip", address(se.clipper));
         dss.dog.rely(address(se.clipper));
+        dss.dog.deny(address(se.oldClipper));
 
         se.engine.rely(address(se.clipper));
+        se.engine.deny(address(se.oldClipper));
 
         se.clipper.file("buf",     se.oldClipper.buf());
         se.clipper.file("tail",    se.oldClipper.tail());
         se.clipper.file("cusp",    se.oldClipper.cusp());
         se.clipper.file("chip",    se.oldClipper.chip());
         se.clipper.file("tip",     se.oldClipper.tip());
-        se.clipper.file("stopped", se.oldClipper.stopped());
+        se.clipper.file("stopped", 3);
         se.clipper.file("vow",     address(dss.vow));
         se.clipper.file("calc",    se.oldClipper.calc());
         se.clipper.file("cuttee",  cuttee);
         se.clipper.upchost();
         se.clipper.rely(address(dss.dog));
+        se.oldClipper.deny(address(dss.dog));
         se.clipper.rely(address(dss.end));
-        ClipperMomLike clipperMom = ClipperMomLike(dss.chainlog.getAddress("CLIPPER_MOM"));
-        if (se.oldClipper.wards(address(clipperMom)) == 1) {
-            se.clipper.rely(address(clipperMom));
-        }
+        se.oldClipper.deny(address(dss.end));
 
-        uint256 tolerance = clipperMom.tolerance(address(se.oldClipper));
-        if (tolerance > 0) {
-            clipperMom.setPriceTolerance(address(se.clipper), tolerance);
-        }
+        CutteeLike(se.clipper.cuttee()).rely(address(se.clipper));
+
+        se.clipperMom.setPriceTolerance(address(se.clipper), se.clipperMom.tolerance(address(se.oldClipper)));
 
         IlkRegistryLike ilkRegistry = IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY"));
         string memory name = ilkRegistry.name(ilk);
@@ -375,24 +387,9 @@ library LockstakeInit {
         dss.chainlog.setAddress("LOCKSTAKE_CLIP", address(se.clipper));
     }
 
-    function removeClipper(
-        DssInstance memory dss,
-        address            oldClipper_
-    ) internal {
-        LockstakeClipperLike oldClipper = LockstakeClipperLike(oldClipper_);
-
-        require(address(oldClipper) != dss.chainlog.getAddress("LOCKSTAKE_CLIP"));
-
-        dss.vat.deny(address(oldClipper));
-
-        PipLike(dss.chainlog.getAddress("PIP_SKY")).diss(address(oldClipper));
-
-        dss.dog.deny(address(oldClipper));
-
-        LockstakeEngineLike(dss.chainlog.getAddress("LOCKSTAKE_ENGINE")).deny(address(oldClipper));
-
-        oldClipper.deny(address(dss.dog));
-        oldClipper.deny(address(dss.end));
-        oldClipper.deny(dss.chainlog.getAddress("CLIPPER_MOM"));
+    function enableLiquidations(DssInstance memory dss) internal {
+        LockstakeClipperLike clipper = LockstakeClipperLike(dss.chainlog.getAddress("LOCKSTAKE_CLIP"));
+        clipper.rely(dss.chainlog.getAddress("CLIPPER_MOM"));
+        clipper.file("stopped", 0);
     }
 }

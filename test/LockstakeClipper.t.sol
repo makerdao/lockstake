@@ -1104,6 +1104,7 @@ contract LockstakeClipperTest is DssTest {
         assertTrue(cuttee.cutCalled());
         assertGt(cuttee.cutValue(), 0);
         assertEq(cuttee.cutValue(), rad(100 ether) - 40 ether * _price);
+        assertEq(cuttee.DueValue(), clip.Due());
 
         assertEq(dss.vat.gem(ilk, ali), 40 ether);  // Took entire lot
         assertEq(dss.vat.dai(ali), rad(1000 ether) - 40 ether * _price);

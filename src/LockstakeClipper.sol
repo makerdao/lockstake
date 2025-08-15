@@ -407,7 +407,7 @@ contract LockstakeClipper {
             engine.onTake(sale.usr, who, slice);
 
             // Do external call (if data is defined) but to be
-            // extremely careful we don't allow to do it to the three
+            // extremely careful we don't allow to do it to the four
             // contracts which the LockstakeClipper needs to be authorized
             DogLike dog_ = dog;
             if (
@@ -430,10 +430,10 @@ contract LockstakeClipper {
         if (sale.lot == 0) {
             engine.onRemove(sale.usr, sales[id].tot, 0);
             uint256 due = sales[id].due;
+            Due -= due;
             if (due > owe && cuttee != address(0)) {
                 CutteeLike(cuttee).cut(due - owe);
             }
-            Due -= due;
             _remove(id);
         } else if (sale.tab == 0) {
             vat.slip(ilk, address(this), -int256(sale.lot));
@@ -447,6 +447,9 @@ contract LockstakeClipper {
             sales[id].due -= sub;
             Due -= sub;
         }
+
+        // Note: In any case but the cut scenario, the line won't be updated accordingly, leaving a lower number than it should be (Due decrement is not accounted for).
+        // This can be updated with a permissionless call to cuttee.drip and not penalize every take with the extra gas cost.
 
         emit Take(id, max, price, owe, sale.tab, sale.lot, sale.usr);
     }
@@ -499,7 +502,7 @@ contract LockstakeClipper {
     }
 
     // Cancel an auction during End.cage or via other governance action.
-    // It is up to governance to define if cuttee.cut(sales[id].due) needs to be called whenever yank is called
+    // It is up to governance to define if cuttee.cut(sales[id].due) and cuttee.drip() needs to be called whenever yank is executed
     function yank(uint256 id) external auth lock {
         require(sales[id].usr != address(0), "LockstakeClipper/not-running-auction");
         dog.digs(ilk, sales[id].tab);

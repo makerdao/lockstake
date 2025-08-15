@@ -75,6 +75,7 @@ methods {
     function cuttee.dripCalled() external returns (bool) envfree;
     function cuttee.cutCalled() external returns (bool) envfree;
     function cuttee.cutValue() external returns (uint256) envfree;
+    function cuttee.DueValue() external returns (uint256) envfree;
     //
     function _.peek() external => peekSummary() expect (uint256, bool);
     function _.price(uint256,uint256) external => calcPriceSummary() expect (uint256);
@@ -82,6 +83,7 @@ methods {
     function _.withdraw(uint256) external => DISPATCHER(true);
     function _.withdraw(address,uint256) external => DISPATCHER(true);
     function _.transfer(address,uint256) external => DISPATCHER(true);
+    function _.Due() external => DISPATCHER(true);
     // `ClipperCallee`
     // NOTE: this might result in recursion, since we linked all the `ClipperCallee`
     // to the `LockstakeClipper`.
@@ -745,7 +747,6 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     mathint refund = left - burn;
 
     require !cuttee.cutCalled();
-    require cuttee.cutValue() == 0;
 
     take(e, id, amt, max, who, data);
 
@@ -773,7 +774,8 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     mathint engineUrnAuctionsUsrAfter = lockstakeEngine.urnAuctions(salesIdUsrBefore);
 
     bool cutteeCutCalledAfter = cuttee.cutCalled();
-    mathint cutteeCutCalueAfter = cuttee.cutValue();
+    mathint cutteeCutValueAfter = cuttee.cutValue();
+    mathint cutteeDueValueAfter = cuttee.DueValue();
 
     assert countAfter == (isRemoved ? countBefore - 1 : countBefore), "Assert 1";
     assert DueAfter == DueBefore + salesIdDueAfter - salesIdDueBefore, "Assert 2";
@@ -793,21 +795,22 @@ rule take(uint256 id, uint256 amt, uint256 max, address who, bytes data) {
     assert salesOtherTicAfter == salesOtherTicBefore, "Assert 16";
     assert salesOtherTopAfter == salesOtherTopBefore, "Assert 17";
     assert calcLotAfter == 0 && cuttee != 0 && salesIdDueBefore > owe => cutteeCutCalledAfter, "Assert 18";
-    assert calcLotAfter == 0 && cuttee != 0 && salesIdDueBefore > owe => cutteeCutCalueAfter == salesIdDueBefore - owe, "Assert 19";
-    assert calcLotAfter > 0 || cuttee == 0 || salesIdDueBefore <= owe => !cutteeCutCalledAfter, "Assert 20";
-    assert vatGemIlkClipperAfter == vatGemIlkClipperBefore - (calcLotAfter > 0 && calcTabAfter == 0 ? salesIdLotBefore : slice), "Assert 21";
-    assert skyTotalSupplyAfter == skyTotalSupplyBefore - burn, "Assert 22";
-    assert who == lockstakeEngine => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - burn, "Assert 23";
-    assert who != lockstakeEngine => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - slice - burn, "Assert 24";
-    assert who != lockstakeEngine && who != salesIdUsrBefore => skyBalanceOfWhoAfter == skyBalanceOfWhoBefore + slice, "Assert 25";
-    assert vatDaiSenderAfter == vatDaiSenderBefore - owe, "Assert 26";
-    assert vatDaiVowAfter == vatDaiVowBefore + owe, "Assert 27";
-    assert dogDirtAfter == dogDirtBefore - (calcLotAfter == 0 ? salesIdTabBefore : owe), "Assert 28";
-    assert dogIlkDirtAfter == dogIlkDirtBefore - (calcLotAfter == 0 ? salesIdTabBefore : owe), "Assert 29";
-    assert vatUrnsIlkUsrInkAfter == vatUrnsIlkUsrInkBefore + refund, "Assert 30";
-    assert lsskyTotalSupplyAfter == lsskyTotalSupplyBefore + refund, "Assert 31";
-    assert lsskyBalanceOfUsrAfter == lsskyBalanceOfUsrBefore + refund, "Assert 32";
-    assert engineUrnAuctionsUsrAfter == engineUrnAuctionsUsrBefore - (isRemoved ? 1 : 0), "Assert 33";
+    assert calcLotAfter == 0 && cuttee != 0 && salesIdDueBefore > owe => cutteeCutValueAfter == salesIdDueBefore - owe, "Assert 19";
+    assert calcLotAfter == 0 && cuttee != 0 && salesIdDueBefore > owe => cutteeDueValueAfter == DueAfter, "Assert 20";
+    assert calcLotAfter > 0 || cuttee == 0 || salesIdDueBefore <= owe => !cutteeCutCalledAfter, "Assert 21";
+    assert vatGemIlkClipperAfter == vatGemIlkClipperBefore - (calcLotAfter > 0 && calcTabAfter == 0 ? salesIdLotBefore : slice), "Assert 22";
+    assert skyTotalSupplyAfter == skyTotalSupplyBefore - burn, "Assert 23";
+    assert who == lockstakeEngine => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - burn, "Assert 24";
+    assert who != lockstakeEngine => skyBalanceOfEngineAfter == skyBalanceOfEngineBefore - slice - burn, "Assert 25";
+    assert who != lockstakeEngine && who != salesIdUsrBefore => skyBalanceOfWhoAfter == skyBalanceOfWhoBefore + slice, "Assert 26";
+    assert vatDaiSenderAfter == vatDaiSenderBefore - owe, "Assert 27";
+    assert vatDaiVowAfter == vatDaiVowBefore + owe, "Assert 28";
+    assert dogDirtAfter == dogDirtBefore - (calcLotAfter == 0 ? salesIdTabBefore : owe), "Assert 29";
+    assert dogIlkDirtAfter == dogIlkDirtBefore - (calcLotAfter == 0 ? salesIdTabBefore : owe), "Assert 30";
+    assert vatUrnsIlkUsrInkAfter == vatUrnsIlkUsrInkBefore + refund, "Assert 31";
+    assert lsskyTotalSupplyAfter == lsskyTotalSupplyBefore + refund, "Assert 32";
+    assert lsskyBalanceOfUsrAfter == lsskyBalanceOfUsrBefore + refund, "Assert 33";
+    assert engineUrnAuctionsUsrAfter == engineUrnAuctionsUsrBefore - (isRemoved ? 1 : 0), "Assert 34";
 }
 
 // Verify revert rules on take

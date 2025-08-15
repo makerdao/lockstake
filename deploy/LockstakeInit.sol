@@ -101,19 +101,8 @@ interface StakingRewardsLike {
 }
 
 interface IlkRegistryLike {
-    function name(bytes32) external view returns (string memory);
-    function symbol(bytes32) external view returns (string memory);
-    function put(
-        bytes32 _ilk,
-        address _join,
-        address _gem,
-        uint256 _dec,
-        uint256 _class,
-        address _pip,
-        address _xlip,
-        string memory _name,
-        string memory _symbol
-    ) external;
+    function file(bytes32, bytes32, address) external;
+    function put(bytes32, address, address, uint256, uint256, address, address, string memory, string memory) external;
 }
 
 interface CutteeLike {
@@ -369,20 +358,7 @@ library LockstakeInit {
 
         se.clipperMom.setPriceTolerance(address(se.clipper), se.clipperMom.tolerance(address(se.oldClipper)));
 
-        IlkRegistryLike ilkRegistry = IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY"));
-        string memory name = ilkRegistry.name(ilk);
-        string memory symbol = ilkRegistry.symbol(ilk);
-        ilkRegistry.put(
-            ilk,
-            address(0),
-            dss.chainlog.getAddress("SKY"),
-            18,
-            7,
-            pip,
-            address(se.clipper),
-            name,
-            symbol
-        );
+        IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY")).file(ilk, "xlip", address(se.clipper));
 
         dss.chainlog.setAddress("LOCKSTAKE_CLIP", address(se.clipper));
     }

@@ -133,7 +133,8 @@ function dripSummary(bytes32 ilk) returns uint256 {
     a, prev, a, a, a = vat.ilks(ilk);
     uint256 rate = timeDiff == 0 ? prev : require_uint256(duty * timeDiff * prev / RAY());
     timeDiff = 0;
-    vat.fold(e, ilk, jug.vow(), require_int256(rate - prev));
+    vat.fold@withrevert(e, ilk, jug.vow(), require_int256(rate - prev));
+    require !lastReverted;
     return rate;
 }
 

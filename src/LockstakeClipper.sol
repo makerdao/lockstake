@@ -46,6 +46,11 @@ interface AbacusLike {
     function price(uint256, uint256) external view returns (uint256);
 }
 
+interface CutteeLike {
+    function cut(uint256) external;
+    function drip() external;
+}
+
 interface LockstakeEngineLike {
     function ilk() external view returns (bytes32);
     function onKick(address, uint256) external;
@@ -73,6 +78,7 @@ contract LockstakeClipper {
     address     public vow;      // Recipient of dai raised in auctions
     SpotterLike public spotter;  // Collateral price module
     AbacusLike  public calc;     // Current price calculator
+    address     public cuttee;   // Contract for accounting bad debt (if not set, callback won't be executed)
 
     uint256 public buf;    // Multiplicative factor to increase starting price                  [ray]
     uint256 public tail;   // Time elapsed before auction reset                                 [seconds]
@@ -83,10 +89,12 @@ contract LockstakeClipper {
 
     uint256   public kicks;   // Total auctions
     uint256[] public active;  // Array of active auction ids
+    uint256   public Due;     // Total due amount from active auctions
 
     struct Sale {
         uint256 pos;  // Index in active array
-        uint256 tab;  // Dai to raise       [rad]
+        uint256 tab;  // Usds to raise      [rad]
+        uint256 due;  // Usds debt          [rad]
         uint256 lot;  // collateral to sell [wad]
         uint256 tot;  // static registry of total collateral to sell [wad]
         address usr;  // Liquidated CDP
@@ -179,9 +187,10 @@ contract LockstakeClipper {
     }
     function file(bytes32 what, address data) external auth lock {
         if (what == "spotter") spotter = SpotterLike(data);
-        else if (what == "dog")    dog = DogLike(data);
-        else if (what == "vow")    vow = data;
-        else if (what == "calc")  calc = AbacusLike(data);
+        else if (what == "dog")       dog = DogLike(data);
+        else if (what == "vow")       vow = data;
+        else if (what == "calc")     calc = AbacusLike(data);
+        else if (what == "cuttee") cuttee = data;
         else revert("LockstakeClipper/file-unrecognized-param");
         emit File(what, data);
     }
@@ -245,6 +254,7 @@ contract LockstakeClipper {
         sales[id].pos = active.length - 1;
 
         sales[id].tab = tab;
+        Due += sales[id].due = tab * WAD / dog.chop(ilk); // Under approximation is not a problem for this
         sales[id].lot = lot;
         sales[id].tot = lot;
         sales[id].usr = usr;
@@ -266,6 +276,8 @@ contract LockstakeClipper {
 
         // Trigger engine liquidation call-back
         engine.onKick(usr, lot);
+        // Trigger cuttee accounting (will update line accordingly)
+        if (cuttee != address(0)) { CutteeLike(cuttee).drip(); }
 
         emit Kick(id, top, tab, lot, usr, kpr, coin);
     }
@@ -337,15 +349,16 @@ contract LockstakeClipper {
         bytes calldata data   // Data to pass in external call; if length 0, no call is done
     ) external lock isStopped(3) {
 
-        address usr = sales[id].usr;
-        uint96  tic = sales[id].tic;
+        Sale memory sale;
+        sale.usr = sales[id].usr;
+        sale.tic = sales[id].tic;
 
-        require(usr != address(0), "LockstakeClipper/not-running-auction");
+        require(sale.usr != address(0), "LockstakeClipper/not-running-auction");
 
         uint256 price;
         {
             bool done;
-            (done, price) = status(tic, sales[id].top);
+            (done, price) = status(sale.tic, sales[id].top);
 
             // Check that auction doesn't need reset
             require(!done, "LockstakeClipper/needs-reset");
@@ -354,50 +367,56 @@ contract LockstakeClipper {
         // Ensure price is acceptable to buyer
         require(max >= price, "LockstakeClipper/too-expensive");
 
-        uint256 lot = sales[id].lot;
-        uint256 tab = sales[id].tab;
+        sale.lot = sales[id].lot;
+        sale.tab = sales[id].tab;
         uint256 owe;
 
         {
             // Purchase as much as possible, up to amt
-            uint256 slice = min(lot, amt);  // slice <= lot
+            uint256 slice = min(sale.lot, amt);  // slice <= sale.lot
 
             // DAI needed to buy a slice of this sale
             owe = slice * price;
 
             // Don't collect more than tab of DAI
-            if (owe > tab) {
+            if (owe > sale.tab) {
                 // Total debt will be paid
-                owe = tab;                  // owe' <= owe
+                owe = sale.tab;                  // owe' <= owe
                 // Adjust slice
-                slice = owe / price;        // slice' = owe' / price <= owe / price == slice <= lot
-            } else if (owe < tab && slice < lot) {
+                slice = owe / price;             // slice' = owe' / price <= owe / price == slice <= lot
+            } else if (owe < sale.tab && slice < sale.lot) {
                 // If slice == lot => auction completed => dust doesn't matter
                 uint256 _chost = chost;
-                if (tab - owe < _chost) {    // safe as owe < tab
+                if (sale.tab - owe < _chost) {   // safe as owe < tab
                     // If tab <= chost, buyers have to take the entire lot.
-                    require(tab > _chost, "LockstakeClipper/no-partial-purchase");
+                    require(sale.tab > _chost, "LockstakeClipper/no-partial-purchase");
                     // Adjust amount to pay
-                    owe = tab - _chost;      // owe' <= owe
+                    owe = sale.tab - _chost;     // owe' <= owe
                     // Adjust slice
-                    slice = owe / price;     // slice' = owe' / price < owe / price == slice < lot
+                    slice = owe / price;         // slice' = owe' / price < owe / price == slice < lot
                 }
             }
 
             // Calculate remaining tab after operation
-            tab = tab - owe;  // safe since owe <= tab
+            sale.tab = sale.tab - owe;  // safe since owe <= tab
             // Calculate remaining lot after operation
-            lot = lot - slice;
+            sale.lot = sale.lot - slice;
 
             // Send collateral to who
             vat.slip(ilk, address(this), -int256(slice));
-            engine.onTake(usr, who, slice);
+            engine.onTake(sale.usr, who, slice);
 
             // Do external call (if data is defined) but to be
-            // extremely careful we don't allow to do it to the three
+            // extremely careful we don't allow to do it to the four
             // contracts which the LockstakeClipper needs to be authorized
             DogLike dog_ = dog;
-            if (data.length > 0 && who != address(vat) && who != address(dog_) && who != address(engine)) {
+            if (
+                data.length > 0 &&
+                who != address(vat) &&
+                who != address(dog_) &&
+                who != address(engine) &&
+                (who != cuttee || cuttee == address(0)) // Keep consistency executing with address(0) to revert
+            ) {
                 ClipperCallee(who).clipperCall(msg.sender, owe, slice, data);
             }
 
@@ -405,24 +424,34 @@ contract LockstakeClipper {
             vat.move(msg.sender, vow, owe);
 
             // Removes Dai out for liquidation from accumulator
-            dog_.digs(ilk, lot == 0 ? tab + owe : owe);
+            dog_.digs(ilk, sale.lot == 0 ? sale.tab + owe : owe);
         }
 
-        if (lot == 0) {
-            uint256 tot = sales[id].tot;
-            engine.onRemove(usr, tot, 0);
+        if (sale.lot == 0) {
+            engine.onRemove(sale.usr, sales[id].tot, 0);
+            uint256 due = sales[id].due;
+            Due -= due;
+            if (due > owe && cuttee != address(0)) {
+                CutteeLike(cuttee).cut(due - owe);
+            }
             _remove(id);
-        } else if (tab == 0) {
-            uint256 tot = sales[id].tot;
-            vat.slip(ilk, address(this), -int256(lot));
-            engine.onRemove(usr, tot - lot, lot);
+        } else if (sale.tab == 0) {
+            vat.slip(ilk, address(this), -int256(sale.lot));
+            engine.onRemove(sale.usr, sales[id].tot - sale.lot, sale.lot);
+            Due -= sales[id].due;
             _remove(id);
         } else {
-            sales[id].tab = tab;
-            sales[id].lot = lot;
+            sales[id].tab = sale.tab;
+            sales[id].lot = sale.lot;
+            uint256 sub = min(sales[id].due, owe);
+            sales[id].due -= sub;
+            Due -= sub;
         }
 
-        emit Take(id, max, price, owe, tab, lot, usr);
+        // Note: In any case but the cut scenario, the line won't be updated accordingly, leaving a lower number than it should be (Due decrement is not accounted for).
+        // This can be updated with a permissionless call to cuttee.drip and not penalize every take with the extra gas cost.
+
+        emit Take(id, max, price, owe, sale.tab, sale.lot, sale.usr);
     }
 
     function _remove(uint256 id) internal {
@@ -473,12 +502,14 @@ contract LockstakeClipper {
     }
 
     // Cancel an auction during End.cage or via other governance action.
+    // It is up to governance to define if cuttee.cut(sales[id].due) and cuttee.drip() needs to be called whenever yank is executed
     function yank(uint256 id) external auth lock {
         require(sales[id].usr != address(0), "LockstakeClipper/not-running-auction");
         dog.digs(ilk, sales[id].tab);
         uint256 lot = sales[id].lot;
         vat.flux(ilk, address(this), msg.sender, lot);
         engine.onRemove(sales[id].usr, 0, 0);
+        Due -= sales[id].due;
         _remove(id);
         emit Yank(id);
     }

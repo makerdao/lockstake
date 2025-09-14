@@ -25,7 +25,7 @@ methods {
     // The Prover will attempt to dispatch to the following functions any unresolved
     // call, if the signature fits. Otherwise it will use the summary defined by the
     // `default` keyword.
-    function _._ external => DISPATCH [
+    unresolved external in _._ => DISPATCH [
         // currentContract.open(uint256),
         currentContract.hope(address,uint256,address),
         currentContract.nope(address,uint256,address),

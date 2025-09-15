@@ -376,7 +376,7 @@ library LockstakeInit {
     function updateOsm(
         DssInstance memory dss,
         address cappedOsm,
-        uint256 max
+        uint256 cap
     ) internal {
         address osm = dss.chainlog.getAddress("PIP_SKY");
         address clipper = dss.chainlog.getAddress("LOCKSTAKE_CLIP");
@@ -399,7 +399,7 @@ library LockstakeInit {
 
         IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY")).file(ilk, "pip", cappedOsm);
 
-        CappedOsmLike(cappedOsm).file("max", max);
+        CappedOsmLike(cappedOsm).file("cap", cap);
 
         dss.chainlog.setAddress("LOCKSTAKE_ORACLE", address(cappedOsm));
     }

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Dai Foundation <www.daifoundation.org>
+// SPDX-FileCopyrightText: © 2025 Dai Foundation <www.daifoundation.org>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@ contract LockstakeCappedOsm {
     mapping(address usr => uint256 allowed)     public wards;
     mapping(address usr => uint256 whitelisted) public bud;
 
-    uint256 public max;
+    uint256 public cap;
 
     // --- immutables ---
 
@@ -91,8 +91,8 @@ contract LockstakeCappedOsm {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "max") {
-            max = data;
+        if (what == "cap") {
+            cap = data;
         } else revert("LockstakeCappedOsm/file-unrecognized-param");
         emit File(what, data);
     }
@@ -101,17 +101,17 @@ contract LockstakeCappedOsm {
 
     function peek() external view toll returns (bytes32, bool) {
         (uint256 val, bool has) = src.peek();
-        return(_min(val, max), has);
+        return(_min(val, cap), has);
     }
 
     function read() external view toll returns (bytes32) {
         (uint256 val, bool has) = src.peek();
         require(has, "LockstakeCappedOsm/no-current-value");
-        return _min(val, max);
+        return _min(val, cap);
     }
 
     function peep() external view toll returns (bytes32, bool) {
         (uint256 val, bool has) = src.peep();
-        return(_min(val, max), has);
+        return(_min(val, cap), has);
     }
 }

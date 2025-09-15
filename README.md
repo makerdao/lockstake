@@ -242,8 +242,8 @@ Note 6: Migrator assumes `MkrSky` is configured without a penalty. So as soon as
 
 ## 7. LockstakeCappedOsm
 
-A wrapper for the `PIP_SKY` Osm, which returns the minimum value between the current Osm price and a `max` set in the wrapper.
-This simple Osm wrapper is assumed to be used with liquidations turned off. In case liquidations want to be turned on using just this simple wrapper, take into account that liquidations could be triggered with a price that can be lower than the current osm value. The same could apply for the initial auction price even counting that it adds a `buf` on top.
+A wrapper for the `PIP_SKY` Osm, which returns the minimum value between the current Osm price and a `cap` set in the wrapper.
+This simple wrapper is assumed to be used with liquidations off. If liquidations are activated using this simple wrapper and without further modifications, auctions can be triggered with a price that could be lower than the current Osm value. The same applies for the initial auction price (however here `clipper.buf` helps to mitigate the issue at some extend).
 
 ## General Notes
 * The LSE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.

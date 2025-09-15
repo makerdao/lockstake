@@ -53,7 +53,7 @@ contract LockstakeCappedOsmTest is DssTest {
     }
 
     function testFile() public {
-        checkFileUint(address(cappedOsm), "LockstakeCappedOsm", ["max"]);
+        checkFileUint(address(cappedOsm), "LockstakeCappedOsm", ["cap"]);
     }
 
     function testModifiers() public {
@@ -115,13 +115,13 @@ contract LockstakeCappedOsmTest is DssTest {
         assertEq(osmPrice, osm.read());
         assertTrue(osmHas);
 
-        vm.prank(pauseProxy); cappedOsm.file("max", osmPrice - 1);
+        vm.prank(pauseProxy); cappedOsm.file("cap", osmPrice - 1);
         assertEq(uint256(cappedOsm.read()), osmPrice - 1);
         (bytes32 cappedOsmPrice, bool cappedOsmHas) = cappedOsm.peek();
         assertEq(uint256(cappedOsmPrice), osmPrice - 1);
         assertTrue(cappedOsmHas);
 
-        vm.prank(pauseProxy); cappedOsm.file("max", osmPrice + 1);
+        vm.prank(pauseProxy); cappedOsm.file("cap", osmPrice + 1);
         assertEq(uint256(cappedOsm.read()), osmPrice);
         (cappedOsmPrice, cappedOsmHas) = cappedOsm.peek();
         assertEq(uint256(cappedOsmPrice), osmPrice);
@@ -146,12 +146,12 @@ contract LockstakeCappedOsmTest is DssTest {
         (uint256 osmPrice, bool osmHas) = osm.peep();
         assertTrue(osmHas);
 
-        vm.prank(pauseProxy); cappedOsm.file("max", osmPrice - 1);
+        vm.prank(pauseProxy); cappedOsm.file("cap", osmPrice - 1);
         (bytes32 cappedOsmPrice, bool cappedOsmHas) = cappedOsm.peep();
         assertEq(uint256(cappedOsmPrice), osmPrice - 1);
         assertTrue(cappedOsmHas);
 
-        vm.prank(pauseProxy); cappedOsm.file("max", osmPrice + 1);
+        vm.prank(pauseProxy); cappedOsm.file("cap", osmPrice + 1);
         (cappedOsmPrice, cappedOsmHas) = cappedOsm.peep();
         assertEq(uint256(cappedOsmPrice), osmPrice);
         assertTrue(cappedOsmHas);
@@ -184,7 +184,7 @@ contract LockstakeCappedOsmTest is DssTest {
         assertEq(cappedOsm.bud(address(clipper)), 0);
         assertEq(cappedOsm.bud(clipperMom), 0);
         assertEq(cappedOsm.bud(address(dss.end)), 0);
-        assertEq(cappedOsm.max(), 0);
+        assertEq(cappedOsm.cap(), 0);
 
         vm.startPrank(pauseProxy);
         LockstakeInit.updateOsm(dss, address(cappedOsm), 1 ether);
@@ -203,7 +203,7 @@ contract LockstakeCappedOsmTest is DssTest {
         assertEq(cappedOsm.bud(address(clipper)), 1);
         assertEq(cappedOsm.bud(clipperMom), 1);
         assertEq(cappedOsm.bud(address(dss.end)), 1);
-        assertEq(cappedOsm.max(), 1 ether);
+        assertEq(cappedOsm.cap(), 1 ether);
 
         vm.prank(pauseProxy); osm.kiss(address(this));
         vm.prank(pauseProxy); cappedOsm.kiss(address(this));
@@ -215,7 +215,7 @@ contract LockstakeCappedOsmTest is DssTest {
         (,, uint256 spot,,) = dss.vat.ilks(ilk);
         assertEq(spot, (osmPrice * 10**9 * 10**27 / par) * 10**27 / mat);
 
-        vm.prank(pauseProxy); cappedOsm.file("max", osmPrice / 2);
+        vm.prank(pauseProxy); cappedOsm.file("cap", osmPrice / 2);
 
         dss.spotter.poke(ilk);
         (,, spot,,) = dss.vat.ilks(ilk);

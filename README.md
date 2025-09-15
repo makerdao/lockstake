@@ -240,6 +240,11 @@ Note 5: Migration won't transfer the `VoteDelegate` nor the farm selected in the
 
 Note 6: Migrator assumes `MkrSky` is configured without a penalty. So as soon as, the penalty is set above 0, the migrator will generally stop working. It also expects MKR to SKY conversions are not blocked.
 
+## 7. LockstakeCappedOsm
+
+A wrapper for the `PIP_SKY` Osm, which returns the minimum value between the current Osm price and a `max` set in the wrapper.
+This simple Osm wrapper is assumed to be used with liquidations turned off. In case liquidations want to be turned on using just this simple wrapper, take into account that liquidations could be triggered with a price that can be lower than the current osm value. The same could apply for the initial auction price even counting that it adds a `buf` on top.
+
 ## General Notes
 * The LSE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.
 * Freeing very small amounts could bypass the exit fees (due to the rounding down) but since the LSE is meant to only be deployed on Ethereum, this is assumed to not be economically viable.

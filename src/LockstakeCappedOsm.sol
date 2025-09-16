@@ -101,7 +101,7 @@ contract LockstakeCappedOsm {
 
     function peek() external view toll returns (bytes32, bool) {
         (uint256 val, bool has) = src.peek();
-        return(_min(val, cap), has);
+        return (_min(val, cap), has);
     }
 
     function read() external view toll returns (bytes32) {
@@ -112,6 +112,6 @@ contract LockstakeCappedOsm {
 
     function peep() external view toll returns (bytes32, bool) {
         (uint256 val, bool has) = src.peep();
-        return(_min(val, cap), has);
+        return (_min(val, cap), has);
     }
 }

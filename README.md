@@ -245,6 +245,9 @@ Note 6: Migrator assumes `MkrSky` is configured without a penalty. So as soon as
 A wrapper for the `PIP_SKY` Osm, which returns the minimum value between the current Osm price and a `cap` set in the wrapper.
 This simple wrapper is assumed to be used with liquidations off. If liquidations are activated using this simple wrapper and without further modifications, auctions can be triggered with a price that could be lower than the current Osm value. The same applies for the initial auction price (however here `clipper.buf` helps to mitigate the issue to some extend).
 
+The osm will be replaced by the wrapper in the `spotter` and `ilkRegistry`. The other modules, `end`, `clipper` and `clipper-mom` read the `pip` from the `spotter`, so they will inherit the change directly from there. However, it is still necessary doing the whitelisting to be able to read the price from the different sources.
+`OsmMom` will still operate calling directly the source osm.
+
 ## General Notes
 * The LSE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.
 * Freeing very small amounts could bypass the exit fees (due to the rounding down) but since the LSE is meant to only be deployed on Ethereum, this is assumed to not be economically viable.

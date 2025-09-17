@@ -23,7 +23,7 @@ import { LockstakeSky } from "src/LockstakeSky.sol";
 import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
 import { LockstakeMigrator } from "src/LockstakeMigrator.sol";
-import { LockstakeCappedOsm } from "src/LockstakeCappedOsm.sol";
+import { LockstakeCappedOsmWrapper } from "src/LockstakeCappedOsmWrapper.sol";
 
 // Deploy a Lockstake instance
 library LockstakeDeploy {
@@ -93,7 +93,7 @@ library LockstakeDeploy {
     ) internal returns (address cappedOsm) {
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
 
-        cappedOsm = address(new LockstakeCappedOsm(
+        cappedOsm = address(new LockstakeCappedOsmWrapper(
                             dss.chainlog.getAddress("PIP_SKY")
                         ));
 

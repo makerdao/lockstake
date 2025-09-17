@@ -3,15 +3,20 @@
 pragma solidity ^0.8.21;
 
 import "dss-test/DssTest.sol";
-import { LockstakeCappedOsm } from "src/LockstakeCappedOsm.sol";
+import { LockstakeCappedOsmWrapper } from "src/LockstakeCappedOsmWrapper.sol";
 import { LockstakeDeploy } from "deploy/LockstakeDeploy.sol";
 import { LockstakeInit } from "deploy/LockstakeInit.sol";
 
 interface OsmLike {
     function bud(address) external view returns (uint256);
-    function read() external view returns (uint256);
+    function stopped() external view returns (uint256);
+    function src() external view returns (address);
+    function hop() external view returns (uint16);
+    function zzz() external view returns (uint64);
     function peek() external view returns (uint256, bool);
     function peep() external view returns (uint256, bool);
+    function read() external view returns (uint256);
+    function pass() external view returns (bool);
     function kiss(address) external;
 }
 
@@ -23,11 +28,11 @@ interface IlkRegistryLike {
     function pip(bytes32) external view returns (address);
 }
 
-contract LockstakeCappedOsmTest is DssTest {
+contract LockstakeCappedOsmWrapperTest is DssTest {
     DssInstance dss;
     address pauseProxy;
     OsmLike osm;
-    LockstakeCappedOsm cappedOsm;
+    LockstakeCappedOsmWrapper cappedOsm;
     
     address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
@@ -37,23 +42,23 @@ contract LockstakeCappedOsmTest is DssTest {
         dss = MCD.loadFromChainlog(LOG);
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
         osm = OsmLike(dss.chainlog.getAddress("PIP_SKY"));
-        cappedOsm = LockstakeCappedOsm(LockstakeDeploy.deployCappedOsm(address(this), pauseProxy));
+        cappedOsm = LockstakeCappedOsmWrapper(LockstakeDeploy.deployCappedOsm(address(this), pauseProxy));
     }
 
     function testConstructor() public {
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        LockstakeCappedOsm c = new LockstakeCappedOsm(address(osm));
-        assertEq(address(c.src()), address(osm));
+        LockstakeCappedOsmWrapper c = new LockstakeCappedOsmWrapper(address(osm));
+        assertEq(address(c.osm()), address(osm));
         assertEq(c.wards(address(this)), 1);
     }
 
     function testAuth() public {
-        checkAuth(address(cappedOsm), "LockstakeCappedOsm");
+        checkAuth(address(cappedOsm), "LockstakeCappedOsmWrapper");
     }
 
     function testFile() public {
-        checkFileUint(address(cappedOsm), "LockstakeCappedOsm", ["cap"]);
+        checkFileUint(address(cappedOsm), "LockstakeCappedOsmWrapper", ["cap"]);
     }
 
     function testModifiers() public {
@@ -63,7 +68,7 @@ contract LockstakeCappedOsmTest is DssTest {
 
         // this checks the case where sender is not authed
         vm.startPrank(address(0xBEEF));
-        checkModifier(address(cappedOsm), "LockstakeCappedOsm/not-authorized", authedMethods);
+        checkModifier(address(cappedOsm), "LockstakeCappedOsmWrapper/not-authorized", authedMethods);
         vm.stopPrank();
 
         bytes4[] memory budMethods = new bytes4[](3);
@@ -73,7 +78,7 @@ contract LockstakeCappedOsmTest is DssTest {
 
         // this checks the case where sender is not a bud
         vm.startPrank(address(0xBEEF));
-        checkModifier(address(cappedOsm), "LockstakeCappedOsm/contract-not-whitelisted", budMethods);
+        checkModifier(address(cappedOsm), "LockstakeCappedOsmWrapper/contract-not-whitelisted", budMethods);
         vm.stopPrank();
     }
 
@@ -106,6 +111,20 @@ contract LockstakeCappedOsmTest is DssTest {
         vm.prank(address(123)); cappedOsm.peep();
     }
 
+    function testCompabilityFunctions() public {
+        assertEq(cappedOsm.stopped(), osm.stopped());
+        assertEq(cappedOsm.src(), osm.src());
+        assertEq(cappedOsm.hop(), osm.hop());
+        assertEq(cappedOsm.zzz(), osm.zzz());
+        assertEq(cappedOsm.pass(), osm.pass());
+
+        vm.warp(block.timestamp + 2 hours);
+
+        uint256 zzz = osm.zzz();
+        cappedOsm.poke();
+        assertGt(osm.zzz(), zzz);
+    }
+
     function testCurCappedPrice() public {
         vm.prank(pauseProxy); osm.kiss(address(cappedOsm));
         vm.prank(pauseProxy); osm.kiss(address(this));
@@ -134,7 +153,7 @@ contract LockstakeCappedOsmTest is DssTest {
         (, cappedOsmHas) = cappedOsm.peek();
         assertFalse(cappedOsmHas);
 
-        vm.expectRevert("LockstakeCappedOsm/no-current-value");
+        vm.expectRevert("LockstakeCappedOsmWrapper/no-current-value");
         cappedOsm.read();
     }
 

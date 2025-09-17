@@ -17,11 +17,17 @@
 pragma solidity ^0.8.21;
 
 interface OsmLike {
+    function stopped() external view returns (uint256);
+    function src() external view returns (address);
+    function hop() external view returns (uint16);
+    function zzz() external view returns (uint64);
     function peek() external view returns (uint256, bool);
     function peep() external view returns (uint256, bool);
+    function pass() external view returns (bool);
+    function poke() external;
 }
 
-contract LockstakeCappedOsm {
+contract LockstakeCappedOsmWrapper {
     // --- storage variables ---
 
     mapping(address usr => uint256 allowed)     public wards;
@@ -31,7 +37,7 @@ contract LockstakeCappedOsm {
 
     // --- immutables ---
 
-    OsmLike immutable public src;
+    OsmLike immutable public osm;
 
     // --- events ---   
 
@@ -44,19 +50,45 @@ contract LockstakeCappedOsm {
     // --- modifiers ---
 
     modifier auth {
-        require(wards[msg.sender] == 1, "LockstakeCappedOsm/not-authorized");
+        require(wards[msg.sender] == 1, "LockstakeCappedOsmWrapper/not-authorized");
         _;
     }
 
     modifier toll {
-        require(bud[msg.sender] == 1, "LockstakeCappedOsm/contract-not-whitelisted");
+        require(bud[msg.sender] == 1, "LockstakeCappedOsmWrapper/contract-not-whitelisted");
         _;
+    }
+
+    // --- compatibility functions ---
+
+    function stopped() external view returns (uint256 stopped_) {
+        stopped_ = osm.stopped();
+    }
+
+    function src() external view returns (address src_) {
+        src_ = osm.src();
+    }
+
+    function hop() external view returns (uint16 hop_) {
+        hop_ = osm.hop();
+    }
+
+    function zzz() external view returns (uint64 zzz_) {
+        zzz_ = osm.zzz();
+    }
+
+    function pass() external view returns (bool ok) {
+        ok = osm.pass();
+    }
+
+    function poke() external {
+        osm.poke();
     }
 
     // --- constructor ---
 
-    constructor(address src_) {
-        src = OsmLike(src_);
+    constructor(address osm_) {
+        osm = OsmLike(osm_);
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -93,25 +125,25 @@ contract LockstakeCappedOsm {
     function file(bytes32 what, uint256 data) external auth {
         if (what == "cap") {
             cap = data;
-        } else revert("LockstakeCappedOsm/file-unrecognized-param");
+        } else revert("LockstakeCappedOsmWrapper/file-unrecognized-param");
         emit File(what, data);
     }
 
     // --- readers ---
 
     function peek() external view toll returns (bytes32, bool) {
-        (uint256 val, bool has) = src.peek();
+        (uint256 val, bool has) = osm.peek();
+        return (_min(val, cap), has);
+    }
+
+    function peep() external view toll returns (bytes32, bool) {
+        (uint256 val, bool has) = osm.peep();
         return (_min(val, cap), has);
     }
 
     function read() external view toll returns (bytes32) {
-        (uint256 val, bool has) = src.peek();
-        require(has, "LockstakeCappedOsm/no-current-value");
+        (uint256 val, bool has) = osm.peek();
+        require(has, "LockstakeCappedOsmWrapper/no-current-value");
         return _min(val, cap);
-    }
-
-    function peep() external view toll returns (bytes32, bool) {
-        (uint256 val, bool has) = src.peep();
-        return (_min(val, cap), has);
     }
 }

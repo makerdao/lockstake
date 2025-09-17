@@ -246,7 +246,9 @@ A wrapper for the `PIP_SKY` Osm, which returns the minimum value between the cur
 This simple wrapper is assumed to be used with liquidations off. If liquidations are activated using this simple wrapper and without further modifications, auctions can be triggered with a price that could be lower than the current Osm value. The same applies for the initial auction price (however here `clipper.buf` helps to mitigate the issue to some extend).
 
 Note: Vault owners should be aware that in such a situation they may recover less collateral in a liquidation.
+
 Note 2: Vault owners are expected to be aware of the under-pricing of this oracle, which may bring them closer to liquidation for a certain amount of debt.
+
 Note 3: Any change to the `cap` might have immediate effects in the `cur` and `nxt` prices. Third parties implementing this functionality need to be aware of this.
 
 The osm will be replaced by the wrapper in the `spotter` and `ilkRegistry`. The other modules, `end`, `clipper` and `clipper-mom` read the `pip` from the `spotter`, so they will inherit the change directly from there. However, it is still necessary doing the whitelisting to be able to read the price from the different sources.

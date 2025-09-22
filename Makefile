@@ -5,3 +5,4 @@ certora-engine             :; PATH=${PATH} certoraRun certora/LockstakeEngine.co
 certora-engine-multicall   :; PATH=${PATH} certoraRun certora/LockstakeEngineMulticall.conf$(if $(rule), --rule $(rule),)$(if $(results), --wait_for_results all,)
 certora-clipper            :; PATH=${PATH} certoraRun certora/LockstakeClipper.conf$(if $(rule), --rule $(rule),)$(if $(results), --wait_for_results all,)
 certora-migrator           :; PATH=${PATH} certoraRun certora/LockstakeMigrator.conf$(if $(rule), --rule $(rule),)$(if $(results), --wait_for_results all,)
+certora-capped-osm         :; PATH=${PATH} certoraRun certora/LockstakeCappedOsmWrapper.conf$(if $(rule), --rule $(rule),)$(if $(results), --wait_for_results all,)

@@ -257,7 +257,8 @@ Notes:
 
 The osm will be replaced by the wrapper in the `spotter` and `ilkRegistry`. The other modules, `end`, `clipper` and `clipper-mom` read the `pip` from the `spotter`, so they will inherit the change directly from there. However, it is still necessary doing the whitelisting to be able to read the price from the different sources.
 `OsmMom` will still operate calling directly the source osm.
-Note that the end flow is not assumed to be used as is, and if needed as part of an orchestrated-shutdown it will be re-examined holistically, including the effects of using the capped oracle.
+
+Note that the `end` flow is not assumed to be used as is, and if needed as part of an orchestrated-shutdown it will be re-examined holistically, including the effects of using the capped oracle.
 
 ## General Notes
 * The LSE assumes that the ESM threshold is set large enough prior to its deployment, so Emergency Shutdown can never be called.

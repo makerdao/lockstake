@@ -230,14 +230,30 @@ contract LockstakeCappedOsmWrapperTest is DssTest {
         uint256 osmPrice = osm.read();
         uint256 par = dss.spotter.par();
 
-        dss.spotter.poke(ilk);
         (,, uint256 spot,,) = dss.vat.ilks(ilk);
         assertEq(spot, (osmPrice * 10**9 * 10**27 / par) * 10**27 / mat);
 
         vm.prank(pauseProxy); cappedOsm.file("cap", osmPrice / 2);
-
         dss.spotter.poke(ilk);
         (,, spot,,) = dss.vat.ilks(ilk);
+
+        assertEq(spot, ((osmPrice / 2) * 10**9 * 10**27 / par) * 10**27 / mat);
+    }
+
+    function testInitWithReducedPrice() public {
+        vm.prank(pauseProxy); osm.kiss(address(this));
+        uint256 osmPrice = osm.read();
+
+        vm.startPrank(pauseProxy);
+        LockstakeInit.updateOsm(dss, address(cappedOsm), osmPrice / 2);
+        vm.stopPrank();
+
+        bytes32 ilk = LockstakeClipperLike(dss.chainlog.getAddress("LOCKSTAKE_CLIP")).ilk();
+
+        uint256 par = dss.spotter.par();
+        (, uint256 mat) = dss.spotter.ilks(ilk);
+
+        (,, uint256 spot,,) = dss.vat.ilks(ilk);
         assertEq(spot, ((osmPrice / 2) * 10**9 * 10**27 / par) * 10**27 / mat);
     }
 }

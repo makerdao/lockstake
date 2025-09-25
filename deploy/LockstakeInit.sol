@@ -401,6 +401,8 @@ library LockstakeInit {
 
         CappedOsmLike(cappedOsm).file("cap", cap);
 
+        dss.spotter.poke(ilk);
+
         dss.chainlog.setAddress("LOCKSTAKE_ORACLE", address(cappedOsm));
     }
 }

@@ -29,7 +29,6 @@ contract LockstakeStickyOsmTest is DssTest {
         osm.file("top", 1.05e18);
         osm.file("ewma", 100e18);
         osm.file("hop", 1 hours);
-        osm.step(1 hours);
         vm.warp(block.timestamp + 1 hours);
         osm.poke();
         osm.kiss(address(this));

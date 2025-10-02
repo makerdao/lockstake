@@ -173,11 +173,6 @@ contract LockstakeStickyOsm {
         return uint64(ts - ts % hop);
     }
 
-    function step(uint16 ts) external auth {
-        require(ts > 0, "LockstakeStickyOsm/ts-is-zero");
-        hop = ts;
-    }
-
     function void() external auth {
         fCur = fNxt = lCur = lNxt = Feed(0, 0);
         stopped = 1;

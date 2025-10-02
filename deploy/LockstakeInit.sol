@@ -109,6 +109,10 @@ interface CutteeLike {
     function rely(address) external;
 }
 
+interface CappedOsmLike {
+    function file(bytes32, uint256) external;
+}
+
 struct LockstakeConfig {
     bytes32   ilk;
     address[] farms;
@@ -367,5 +371,38 @@ library LockstakeInit {
         LockstakeClipperLike clipper = LockstakeClipperLike(dss.chainlog.getAddress("LOCKSTAKE_CLIP"));
         clipper.rely(dss.chainlog.getAddress("CLIPPER_MOM"));
         clipper.file("stopped", 0);
+    }
+
+    function updateOsm(
+        DssInstance memory dss,
+        address cappedOsm,
+        uint256 cap
+    ) internal {
+        address osm = dss.chainlog.getAddress("PIP_SKY");
+        address clipper = dss.chainlog.getAddress("LOCKSTAKE_CLIP");
+        address clipperMom = dss.chainlog.getAddress("CLIPPER_MOM");
+        bytes32 ilk = LockstakeClipperLike(clipper).ilk();
+
+        PipLike(osm).diss(address(dss.spotter));
+        PipLike(osm).diss(clipper);
+        PipLike(osm).diss(clipperMom);
+        PipLike(osm).diss(address(dss.end));
+
+        PipLike(osm).kiss(address(cappedOsm));
+
+        PipLike(cappedOsm).kiss(address(dss.spotter));
+        PipLike(cappedOsm).kiss(clipper);
+        PipLike(cappedOsm).kiss(clipperMom);
+        PipLike(cappedOsm).kiss(address(dss.end));
+
+        dss.spotter.file(ilk, "pip", cappedOsm);
+
+        IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY")).file(ilk, "pip", cappedOsm);
+
+        CappedOsmLike(cappedOsm).file("cap", cap);
+
+        dss.spotter.poke(ilk);
+
+        dss.chainlog.setAddress("LOCKSTAKE_ORACLE", address(cappedOsm));
     }
 }

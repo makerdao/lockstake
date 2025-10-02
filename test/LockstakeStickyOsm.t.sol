@@ -5,13 +5,17 @@ pragma solidity ^0.8.21;
 import "dss-test/DssTest.sol";
 
 import { LockstakeStickyOsm } from "src/LockstakeStickyOsm.sol";
+import { LockstakeDeploy } from "deploy/LockstakeDeploy.sol";
+import { LockstakeInit } from "deploy/LockstakeInit.sol";
 import { PipMock } from "test/mocks/PipMock.sol";
 
 contract LockstakeStickyOsmTest is DssTest {
-
-    PipMock feed;
+    DssInstance dss;
     LockstakeStickyOsm osm;
+    address pauseProxy;
     address cappedUsr = address(111);
+
+    address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
     event Kiss(address indexed usr);
     event Diss(address indexed usr);
@@ -20,20 +24,35 @@ contract LockstakeStickyOsmTest is DssTest {
     event LogValue(bytes32 val);
 
     function setUp() public {
+        vm.createSelectFork(vm.envString("ETH_RPC_URL"));
+
+        dss = MCD.loadFromChainlog(LOG);
+        pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
+
         vm.warp(block.timestamp - block.timestamp % 1 hours); // Start from top of the hour
-        feed = new PipMock();
-        feed.setPrice(100e18);
-        osm = new LockstakeStickyOsm(address(feed));
-        osm.file("cap", 1_000e18);
-        osm.file("alpha", 0.1e18);
-        osm.file("top", 1.05e18);
-        osm.file("ewma", 100e18);
-        osm.file("hop", 1 hours);
-        vm.warp(block.timestamp + 1 hours);
-        osm.poke();
+        osm = LockstakeStickyOsm(LockstakeDeploy.deployStickyOsm(address(this), pauseProxy));
+        _setMedianPrice(100e18);
+        vm.store(address(osm.src()), keccak256(abi.encode(address(address(osm)), uint256(2))), bytes32(uint256(1)));
+        vm.startPrank(pauseProxy);
+        LockstakeInit.updateToStickyOsm(
+            dss,
+            address(osm),
+            1 hours,  // hop
+            1_000e18, // cap
+            0.1e18,   // alpha
+            1.05e18,  // top
+            100e18    // ewma
+        );
         osm.kiss(address(this));
         osm.kiss(cappedUsr);
         osm.lock(cappedUsr);
+        vm.stopPrank();
+        vm.warp(block.timestamp + 1 hours);
+        osm.poke();
+    }
+
+    function _setMedianPrice(uint256 price) internal {
+        vm.store(address(osm.src()), bytes32(uint256(4)), bytes32(price));
     }
 
     function testAuth() public {
@@ -80,11 +99,11 @@ contract LockstakeStickyOsmTest is DssTest {
         assertEq(osm.bud(address(123)), 0);
         vm.expectEmit();
         emit Kiss(address(123));
-        osm.kiss(address(123));
+        vm.prank(pauseProxy); osm.kiss(address(123));
         assertEq(osm.bud(address(123)), 1);
         vm.expectEmit();
         emit Diss(address(123));
-        osm.diss(address(123));
+        vm.prank(pauseProxy); osm.diss(address(123));
         assertEq(osm.bud(address(123)), 0);
     }
 
@@ -92,19 +111,19 @@ contract LockstakeStickyOsmTest is DssTest {
         assertEq(osm.capped(address(123)), 0);
         vm.expectEmit();
         emit Lock(address(123));
-        osm.lock(address(123));
+        vm.prank(pauseProxy); osm.lock(address(123));
         assertEq(osm.capped(address(123)), 1);
         vm.expectEmit();
         emit Free(address(123));
-        osm.free(address(123));
+        vm.prank(pauseProxy); osm.free(address(123));
         assertEq(osm.capped(address(123)), 0);
     }
 
     function testStopStart() public {
         assertEq(osm.stopped(), 0);
-        osm.stop();
+        vm.prank(pauseProxy); osm.stop();
         assertEq(osm.stopped(), 1);
-        osm.start();
+        vm.prank(pauseProxy); osm.start();
         assertEq(osm.stopped(), 0);
     }
 
@@ -125,7 +144,7 @@ contract LockstakeStickyOsmTest is DssTest {
         assertEq(val, 100e18);
         assertTrue(has);
 
-        osm.void();
+        vm.prank(pauseProxy); osm.void();
 
         assertEq(osm.stopped(), 1);
         (val, has) = osm.fPeek();
@@ -143,7 +162,7 @@ contract LockstakeStickyOsmTest is DssTest {
     }
 
     function testPoke() public {
-        feed.setPrice(101e18);
+        _setMedianPrice(101e18);
 
         vm.warp(block.timestamp + 1 hours);
         osm.poke();
@@ -180,17 +199,22 @@ contract LockstakeStickyOsmTest is DssTest {
         osm.poke();
 
         vm.warp(block.timestamp + 1);
-        feed.setPrice(uint256(type(uint128).max) + 1);
-        vm.expectRevert("LockstakeStickyOsm/overflow");
-        osm.poke();
-
-        osm.stop();
+        vm.prank(pauseProxy); osm.stop();
         vm.expectRevert("LockstakeStickyOsm/is-stopped");
         osm.poke();
     }
 
+    function testSrcPeekOverflow() public {
+        // This can not be tested with the real SKY oracle as it doesn't allow bigger values than max uint128
+        PipMock pip = new PipMock();
+        LockstakeStickyOsm osm2 = new LockstakeStickyOsm(address(pip));
+        pip.setPrice(uint256(type(uint128).max) + 1);
+        vm.expectRevert("LockstakeStickyOsm/overflow");
+        osm2.poke();
+    }
+
     function testPokeEWMATopLimit() public {
-        feed.setPrice(110e18);
+        _setMedianPrice(110e18);
         assertEq(osm.ewma(), 100e18); // Initial ewma value
 
         vm.warp(block.timestamp + 1 hours);
@@ -287,8 +311,8 @@ contract LockstakeStickyOsmTest is DssTest {
     }
 
     function testPokeCapLimit() public {
-        feed.setPrice(110e18);
-        osm.file("cap", 105e18);
+        _setMedianPrice(110e18);
+        vm.prank(pauseProxy); osm.file("cap", 105e18);
 
         vm.warp(block.timestamp + 1 hours);
         osm.poke();

@@ -24,6 +24,11 @@ import { LockstakeEngine } from "src/LockstakeEngine.sol";
 import { LockstakeClipper } from "src/LockstakeClipper.sol";
 import { LockstakeMigrator } from "src/LockstakeMigrator.sol";
 import { LockstakeCappedOsmWrapper } from "src/LockstakeCappedOsmWrapper.sol";
+import { LockstakeStickyOsm } from "src/LockstakeStickyOsm.sol";
+
+interface OsmLike {
+    function src() external view returns (address);
+}
 
 // Deploy a Lockstake instance
 library LockstakeDeploy {
@@ -98,5 +103,18 @@ library LockstakeDeploy {
                         ));
 
         ScriptTools.switchOwner(cappedOsm, deployer, owner);
+    }
+
+    function deployStickyOsm(
+        address deployer,
+        address owner
+    ) internal returns (address stickyOsm) {
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
+
+        stickyOsm = address(new LockstakeStickyOsm(
+                            OsmLike(dss.chainlog.getAddress("PIP_SKY")).src()
+                        ));
+
+        ScriptTools.switchOwner(stickyOsm, deployer, owner);
     }
 }

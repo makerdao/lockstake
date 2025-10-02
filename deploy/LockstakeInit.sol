@@ -69,6 +69,7 @@ interface LockstakeMigratorLike {
 }
 
 interface PipLike {
+    function src() external view returns (address);
     function rely(address) external;
     function kiss(address) external;
     function diss(address) external;
@@ -111,6 +112,15 @@ interface CutteeLike {
 
 interface CappedOsmLike {
     function file(bytes32, uint256) external;
+}
+
+interface StickyOsmLike {
+    function file(bytes32, uint256) external;
+    function lock(address) external;
+}
+
+interface MedianLike {
+    function bud(address) external view returns (uint256);
 }
 
 struct LockstakeConfig {
@@ -373,7 +383,7 @@ library LockstakeInit {
         clipper.file("stopped", 0);
     }
 
-    function updateOsm(
+    function updateToCappedOsmWrapper(
         DssInstance memory dss,
         address cappedOsm,
         uint256 cap
@@ -404,5 +414,51 @@ library LockstakeInit {
         dss.spotter.poke(ilk);
 
         dss.chainlog.setAddress("LOCKSTAKE_ORACLE", address(cappedOsm));
+    }
+
+    function updateToStickyOsm(
+        DssInstance memory dss,
+        address stickyOsm,
+        uint256 hop,
+        uint256 cap,
+        uint256 alpha,
+        uint256 top,
+        uint256 ewma
+    ) internal {
+        address oldOsm = dss.chainlog.getAddress("PIP_SKY");
+        address median = PipLike(oldOsm).src();
+        address clipper = dss.chainlog.getAddress("LOCKSTAKE_CLIP");
+        address clipperMom = dss.chainlog.getAddress("CLIPPER_MOM");
+        bytes32 ilk = LockstakeClipperLike(clipper).ilk();
+
+        require(PipLike(stickyOsm).src() == median);
+        require(MedianLike(median).bud(stickyOsm) == 1);
+
+        PipLike(oldOsm).diss(address(dss.spotter));
+        PipLike(oldOsm).diss(clipper);
+        PipLike(oldOsm).diss(clipperMom);
+        PipLike(oldOsm).diss(address(dss.end));
+
+
+        PipLike(stickyOsm).kiss(address(dss.spotter));
+        PipLike(stickyOsm).kiss(clipper);
+        PipLike(stickyOsm).kiss(clipperMom);
+        PipLike(stickyOsm).kiss(address(dss.end));
+        StickyOsmLike(stickyOsm).lock(address(dss.spotter));
+
+        dss.spotter.file(ilk, "pip", stickyOsm);
+
+        IlkRegistryLike(dss.chainlog.getAddress("ILK_REGISTRY")).file(ilk, "pip", stickyOsm);
+
+        StickyOsmLike(stickyOsm).file("cap", cap);
+        StickyOsmLike(stickyOsm).file("hop", hop);
+        StickyOsmLike(stickyOsm).file("alpha", alpha);
+        StickyOsmLike(stickyOsm).file("top", top);
+        StickyOsmLike(stickyOsm).file("ewma", ewma);
+
+        dss.spotter.poke(ilk);
+
+        dss.chainlog.setAddress("PIP_SKY", address(stickyOsm));
+        dss.chainlog.setAddress("LOCKSTAKE_ORACLE", address(stickyOsm));
     }
 }

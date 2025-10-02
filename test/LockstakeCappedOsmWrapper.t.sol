@@ -206,7 +206,7 @@ contract LockstakeCappedOsmWrapperTest is DssTest {
         assertEq(cappedOsm.cap(), 0);
 
         vm.startPrank(pauseProxy);
-        LockstakeInit.updateOsm(dss, address(cappedOsm), 1 ether);
+        LockstakeInit.updateToCappedOsmWrapper(dss, address(cappedOsm), 1 ether);
         vm.stopPrank();
 
         assertEq(dss.chainlog.getAddress("LOCKSTAKE_ORACLE"), address(cappedOsm));
@@ -245,7 +245,7 @@ contract LockstakeCappedOsmWrapperTest is DssTest {
         uint256 osmPrice = osm.read();
 
         vm.startPrank(pauseProxy);
-        LockstakeInit.updateOsm(dss, address(cappedOsm), osmPrice / 2);
+        LockstakeInit.updateToCappedOsmWrapper(dss, address(cappedOsm), osmPrice / 2);
         vm.stopPrank();
 
         bytes32 ilk = LockstakeClipperLike(dss.chainlog.getAddress("LOCKSTAKE_CLIP")).ilk();

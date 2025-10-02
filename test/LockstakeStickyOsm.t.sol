@@ -23,10 +23,12 @@ contract LockstakeStickyOsmTest is DssTest {
         vm.warp(block.timestamp - block.timestamp % 1 hours); // Start from top of the hour
         feed = new PipMock();
         feed.setPrice(100e18);
-        osm = new LockstakeStickyOsm(address(feed), 100e18);
+        osm = new LockstakeStickyOsm(address(feed));
         osm.file("cap", 1_000e18);
         osm.file("alpha", 0.1e18);
         osm.file("top", 1.05e18);
+        osm.file("ewma", 100e18);
+        osm.file("hop", 1 hours);
         osm.step(1 hours);
         vm.warp(block.timestamp + 1 hours);
         osm.poke();
@@ -40,19 +42,18 @@ contract LockstakeStickyOsmTest is DssTest {
     }
 
     function testFile() public {
-        checkFileUint(address(osm), "LockstakeStickyOsm", ["cap", "alpha", "top"]);
+        checkFileUint(address(osm), "LockstakeStickyOsm", ["hop", "cap", "alpha", "top", "ewma"]);
     }
 
     function testModifiers() public {
-        bytes4[] memory authedMethods = new bytes4[](8);
+        bytes4[] memory authedMethods = new bytes4[](7);
         authedMethods[0] = osm.kiss.selector;
         authedMethods[1] = osm.diss.selector;
         authedMethods[2] = osm.lock.selector;
         authedMethods[3] = osm.free.selector;
         authedMethods[4] = osm.stop.selector;
         authedMethods[5] = osm.start.selector;
-        authedMethods[6] = osm.step.selector;
-        authedMethods[7] = osm.void.selector;
+        authedMethods[6] = osm.void.selector;
 
         // this checks the case where sender is not authed
         vm.startPrank(address(0xBEEF));
@@ -98,14 +99,6 @@ contract LockstakeStickyOsmTest is DssTest {
         emit Free(address(123));
         osm.free(address(123));
         assertEq(osm.capped(address(123)), 0);
-    }
-
-    function testStep() public {
-        assertEq(osm.hop(), 3600);
-        osm.step(7200);
-        assertEq(osm.hop(), 7200);
-        vm.expectRevert("LockstakeStickyOsm/ts-is-zero");
-        osm.step(0);
     }
 
     function testStopStart() public {

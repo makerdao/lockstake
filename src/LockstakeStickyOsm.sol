@@ -28,11 +28,11 @@ contract LockstakeStickyOsm {
     mapping(address usr => uint256 capped)      public capped;
 
     uint256 public stopped;
-    uint16  public hop = 1 hours;
-    uint64  public zzz;
+    uint128 public hop;
+    uint128 public zzz;
     uint256 public cap;     // [wad]
-    uint256 public alpha;   // Between 0 and 1 [wad]
-    uint256 public top;     // [wad]
+    uint256 public alpha;   // >= 0 and <= 1 [wad]
+    uint256 public top;     // >= 1 [wad]
     uint256 public ewma;    // [wad]
 
     struct Feed {
@@ -83,9 +83,8 @@ contract LockstakeStickyOsm {
 
     // --- constructor ---
 
-    constructor(address src_, uint256 ewma_) {
+    constructor(address src_) {
         src = OracleLike(src_);
-        ewma = ewma_;
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -144,13 +143,19 @@ contract LockstakeStickyOsm {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "cap") {
+        if (what == "hop") {
+            require(data > 0 && data <= type(uint128).max, "LockstakeStickyOsm/hop-out-boundaries");
+            hop = uint128(data);
+        } else if (what == "cap") {
             cap = data;
         } else if (what == "alpha") {
-            require (data <= WAD);
+            require (data <= WAD, "LockstakeStickyOsm/alpha-out-boundaries");
             alpha = data;
         } else if (what == "top") {
+            require (data >= WAD, "LockstakeStickyOsm/top-out-boundaries");
             top = data;
+        } else if (what == "ewma") {
+            ewma = data;
         } else revert("LockstakeStickyOsm/file-unrecognized-param");
         emit File(what, data);
     }
